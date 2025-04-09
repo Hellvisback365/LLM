@@ -1,22 +1,16 @@
-import asyncio # Importa asyncio
+import asyncio
 import os
-from langchain_community.chat_models import ChatOpenAI
-from langchain.chains import LLMChain
+from langchain_openai import ChatOpenAI  # Import corretto
 from langchain.prompts import PromptTemplate
+from langchain_core.runnables import RunnablePassthrough
 from dotenv import load_dotenv
 
-# Carica le variabili dal file .env
 load_dotenv()
 
-# Recupera la chiave API dall'ambiente
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-if not openrouter_api_key:
-    raise ValueError("La variabile d'ambiente OPENROUTER_API_KEY non è impostata.")
 
-# --- Configurazione Centralizzata ---
 COMMON_LLM_PARAMS = {
-    "openai_api_base": "https://openrouter.ai/api/v1",
-    "openai_api_key": openrouter_api_key,
+    "base_url": "https://openrouter.ai/api/v1",  # Parametro corretto
     "temperature": 0.7,
     "max_tokens": 2048,
 }
@@ -27,47 +21,37 @@ MODEL_CONFIGS = [
     {"name": "mistral_small_3.1", "model_id": "mistralai/mistral-small-3.1-24b-instruct:free"},
 ]
 
-# Definizione del prompt condiviso
 prompt_template = PromptTemplate(
     input_variables=["user_input"],
     template="Rispondi al seguente prompt in modo dettagliato: {user_input}"
 )
 
-# --- Creazione dinamica delle catene ---
 chains = {}
 for config in MODEL_CONFIGS:
     try:
         chat_model = ChatOpenAI(
             model=config["model_id"],
-            **COMMON_LLM_PARAMS # Usa i parametri comuni
+            openai_api_key=openrouter_api_key,
+            **COMMON_LLM_PARAMS
         )
-        chains[config["name"]] = LLMChain(llm=chat_model, prompt=prompt_template)
+        # Usa la sintassi pipe operator invece di LLMChain
+        chains[config["name"]] = {"user_input": RunnablePassthrough()} | prompt_template | chat_model
     except Exception as e:
         print(f"Errore durante l'inizializzazione del modello {config['name']}: {e}")
-        # Puoi decidere se continuare senza questo modello o fermare lo script
 
-# --- Funzione Asincrona per aggregare le risposte ---
 async def aggregate_llm_outputs_async(prompt: str) -> dict:
     tasks = []
-    # Crea un task asincrono per ogni catena usando arun (versione asincrona di run)
     for model_name, chain in chains.items():
-        # Aggiungiamo una gestione degli errori per ogni task
-        async def run_chain_safely(name, ch, p):
+        async def run_chain(name, ch, p):
             try:
-                # Usa arun per l'esecuzione asincrona
-                return name, await ch.arun(user_input=p)
+                return name, await ch.ainvoke(p)
             except Exception as e:
                 print(f"Errore durante l'esecuzione della catena {name}: {e}")
-                return name, f"Errore: {e}" # Ritorna un messaggio di errore invece di fallire
-
-        tasks.append(run_chain_safely(model_name, chain, prompt))
-
-    # Esegue tutti i task concorrentemente
+                return name, f"Errore: {e}"
+        tasks.append(run_chain(model_name, chain, prompt))
+    
     results = await asyncio.gather(*tasks)
-
-    # Formatta l'output come dizionario
-    output_dict = {name: response for name, response in results}
-    return output_dict
+    return {name: response.content for name, response in results}
 
 # Esecuzione di esempio asincrona
 async def main():
