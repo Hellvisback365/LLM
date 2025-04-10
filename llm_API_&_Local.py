@@ -37,11 +37,11 @@ MODEL_CONFIGS = [
 
 # --- Modelli locali HuggingFace ---
 LOCAL_MODELS = [
-    {
-        "name": "mistral_local",
-        "model_path": "mistralai/Mistral-7B-Instruct-v0.2",
-        "device": "cuda"
-    },
+#    {
+#        "name": "mistral_local",
+#        "model_path": "mistralai/Mistral-7B-Instruct-v0.2",
+#        "device": "cuda"
+#    },
     {
         "name": "gemma_local",
         "model_path": "google/gemma-2b-it",
