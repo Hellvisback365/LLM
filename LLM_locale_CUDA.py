@@ -1,9 +1,12 @@
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig
 from langchain_community.llms import HuggingFacePipeline
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnableParallel
 import time
+
+import bitsandbytes as bnb
+print(bnb.__version__)
 
 # Verifica CUDA
 print(f"CUDA disponibile: {torch.cuda.is_available()}")
@@ -21,11 +24,23 @@ model_configs = [
 # Funzione per caricare un modello
 def load_model(model_id):
     print(f"Caricamento del modello: {model_id}")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        device_map="auto",
-        torch_dtype=torch.float16
+    quantization_config = BitsAndBytesConfig(
+        load_in_8bit=True,  # Enable 8-bit quantization
+        llm_int8_enable_fp32_cpu_offload=True  # Offload some layers to CPU
     )
+    if model_id == "google/gemma-2b-it":
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            torch_dtype=torch.float16,
+            quantization_config=quantization_config
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            torch_dtype=torch.float16
+        )
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     
     # Gestione dei diversi tipi di tokenizer
