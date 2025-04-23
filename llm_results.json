@@ -70,5 +70,16 @@
       "DeepSeek_R1": "- **Dredd** (2012)  \n- **John Wick: Chapter 4** (2023)  \n- **Edge of Tomorrow** (2014)",
       "Gemma_3_27B": "*   *Edge of Tomorrow* (2014)\n*   *Dune* (2021)\n*   *Upgrade* (2018)\n"
     }
+  },
+  {
+    "timestamp": "2025-04-17T12:24:13.344820",
+    "user_prompt": " Considerando le preferenze: Azione (importante), Adrenalinico (importante), Simili a Mad Max: Fury Road o The Covenant, Moderni (2000+), No <1970.\n\n    Consiglia semplicemente i titoli di 3 film adatti. **Non includere Mad Max: Fury Road o The Covenant nella lista.** Nessun'altra informazione richiesta. Sii estremamente conciso.\n    ",
+    "outputs": {
+      "llama_4_maverick": "1.  **Atomic Blonde (2017)**\n2.  **The Accountant (2016)**\n3.  **John Wick (2014)**",
+      "DeepSeek_R1": "- **Edge of Tomorrow** (2014)  \n- **Dredd** (2012)  \n- **13 Hours: The Secret Soldiers of Benghazi** (2016)",
+      "Gemma_3_27B": "\n*   *Edge of Tomorrow* (2014)\n*   *Dune* (2021)\n*   *Baby Driver* (2017)"
+    }
   }
 ]
+
+
