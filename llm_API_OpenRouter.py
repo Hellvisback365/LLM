@@ -65,14 +65,14 @@ def make_prompt(metric_key: str, metric_text: str, example: str = None):
         description="Lista JSON di soli ID numerici delle raccomandazioni, in ordine di priorità."
     )
     parser = StructuredOutputParser.from_response_schemas([schema])
-    # prendi le vere istruzioni di formato dal parser e escapa le graffe
+    # prendo le vere istruzioni di formato dal parser e escapo le graffe
     fmt_instr = parser.get_format_instructions().replace("{", "{{").replace("}", "}}")
 
-    # se hai un esempio, lo anteponi
+    # antepongo un esempio
     if example:
         fmt_instr = f"Esempio corretto: {example}\n" + fmt_instr
 
-    # costruisci il template
+    # costruisco il template
     template_str = (
         f"Metric: {metric_key}\n"
         f"Descrizione: {metric_text}\n"
@@ -98,7 +98,7 @@ def build_evaluator_chain():
     # STESSO modello LLM della generazione per la valutazione
     llm = ChatOpenAI(model=LLM_MODEL_ID, **COMMON_LLM_PARAMS)
  
-    # Definisci lo schema di output desiderato per il valutatore
+    # Definisco lo schema di output desiderato per il valutatore
     final_ids_schema = ResponseSchema(
         name="final_ids",
         description="Lista JSON ottimizzata finale di massimo 3 ID numerici, basata sull'analisi di tutti i run."
@@ -128,10 +128,10 @@ def build_evaluator_chain():
             "3. Basandoti su questa analisi complessiva, proponi una singola lista finale ottimizzata contenente al massimo 3 ID numerici unici.\n"
             "4. Fornisci una breve giustificazione testuale per la tua scelta finale, spiegando come sei arrivato a quella lista basandoti sui dati forniti.\n\n"
             "Formato di output richiesto:\n"
-            f"{fmt_instr}" # Includi le istruzioni di formattazione JSON
+            f"{fmt_instr}" # Includo le istruzioni di formattazione JSON
         )
     )
-    # Includi num_runs nel partial_variables per usarlo nel template
+    # Includo num_runs nel partial_variables per usarlo nel template
     prompt = prompt.partial(num_runs=3) # Assumendo 3 run come nell'esempio
 
     return prompt | llm, parser
@@ -161,13 +161,13 @@ async def generate_for_metric(chain, parser, catalog_str):
             ids = json.loads(content)
         except Exception:
             ids = []
-    # Se ids è ancora stringa, caricalo come JSON
+    # Se ids è ancora stringa, lo carico come JSON
     if isinstance(ids, str):
         try:
             ids = json.loads(ids)
         except:
             ids = []
-    # Cast a int e pulisci
+    # Cast a int e pulisco
     cleaned = []
     for x in ids:
         try:
@@ -181,7 +181,7 @@ async def generate_for_metric(chain, parser, catalog_str):
 # ----------------------------
 def main():
     chains, parsers, prompts = build_prompt_chains()
-    # Costruisci il valutatore (ora usa Gemini Flash e il nuovo prompt)
+    # Costruisco il valutatore (ora uso Mistral e il nuovo prompt)
     evaluator_chain, evaluator_parser = build_evaluator_chain()
 
     all_ids = ALL_IDS
@@ -190,24 +190,24 @@ def main():
 
     print(f"Starting {num_runs} generation runs using {LLM_MODEL_ID}...")
 
-    # --- CICLO ESTERNO PER I RUNS (Invariato) ---
+    # CICLO ESTERNO PER I RUNS 
     for run_number in range(1, num_runs + 1):
         print(f"\n--- STARTING RUN {run_number}/{num_runs} ---")
         run_outputs = {}
         run_raw_outputs = {}
         run_metrics = {}
 
-        # --- CICLO INTERNO PER LE METRICHE (Invariato) ---
+        # CICLO INTERNO PER LE METRICHE 
         print(f"  [Run {run_number}] Generating recommendations...")
         for metric in PROMPT_VARIANTS:
-            # ... (stampa e chiamata a generate_for_metric come prima) ...
+            # (stampa e chiamata a generate_for_metric come prima)
             ids, raw = asyncio.run(generate_for_metric(chains[metric], parsers[metric], CATALOG_STR))
             print(f"    Metric: {metric.upper()} -> Parsed IDs: {ids}")
             # print(f"    Raw: {raw}") # Opzionale: decommenta per vedere il raw
             run_outputs[metric] = ids
             run_raw_outputs[metric] = raw
 
-        # --- CALCOLO METRICHE PER QUESTO RUN (Invariato) ---
+        # CALCOLO METRICHE PER QUESTO RUN
         print(f"  [Run {run_number}] Calculating metrics...")
         for m, recs in run_outputs.items():
             run_metrics[m] = {
@@ -224,9 +224,9 @@ def main():
             "metrics": run_metrics
         })
         print(f"--- COMPLETED RUN {run_number}/{num_runs} ---")
-    # --- FINE CICLO ESTERNO RUNS ---
+    # FINE CICLO ESTERNO RUNS
 
-    # --- VALUTAZIONE COMPLESSIVA POST-RUN ---
+    # VALUTAZIONE COMPLESSIVA POST-RUN
     print(f"\n--- STARTING OVERALL EVALUATION (using {LLM_MODEL_ID}) ---")
     final_recommendation_ids = []
     final_justification = "Evaluation could not be performed or parsed."
@@ -283,7 +283,7 @@ def main():
                 try:
                     simple_json = json.loads(eval_res.content)
                     raw_final_ids = simple_json.get("final_ids", [])
-                    if isinstance(raw_final_ids, str): raw_final_ids = json.loads(raw_final_ids) # nested string check
+                    if isinstance(raw_final_ids, str): raw_final_ids = json.loads(raw_final_ids) # controllo delle stringhe nidificate
                     if isinstance(raw_final_ids, list):
                       seen = set()
                       uniq_final = []
@@ -326,7 +326,4 @@ def main():
     print(f"\nMulti-run report with evaluation saved to {filename}")
 
 if __name__ == "__main__":
-    # Assicurati che asyncio funzioni correttamente nello script principale
-    # Se usi un ambiente come Jupyter, potresti dover gestire l'event loop
-    # In uno script standard .py, asyncio.run di solito va bene
     main()
