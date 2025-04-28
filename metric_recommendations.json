@@ -1,0 +1,20 @@
+{
+  "precision_at_k": {
+    "metric": "precision_at_k",
+    "recommendations": [
+      1,
+      2,
+      6
+    ],
+    "explanation": "Selezionati i film più popolari con valutazioni alte."
+  },
+  "coverage": {
+    "metric": "coverage",
+    "recommendations": [
+      1,
+      6,
+      2
+    ],
+    "explanation": "La raccomandazione include Toy Story per esplorare il genere Animation, Jumanji per esplorare Adventure e Children's, e Grumpier Old Men per esplorare Comedy e Romance. Queste scelte aumentano la COVERAGE del sistema in modo significativo."
+  }
+}

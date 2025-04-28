@@ -1,0 +1,17 @@
+# LangChain e dipendenze
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-community>=0.0.17
+
+# Elaborazione dati
+pandas>=2.2.0
+numpy>=1.26.0
+
+# OpenAI (via OpenRouter)
+openai>=1.2.4
+
+# Ambiente e utilità
+python-dotenv>=1.0.0
+tenacity>=8.2.3
+tqdm>=4.66.1
+requests>=2.31.0 
