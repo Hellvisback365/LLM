@@ -1,0 +1,17 @@
+README.md
+setup.py
+src/recommender/__init__.py
+src/recommender.egg-info/PKG-INFO
+src/recommender.egg-info/SOURCES.txt
+src/recommender.egg-info/dependency_links.txt
+src/recommender.egg-info/requires.txt
+src/recommender.egg-info/top_level.txt
+src/recommender/api/__init__.py
+src/recommender/api/llm_service.py
+src/recommender/core/__init__.py
+src/recommender/core/metrics_calculator.py
+src/recommender/core/recommender.py
+src/recommender/models/__init__.py
+src/recommender/utils/__init__.py
+src/recommender/utils/data_processor.py
+src/recommender/utils/rag_utils.py

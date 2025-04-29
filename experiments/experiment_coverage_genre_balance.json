@@ -1,0 +1,38 @@
+{
+  "timestamp": "2025-04-29T19:00:45.910687",
+  "experiment_info": {
+    "name": "coverage_genre_balance",
+    "prompt_variants": {
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE con BILANCIAMENTO DEI GENERI. Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici. La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. Seleziona film di generi completamente diversi tra loro, evitando sovrapposizioni. L'obiettivo è rappresentare l'ampiezza del catalogo con sole 3 raccomandazioni. NON raccomandare più di 3 film."
+    }
+  },
+  "metric_recommendations": {
+    "precision_at_k": {
+      "metric": "precision_at_k",
+      "recommendations": [
+        1,
+        2,
+        17
+      ],
+      "explanation": "Toy Story è un classico animato di Pixar molto apprezzato, Jumanji è un film di avventura e fantasia che ha avuto un grande successo presso il pubblico, e Sense and Sensibility è un classico del genere Romance, basato su un romanzo di Jane Austen."
+    },
+    "coverage": {
+      "metric": "coverage",
+      "recommendations": [
+        1,
+        8,
+        13
+      ],
+      "explanation": "L'obiettivo è rappresentare l'ampiezza del catalogo con sole 3 raccomandazioni. Ho scelto Toy Story (Animazione) per rappresentare il genere Animation, Tom and Huck (Avventura) per rappresentare il genere Children's e Balto (Animazione) per rappresentare un genere completamente diverso."
+    }
+  },
+  "final_evaluation": {
+    "final_recommendations": [
+      1,
+      8,
+      17
+    ],
+    "justification": "Ho scelto Toy Story (1995) perché è un film di animazione molto apprezzato, Tom and Huck (1995) per rappresentare l'ampiezza del catalogo con un film di avventura e children's, e Sense and Sensibility (1995) per rappresentare il genere Romance e bilanciare la precisione con un film di maggiore successo presso il pubblico.",
+    "trade_offs": "Ho considerato i trade-off tra precisione e ampiezza del catalogo. Ho scelto di privilegiare la precisione, ma ho anche cercato di rappresentare un'ampiezza sufficiente del catalogo con solo 3 raccomandazioni. Ho scelto di sacrificare la precisione solo con una raccomandazione della metrica coverage, cioè Balto (1995), perché non era presente tra le raccomandazioni della metrica precision@k e non avrebbe aggiunto altro valore alla lista, dato che già sono presenti un film da ciascun genere che sono stati raccomandati sia dalla precision@k che dalla metrica coverage."
+  }
+}

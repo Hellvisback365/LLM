@@ -1,32 +1,47 @@
 {
-  "timestamp": "2025-04-28T17:16:41.697797",
+  "timestamp": "2025-04-29T20:50:05.732849",
   "metric_recommendations": {
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
         1,
         2,
-        6
+        10
       ],
-      "explanation": "Selezionati i film più popolari con valutazioni alte."
+      "explanation": "Ho scelto 'Toy Story', 'Jumanji' e 'GoldenEye' perché sono film estremamente popolari e ben recensiti che coprono diversi generi, attirando un ampio pubblico. 'Toy Story' è un classico dell'animazione, 'Jumanji' è un'avventura fantastica amata da bambini e adulti, mentre 'GoldenEye' è un'icona del cinema d'azione. Questi film hanno una probabilità molto alta di essere apprezzati da un utente generico."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
         1,
         6,
-        2
+        3085
       ],
-      "explanation": "La raccomandazione include Toy Story per esplorare il genere Animation, Jumanji per esplorare Adventure e Children's, e Grumpier Old Men per esplorare Comedy e Romance. Queste scelte aumentano la COVERAGE del sistema in modo significativo."
+      "explanation": "Le raccomandazioni includono 'Toy Story' (Animazione/Commedia), 'Heat' (Azione/Thriller) e 'Living Dead Girl' (Horror), coprendo tre generi distinti: animazione, azione e horror. Questo approccio massimizza la copertura dei generi presenti nel catalogo, riducendo il rischio di filter bubble."
     }
   },
   "final_evaluation": {
     "final_recommendations": [
       1,
-      13,
+      2,
       6
     ],
-    "justification": "Ho scelto Toy Story (1) per la sua popolarità e valutazione alta come indicato dal sistema di precision@k. Ho selezionato Balto (13) per aumentare la COVERAGE del sistema nel genere Animation e Children's. Infine, ho aggiunto Heat (6) per la sua alta valutazione e per la sua presenza nel genere Action e Crime come indicato dal sistema di precision@k. Queste scelte permettono di avere un'ottima precisione e una buona COVERAGE.",
-    "trade_offs": "Ho dovuto considerare i trade-off tra precisione e COVERAGE. Ho scelto di privilegiare la precisione in quanto è importante che le raccomandazioni siano accurate e valutate positivamente dagli utenti. Tuttavia, ho anche considerato la COVERAGE per fornire una varietà di raccomandazioni e aumentare l'interesse degli utenti verso il sistema di raccomandazione."
+    "justification": "Ho scelto 'Toy Story' (1), 'Jumanji' (2) e 'Heat' (6) per creare un insieme di raccomandazioni equilibrato. 'Toy Story' è un film animato molto popolare che attira un pubblico ampio, mentre 'Jumanji' offre un'avventura fantastica adatta a tutte le età. 'Heat', d'altra parte, è un thriller d'azione con una trama complessa e attori di alto profilo, che aggiunge una dimensione matura alle raccomandazioni. Questa selezione copre animazione, avventura e azione, massimizzando la varietà e soddisfacendo diverse preferenze del pubblico.",
+    "trade_offs": "Ho dovuto bilanciare la precisione e la copertura. 'Toy Story' e 'Jumanji' sono stati scelti per la loro alta popolarità e apprezzamento, che garantisce precisione. Tuttavia, non ho incluso 'GoldenEye' per dare spazio a 'Heat', che rappresenta un genere diverso e contribuisce alla copertura. Questa scelta implica un compromesso tra il mantenimento di film estremamente popolari e la diversificazione dei generi rappresentati."
+  },
+  "metrics": {
+    "precision_at_k": {
+      "precision_score": 1.0,
+      "genre_coverage": 1.0
+    },
+    "coverage": {
+      "precision_score": 0.6666666666666666,
+      "genre_coverage": 0.7777777777777778
+    },
+    "final_recommendations": {
+      "precision_score": 1.0,
+      "genre_coverage": 0.8888888888888888
+    },
+    "total_coverage": 0.0012876641771825909
   }
 }

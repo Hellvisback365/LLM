@@ -1,0 +1,38 @@
+{
+  "timestamp": "2025-04-29T19:00:31.687715",
+  "experiment_info": {
+    "name": "precision_at_k_recency",
+    "prompt_variants": {
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla RECENCY. Data una lista di film, consiglia i 3 film più rilevanti e recenti. La precision@k misura la frazione di film raccomandati che l'utente valuterebbe positivamente. Considera l'anno di uscita come un fattore importante nella tua decisione. Concentrati sui film più nuovi di alta qualità. NON raccomandare più di 3 film."
+    }
+  },
+  "metric_recommendations": {
+    "precision_at_k": {
+      "metric": "precision_at_k",
+      "recommendations": [
+        10,
+        16,
+        21
+      ],
+      "explanation": "The recommended films are 'GoldenEye (1995)', 'Casino (1995)', and 'Get Shorty (1995)', as they are all high-quality films from 1995 that have received critical acclaim and are considered recent in the context of our catalog. 'GoldenEye' is a well-known action film, 'Casino' is a critically acclaimed drama, and 'Get Shorty' offers a mix of action, comedy, and drama."
+    },
+    "coverage": {
+      "metric": "coverage",
+      "recommendations": [
+        1,
+        2,
+        6
+      ],
+      "explanation": "I film raccomandati coprono tre diversi generi (Animation, Adventure e Action), garantendo una maggiore esplorazione dello spazio dei film disponibili e riducendo il rischio di filter bubble."
+    }
+  },
+  "final_evaluation": {
+    "final_recommendations": [
+      10,
+      16,
+      21
+    ],
+    "justification": "I film finali sono quelli che combinano la precisione delle raccomandazioni e la copertura di diversi generi. 'GoldenEye (1995)' e 'Casino (1995)' sono entrambi raccomandati come altamente qualitativi e rappresentano due diversi generi (azione e drammatica), mentre 'Get Shorty (1995)' offre una miscela di generi interessanti che aggiunge varietà alla lista di raccomandazioni. Anche se 'Jumanji (1995)' e 'Heat (1995)' sono altamente raccomandati e rappresentano altri generi, essi sono stati esclusi dalla lista finale perché non erano presenti nel set di film raccomandati dal sistema di copertura.",
+    "trade_offs": "Per bilanciare le diverse metriche, ho dato priorità alla precisione poiché è importante fornire raccomandazioni di alta qualità. Tuttavia, ho anche considerato la copertura per evitare di creare un filter bubble e garantire una maggiore varietà di generi tra le raccomandazioni. Ho deciso di escludere film come 'Jumanji (1995)' e 'Heat (1995)', anche se sono altamente raccomandati, perché non erano presenti nel set di film raccomandati dal sistema di copertura. Hanno risultato i migliori trade-off per ottenere un set di raccomandazioni che combina precisione e copertura sufficienti."
+  }
+}

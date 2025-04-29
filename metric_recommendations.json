@@ -4,17 +4,17 @@
     "recommendations": [
       1,
       2,
-      6
+      10
     ],
-    "explanation": "Selezionati i film più popolari con valutazioni alte."
+    "explanation": "Ho scelto 'Toy Story', 'Jumanji' e 'GoldenEye' perché sono film estremamente popolari e ben recensiti che coprono diversi generi, attirando un ampio pubblico. 'Toy Story' è un classico dell'animazione, 'Jumanji' è un'avventura fantastica amata da bambini e adulti, mentre 'GoldenEye' è un'icona del cinema d'azione. Questi film hanno una probabilità molto alta di essere apprezzati da un utente generico."
   },
   "coverage": {
     "metric": "coverage",
     "recommendations": [
       1,
       6,
-      2
+      3085
     ],
-    "explanation": "La raccomandazione include Toy Story per esplorare il genere Animation, Jumanji per esplorare Adventure e Children's, e Grumpier Old Men per esplorare Comedy e Romance. Queste scelte aumentano la COVERAGE del sistema in modo significativo."
+    "explanation": "Le raccomandazioni includono 'Toy Story' (Animazione/Commedia), 'Heat' (Azione/Thriller) e 'Living Dead Girl' (Horror), coprendo tre generi distinti: animazione, azione e horror. Questo approccio massimizza la copertura dei generi presenti nel catalogo, riducendo il rischio di filter bubble."
   }
 }

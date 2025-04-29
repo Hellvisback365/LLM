@@ -1,0 +1,38 @@
+{
+  "timestamp": "2025-04-29T19:00:50.989820",
+  "experiment_info": {
+    "name": "coverage_temporal",
+    "prompt_variants": {
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diverse epoche. La coverage temporale misura la capacità di raccomandare film di periodi storici diversi. Seleziona film di decenni diversi, possibilmente distanti tra loro. L'obiettivo è rappresentare l'ampiezza storica del catalogo con sole 3 raccomandazioni. NON raccomandare più di 3 film."
+    }
+  },
+  "metric_recommendations": {
+    "precision_at_k": {
+      "metric": "precision_at_k",
+      "recommendations": [
+        1,
+        5,
+        11
+      ],
+      "explanation": "Le mie raccomandazioni sono basate sulla popolarità e la qualità dei film. 'Toy Story (1995)' è un classico di animazione, 'Father of the Bride Part II (1995)' è un film commedia familiare e 'The American President (1995)' è un film drammatico romantico molto apprezzato dal pubblico generico."
+    },
+    "coverage": {
+      "metric": "coverage",
+      "recommendations": [
+        1,
+        2,
+        3
+      ],
+      "explanation": "Error: {'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day', 'code': 429, 'metadata': {'headers': {'X-RateLimit-Limit': '50', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1745971200000'}, 'provider_name': None}}"
+    }
+  },
+  "final_evaluation": {
+    "final_recommendations": [
+      16,
+      10,
+      6
+    ],
+    "justification": "Error: {'message': 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day', 'code': 429, 'metadata': {'headers': {'X-RateLimit-Limit': '50', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1745971200000'}, 'provider_name': None}}",
+    "trade_offs": "N/A"
+  }
+}

@@ -21,8 +21,8 @@ from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_excep
 # ----------------------------
 # Import dei moduli locali
 # ----------------------------
-from utils.data_processor import process_dataset, get_movie_catalog_for_llm
-from utils.rag_utils import MovieRAG
+from src.recommender.utils.data_processor import process_dataset, get_movie_catalog_for_llm, filter_users_by_specific_users, load_ratings, load_movies, create_user_profiles
+from src.recommender.utils.rag_utils import MovieRAG, calculate_precision_at_k, calculate_coverage
 
 # ----------------------------
 # 1. Setup ambiente e parametri
@@ -38,7 +38,7 @@ COMMON_LLM_PARAMS = {
     "temperature": 0.7,
     "max_tokens": 512,
 }
-LLM_MODEL_ID = "mistralai/mistral-7b-instruct:free"
+LLM_MODEL_ID = "openai/gpt-4o-mini"
 
 # ----------------------------
 # 2. Caricamento del dataset
@@ -48,13 +48,44 @@ DATASETS_LOADED = False
 def load_datasets(force_reload=False):
     """Carica e prepara i dataset"""
     global DATASETS_LOADED
+    global filtered_ratings, user_profiles, movies  # Aggiunte variabili globali per accesso
     
     if not DATASETS_LOADED or force_reload:
         print("\n=== Caricamento e processamento dei dataset ===\n")
         try:
-            # Processa il dataset
-            filtered_ratings, user_profiles, movies = process_dataset()
-            print(f"Dataset processato con successo. {len(movies)} film, {len(user_profiles)} profili utente.")
+            # NUOVA IMPLEMENTAZIONE: Filtra solo utenti con ID 1 e 2
+            # Verifica se i file elaborati esistono
+            processed_dir = os.path.join(os.path.dirname(__file__), 'data', 'processed')
+            if not force_reload and all(os.path.exists(os.path.join(processed_dir, f)) 
+                                   for f in ['filtered_ratings_specific.csv', 'user_profiles_specific.csv', 'movies.csv']):
+                print("Caricamento dati da file elaborati con utenti specifici...")
+                filtered_ratings = pd.read_csv(os.path.join(processed_dir, 'filtered_ratings_specific.csv'))
+                user_profiles = pd.read_csv(os.path.join(processed_dir, 'user_profiles_specific.csv'), index_col=0)
+                movies = pd.read_csv(os.path.join(processed_dir, 'movies.csv'))
+            else:
+                print("Elaborazione dati dal dataset grezzo...")
+                # Carica i dati
+                ratings = load_ratings()
+                movies = load_movies()
+                
+                # Filtra solo utenti con ID 1 e 2
+                filtered_ratings = filter_users_by_specific_users(ratings, [1, 2])
+                
+                # Crea profili utente
+                user_profiles = create_user_profiles(filtered_ratings)
+                
+                # Salva i dati elaborati
+                os.makedirs(processed_dir, exist_ok=True)
+                filtered_ratings.to_csv(os.path.join(processed_dir, 'filtered_ratings_specific.csv'), index=False)
+                user_profiles.to_csv(os.path.join(processed_dir, 'user_profiles_specific.csv'))
+                movies.to_csv(os.path.join(processed_dir, 'movies.csv'), index=False)
+            
+            # IMPLEMENTAZIONE ORIGINALE (commentata)
+            # # Processa il dataset
+            # filtered_ratings, user_profiles, movies = process_dataset()
+            # print(f"Dataset processato con successo. {len(movies)} film, {len(user_profiles)} profili utente con almeno 100 valutazioni.")
+            
+            print(f"Dataset processato con successo. {len(movies)} film, {len(user_profiles)} profili utente specifici (ID: 1, 2).")
             DATASETS_LOADED = True
             
             # Prepara il catalogo ottimizzato per il LLM
@@ -84,11 +115,12 @@ def load_datasets(force_reload=False):
             raise
     else:
         print("Dataset già caricati.")
+        return filtered_ratings, user_profiles, movies  # Restituisce le variabili globali
 
 # ----------------------------
 # 3. Ottenimento del catalogo ottimizzato
 # ----------------------------
-def get_optimized_catalog(limit=30):
+def get_optimized_catalog(limit=50):
     """Ottiene il catalogo ottimizzato per l'LLM"""
     catalog_path = os.path.join(os.path.dirname(__file__), 'data', 'processed', 'optimized_catalog.json')
     
@@ -481,6 +513,10 @@ class RecommenderSystem:
             print(f"Justification: {evaluation['justification']}")
             print(f"Trade-offs: {evaluation['trade_offs']}")
             
+            # Calcolo delle metriche
+            print("\n--- Calculating metrics ---")
+            self.calculate_and_display_metrics(metric_results, evaluation)
+            
             return evaluation
         except Exception as e:
             print(f"Error in evaluation: {e}")
@@ -489,6 +525,163 @@ class RecommenderSystem:
                 "justification": f"Error in evaluation: {str(e)}",
                 "trade_offs": "N/A"
             }
+    
+    def calculate_and_display_metrics(self, metric_results, final_evaluation):
+        """Calcola e visualizza le metriche per le raccomandazioni"""
+        try:
+            # NUOVO: usa le variabili globali
+            global filtered_ratings, user_profiles, movies
+            
+            # Estrai le raccomandazioni
+            precision_at_k_recs = metric_results.get('precision_at_k', {}).get('recommendations', [])
+            coverage_recs = metric_results.get('coverage', {}).get('recommendations', [])
+            final_recs = final_evaluation.get('final_recommendations', [])
+            
+            # Prepara i dati per il calcolo delle metriche
+            all_movie_ids = movies['movie_id'].tolist()
+            
+            # Simula dati rilevanti per precision@k (top 100 film più popolari come proxy)
+            # In un caso reale, questi sarebbero film che l'utente ha già valutato positivamente
+            relevant_items = all_movie_ids[:100]
+            
+            # Calcola precision@k
+            precision_pak_value = calculate_precision_at_k(precision_at_k_recs, relevant_items)
+            coverage_pak_value = calculate_precision_at_k(coverage_recs, relevant_items)
+            final_pak_value = calculate_precision_at_k(final_recs, relevant_items)
+            
+            # Calcola coverage
+            all_recommendations = [precision_at_k_recs, coverage_recs, final_recs]
+            
+            # Per la coverage, usiamo il numero di generi unici coperti come approssimazione
+            all_genres = set()
+            genre_coverage = {}
+            
+            # Funzione per estrarre i generi di un film
+            def get_film_genres(movie_id):
+                movie = movies[movies['movie_id'] == movie_id]
+                if not movie.empty:
+                    genres_str = movie.iloc[0]['genres']
+                    return set(genres_str.split('|'))
+                return set()
+            
+            # Calcola i generi unici per ogni set di raccomandazioni
+            for name, recs in [("precision_at_k", precision_at_k_recs), 
+                              ("coverage", coverage_recs), 
+                              ("final", final_recs)]:
+                recs_genres = set()
+                for movie_id in recs:
+                    recs_genres.update(get_film_genres(movie_id))
+                
+                all_genres.update(recs_genres)
+                genre_coverage[name] = len(recs_genres) / (len(all_genres) if all_genres else 1)
+            
+            # Calcola la coverage totale (film unici raccomandati / totale film)
+            all_recommended_ids = set()
+            for recs in all_recommendations:
+                all_recommended_ids.update(recs)
+            total_coverage = len(all_recommended_ids) / len(all_movie_ids)
+            
+            # Visualizza i risultati
+            print("\nMetriche calcolate:")
+            print(f"Precision@k per precision_at_k: {precision_pak_value:.4f}")
+            print(f"Precision@k per coverage: {coverage_pak_value:.4f}")
+            print(f"Precision@k per raccomandazioni finali: {final_pak_value:.4f}")
+            
+            print(f"\nCoverage per genere (generi unici coperti / totale generi):")
+            print(f"  precision_at_k: {genre_coverage.get('precision_at_k', 0):.4f}")
+            print(f"  coverage: {genre_coverage.get('coverage', 0):.4f}")
+            print(f"  final: {genre_coverage.get('final', 0):.4f}")
+            
+            print(f"\nCoverage totale (film unici raccomandati / totale film): {total_coverage:.4f}")
+            
+            # Aggiungi le metriche al risultato finale
+            metrics = {
+                "precision_at_k": {
+                    "precision_score": precision_pak_value,
+                    "genre_coverage": genre_coverage.get('precision_at_k', 0)
+                },
+                "coverage": {
+                    "precision_score": coverage_pak_value,
+                    "genre_coverage": genre_coverage.get('coverage', 0)
+                },
+                "final_recommendations": {
+                    "precision_score": final_pak_value,
+                    "genre_coverage": genre_coverage.get('final', 0)
+                },
+                "total_coverage": total_coverage
+            }
+            
+            # Aggiungi le metriche ai file di risultati
+            with open("recommendation_results.json", "r", encoding="utf-8") as f:
+                results = json.load(f)
+            
+            results["metrics"] = metrics
+            
+            with open("recommendation_results.json", "w", encoding="utf-8") as f:
+                json.dump(results, f, ensure_ascii=False, indent=2)
+            
+            return metrics
+        except Exception as e:
+            print(f"Errore nel calcolo delle metriche: {e}")
+            return {}
+    
+    async def generate_recommendations_with_custom_prompt(self, prompt_variants, experiment_name="custom_experiment"):
+        """
+        Genera raccomandazioni utilizzando varianti di prompt personalizzate
+        
+        Args:
+            prompt_variants: Dizionario con varianti di prompt per diverse metriche
+            experiment_name: Nome dell'esperimento
+            
+        Returns:
+            Tuple con (risultati, nome_file)
+        """
+        # Salva le varianti di prompt originali
+        original_variants = PROMPT_VARIANTS.copy()
+        
+        try:
+            # Sostituisci le varianti di prompt con quelle personalizzate
+            for metric, prompt in prompt_variants.items():
+                if metric in PROMPT_VARIANTS:
+                    PROMPT_VARIANTS[metric] = prompt
+                    
+            # Ricostruisci gli agent con i nuovi prompt
+            self.metric_tools = build_metric_agents()
+            self.all_tools = self.metric_tools + [self.evaluator_tool]
+            
+            # Esegui i recommender per ogni metrica
+            metric_results = await self.run_metric_recommenders()
+            
+            # Valuta e combina i risultati
+            final_evaluation = await self.evaluate_results(metric_results)
+            
+            # Crea il risultato con informazioni sull'esperimento
+            result = {
+                "timestamp": datetime.now().isoformat(),
+                "experiment_info": {
+                    "name": experiment_name,
+                    "prompt_variants": prompt_variants
+                },
+                "metric_recommendations": metric_results,
+                "final_evaluation": final_evaluation
+            }
+            
+            # Salva il risultato
+            os.makedirs("experiments", exist_ok=True)
+            filename = f"experiments/experiment_{experiment_name}.json"
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False, indent=2)
+                
+            return result, filename
+            
+        finally:
+            # Ripristina le varianti di prompt originali
+            for metric, prompt in original_variants.items():
+                PROMPT_VARIANTS[metric] = prompt
+                
+            # Ricostruisci gli agent con i prompt originali
+            self.metric_tools = build_metric_agents()
+            self.all_tools = self.metric_tools + [self.evaluator_tool]
     
     async def generate_recommendations(self):
         """Genera raccomandazioni eseguendo l'intero pipeline"""
@@ -512,42 +705,20 @@ class RecommenderSystem:
         with open("recommendation_results.json", "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
             
+        # Calcola e aggiungi le metriche quantitative
+        try:
+            # NUOVO: Usa le metriche già calcolate da self.calculate_and_display_metrics
+            metrics = self.calculate_and_display_metrics(metric_results, final_evaluation)
+            
+            # Aggiungi le metriche al risultato
+            result["metrics"] = metrics
+            
+        except ImportError:
+            print("Modulo metrics_calculator non trovato. Le metriche non saranno calcolate.")
+        except Exception as e:
+            print(f"Errore durante il calcolo delle metriche: {e}")
+            
         return result
-
-    async def generate_recommendations_with_custom_prompt(self, prompt_variants, experiment_name=None):
-        """Genera raccomandazioni usando varianti di prompt personalizzate"""
-        global PROMPT_VARIANTS
-        
-        # Salva il prompt originale
-        original_prompts = PROMPT_VARIANTS.copy()
-        
-        # Aggiorna i prompt con le varianti personalizzate
-        PROMPT_VARIANTS.update(prompt_variants)
-        
-        # Ricrea gli agenti con i nuovi prompt
-        self.metric_tools = build_metric_agents()
-        self.all_tools = self.metric_tools + [self.evaluator_tool]
-        
-        # Esegui la generazione di raccomandazioni
-        result = await self.generate_recommendations()
-        
-        # Aggiungi informazioni sull'esperimento
-        result['experiment_info'] = {
-            'name': experiment_name or f"experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            'prompt_variants': prompt_variants
-        }
-        
-        # Salva il risultato con un nome specifico per l'esperimento
-        filename = f"experiment_{result['experiment_info']['name']}.json"
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
-        
-        # Ripristina i prompt originali
-        PROMPT_VARIANTS = original_prompts
-        self.metric_tools = build_metric_agents()
-        self.all_tools = self.metric_tools + [self.evaluator_tool]
-        
-        return result, filename
 
 # ----------------------------
 # 11. Experiment Reporter
