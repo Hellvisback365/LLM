@@ -1,47 +1,69 @@
 {
-  "timestamp": "2025-04-30T12:04:49.868642",
+  "timestamp": "2025-04-30T19:42:49.720089",
   "metric_recommendations": {
-    "precision_at_k": {
-      "metric": "precision_at_k",
-      "recommendations": [
-        1,
-        10,
-        104
-      ],
-      "explanation": "Ho scelto 'Toy Story', 'GoldenEye' e 'Happy Gilmore' perché sono film altamente popolari e ben valutati in base ai generi più amati (animazione, azione e commedia). Questi film hanno un'ampia attrattiva e una probabilità elevata che un utente generico li apprezzi."
+    "1": {
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          150,
+          527,
+          783
+        ],
+        "explanation": "Ho scelto di raccomandare 'Apollo 13' (150), 'Schindler's List' (527) e 'Hunchback of Notre Dame' (783) perché l'utente ha mostrato una preferenza per film drammatici e d'animazione. 'Apollo 13' e 'Schindler's List' sono entrambi film di alta qualità con forti elementi drammatici che riflettono le sue preferenze. Inoltre, 'Hunchback of Notre Dame' è un film d'animazione, un genere che l'utente ha apprezzato in altri titoli come 'Beauty and the Beast' e 'Aladdin'. Queste scelte mirano a massimizzare la possibilità che l'utente li apprezzi."
+      },
+      "coverage": {
+        "metric": "coverage",
+        "recommendations": [
+          150,
+          32,
+          648
+        ],
+        "explanation": "Ho scelto 'Apollo 13' (Drama) perché l'utente apprezza film con una forte narrativa e contenuti emotivi. 'Twelve Monkeys' (Drama|Sci-Fi) è stato selezionato per introdurre un elemento di fantascienza, un genere che potrebbe essere interessante per lui, dato che ha gradito film con temi complessi. Infine, 'Mission: Impossible' (Action|Adventure) aggiunge un tocco di azione e avventura, diversificando ulteriormente le raccomandazioni e massimizzando la copertura dei generi."
+      }
     },
-    "coverage": {
-      "metric": "coverage",
-      "recommendations": [
-        48,
-        3085,
-        423
-      ],
-      "explanation": "Ho scelto 'Pocahontas' per rappresentare l'animazione e il genere musicale, 'Living Dead Girl' per coprire l'horror e 'Blown Away' per il genere action e thriller. Queste scelte massimizzano la diversità dei generi, migliorando la copertura del catalogo."
+    "2": {
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          260,
+          648,
+          10
+        ],
+        "explanation": "Ho selezionato 'Star Wars: Episode IV - A New Hope' (260) e 'Mission: Impossible' (648) perché l'utente ha mostrato una preferenza per film d'azione e avventura, come evidenziato dai suoi film graditi. 'GoldenEye' (10) è stato scelto per il suo mix di azione e avventura, che si allinea bene con i gusti dell'utente. Queste scelte massimizzano la probabilità che l'utente apprezzi i film raccomandati."
+      },
+      "coverage": {
+        "metric": "coverage",
+        "recommendations": [
+          150,
+          24,
+          32
+        ],
+        "explanation": "Ho selezionato 'Apollo 13' per rappresentare il genere Drammatico, che si allinea con diversi film apprezzati dall'utente. 'Powder' è un'opzione Sci-Fi che introduce un nuovo genere, ampliando la varietà delle raccomandazioni, mentre 'Twelve Monkeys' combina Drama e Sci-Fi, offrendo un ulteriore contrasto con i gusti dell'utente. Queste scelte massimizzano la copertura di generi diversi."
+      }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      1,
-      48,
-      423
+      150,
+      648,
+      32
     ],
-    "justification": "Ho scelto 'Toy Story' (ID 1) per la sua alta popolarità e valutazione, rappresentando bene i generi di animazione e commedia. 'Pocahontas' (ID 48) è stata selezionata per la sua capacità di coprire il genere musicale e l'animazione, garantendo una diversità di contenuto. Infine, 'Blown Away' (ID 423) è un film d'azione e thriller che completa il mix, aggiungendo varietà e coprendo un genere meno rappresentato nelle altre raccomandazioni, migliorando così la copertura del catalogo.",
-    "trade_offs": "Il trade-off principale è stato bilanciare la precisione delle raccomandazioni con la copertura dei generi. Ho scelto 'Toy Story' e 'Blown Away' per la loro alta attrattiva, ma ho dovuto sacrificare la precisione per includere 'Pocahontas', che non era nella lista di alta precisione ma migliorava la diversità. Questa scelta mira a fornire un'esperienza di visione più varia e soddisfacente per un pubblico ampio, piuttosto che focalizzarsi solo su film altamente valutati."
+    "justification": "Ho scelto 'Apollo 13' (150) perché è un film drammatico di alta qualità che si allinea perfettamente con le preferenze dell'utente per racconti emotivi. 'Mission: Impossible' (648) è un'opzione d'azione che introduce un elemento di avventura e azione, ampliando le esperienze cinematiche dell'utente. Infine, 'Twelve Monkeys' (32) combina elementi drammatici e di fantascienza, offrendo una narrativa complessa che potrebbe intrigare l'utente, dato il suo apprezzamento per film con tematiche profonde.",
+    "trade_offs": "Ho considerato l'importanza della precisione e della copertura. 'Apollo 13' ha una forte precisione e riflette le preferenze drammatiche, mentre 'Mission: Impossible' e 'Twelve Monkeys' aumentano la copertura dei generi, introducendo azione e fantascienza. La scelta di non includere film più comuni come 'Star Wars: Episode IV - A New Hope' (260) è stata fatta per mantenere la raccomandazione unica e rilevante per questo specifico utente, evitando ripetizioni e cercando di massimizzare la varietà."
   },
   "metrics": {
     "precision_at_k": {
-      "precision_score": 0.3333333333333333,
+      "precision_score": 0.8333333333333334,
       "genre_coverage": 1.0
     },
     "coverage": {
-      "precision_score": 0.6666666666666666,
-      "genre_coverage": 0.7777777777777778
+      "precision_score": 0.5,
+      "genre_coverage": 0.45454545454545453
     },
     "final_recommendations": {
-      "precision_score": 0.3333333333333333,
-      "genre_coverage": 0.7777777777777778
+      "precision_score": 0.6666666666666666,
+      "genre_coverage": 0.45454545454545453
     },
-    "total_coverage": 0.001545197012619109
+    "total_coverage": 0.0020602626834921455
   }
 }

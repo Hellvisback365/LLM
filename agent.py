@@ -146,18 +146,23 @@ def get_optimized_catalog(limit=50):
 PROMPT_VARIANTS = {
     "precision_at_k": (
         "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. "
-        "Data una lista di film, consiglia i 3 film più rilevanti per un utente generico. "
-        "Massimizza la proporzione di film raccomandati che saranno effettivamente apprezzati. "
+        "Data una lista di film, consiglia i 3 film più rilevanti SPECIFICAMENTE per l'utente di cui stai analizzando il profilo. "
+        "Massimizza la proporzione di film raccomandati che saranno effettivamente apprezzati DA QUESTO SPECIFICO UTENTE. "
         "La precision@k misura la frazione di film raccomandati che l'utente valuterebbe positivamente. "
-        "Concentrati sui film più popolari e di alta qualità. "
+        "Concentrati sulle preferenze specifiche dell'utente evidenziate nel suo profilo (film graditi e non graditi). "
+        "IMPORTANTE: Assicurati che le tue raccomandazioni siano altamente personalizzate per questo utente, non per un utente generico. "
+        "Analizza attentamente quali generi, attori o temi sembrano piacere all'utente dai film che ha gradito. "
         "NON raccomandare più di 3 film."
     ),
     "coverage": (
         "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE. "
-        "Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici. "
+        "Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici, "
+        "MA che siano comunque rilevanti per le preferenze specifiche dell'utente di cui stai analizzando il profilo. "
         "La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. "
         "L'obiettivo è esplorare meglio lo spazio dei film disponibili e ridurre il rischio di filter bubble. "
-        "Assicurati che le tue raccomandazioni coprano generi diversi tra loro. "
+        "Assicurati che le tue raccomandazioni coprano generi diversi tra loro, ma che siano allineati con i gusti dell'utente. "
+        "IMPORTANTE: Fai riferimento specifico ai film che l'utente ha apprezzato per scoprire generi correlati ma diversi. "
+        "Ogni utente deve ricevere raccomandazioni personalizzate in base al suo profilo unico. "
         "NON raccomandare più di 3 film."
     )
 }
@@ -183,10 +188,12 @@ FORMAT_INSTRUCTIONS = parser.get_format_instructions()
 # ----------------------------
 def create_metric_prompt(metric_name: str, metric_description: str):
     return PromptTemplate(
-        input_variables=["catalog"],
+        input_variables=["catalog", "user_profile"],
         template=(
             f"# Compito: Raccomandatore di film ottimizzato per {metric_name.upper()}\n\n"
             f"{metric_description}\n\n"
+            "# Profilo utente:\n"
+            "{user_profile}\n\n"
             "# Catalogo film:\n"
             "{catalog}\n\n"
             "# Formato di output richiesto:\n"
@@ -198,7 +205,7 @@ def create_metric_prompt(metric_name: str, metric_description: str):
             "}}\n"
             "```\n"
             "Dove 'recommendations' è una lista di 3 ID numerici dei film e 'explanation' è una breve spiegazione.\n\n"
-            "Analizza il catalogo e fornisci le tue raccomandazioni ottimizzate per "
+            "Analizza il profilo dell'utente, il catalogo e fornisci le tue raccomandazioni ottimizzate per "
             f"{metric_name.upper()}."
         )
     )
@@ -227,10 +234,10 @@ def build_metric_agents():
     for metric_name, metric_desc in PROMPT_VARIANTS.items():
         prompt_template = create_metric_prompt(metric_name, metric_desc)
         
-        async def run_metric_agent(catalog, _metric=metric_name, _prompt=prompt_template):
+        async def run_metric_agent(catalog, user_profile, _metric=metric_name, _prompt=prompt_template):
             """Genera raccomandazioni ottimizzate per una specifica metrica"""
             try:
-                prompt_str = _prompt.format(catalog=catalog)
+                prompt_str = _prompt.format(catalog=catalog, user_profile=user_profile)
                 response = await llm_arun_with_retry(prompt_str)
                 content = response.content if hasattr(response, 'content') else str(response)
                 print(f"Raw response from {_metric} agent: {content}")
@@ -293,7 +300,7 @@ def build_metric_agents():
                 
         # Creo una closure per ogni metrica
         metric_fn = (lambda _m=metric_name, _p=prompt_template: 
-                    lambda catalog: run_metric_agent(catalog, _m, _p))()
+                    lambda catalog, user_profile: run_metric_agent(catalog, user_profile, _m, _p))()
                 
         metric_tools.append(
             Tool(
@@ -324,14 +331,16 @@ def build_evaluator_tool():
             "1. Analizza attentamente le raccomandazioni di ciascun sistema\n"
             "2. Considera i punti di forza di ciascuna metrica\n"
             "3. Crea una lista OTTIMALE di 3 film che bilanci le diverse metriche\n"
-            "4. Spiega in dettaglio la tua logica e i trade-off considerati\n\n"
+            "4. IMPORTANTE: Mantieni la personalizzazione per lo specifico utente in questione. Le raccomandazioni devono essere rilevanti per il suo profilo unico.\n"
+            "5. Evita di raccomandare gli stessi film raccomandati ad altri utenti, a meno che non siano particolarmente rilevanti per questo utente specifico.\n"
+            "6. Spiega in dettaglio la tua logica e i trade-off considerati\n\n"
             "# Formato di output richiesto:\n"
             "È ESSENZIALE che tu risponda utilizzando ESATTAMENTE questo formato JSON (segui alla lettera lo schema):\n\n"
             "```json\n"
             "{{\n"
             '  "final_recommendations": [145, 270, 381],\n'
-            '  "justification": "Spiegazione dettagliata del perché hai scelto questi film",\n'
-            '  "trade_offs": "Descrizione dei trade-off considerati tra le diverse metriche"\n'
+            '  "justification": "Spiegazione dettagliata del perché hai scelto questi film PER QUESTO SPECIFICO UTENTE",\n'
+            '  "trade_offs": "Descrizione dei trade-off considerati tra le diverse metriche e come si adattano a questo utente specifico"\n'
             "}}\n"
             "```\n\n"
             "IMPORTANTE: Assicurati che il JSON sia valido e contenga TUTTE le chiavi richieste.\n"
@@ -477,26 +486,34 @@ class RecommenderSystem:
         results = {}
         
         # Ottieni il catalogo ottimizzato
-        catalog = get_optimized_catalog(limit=30)
+        catalog = get_optimized_catalog()
         
-        for tool in self.metric_tools:
-            metric_name = tool.name.replace("recommender_", "")
-            print(f"\n--- Running {metric_name} recommender ---")
-            
-            try:
-                response = await tool.coroutine(catalog)
-                results[metric_name] = response
-                print(f"Recommendations for {metric_name}: {response['recommendations']}")
-                print(f"Explanation: {response['explanation']}")
-            except Exception as e:
-                print(f"Error running {metric_name} recommender: {e}")
-                results[metric_name] = {
-                    "metric": metric_name,
-                    "recommendations": [],
-                    "explanation": f"Error: {str(e)}"
-                }
+        # Prepara i profili utente (1 e 2)
+        user_results = {}
+        for user_id, profile in user_profiles.iterrows():
+            if user_id not in [1, 2]:
+                continue
+            profile_summary = json.dumps({
+                "user_id": int(user_id),
+                "liked_movies": profile["liked_movies"],
+                "disliked_movies": profile["disliked_movies"]
+            }, ensure_ascii=False)
+            results = {}
+            for tool in self.metric_tools:
+                metric_name = tool.name.replace("recommender_", "")
+                print(f"\n--- Running {metric_name} recommender for user {user_id} ---")
                 
-        return results
+                try:
+                    response = await tool.coroutine(catalog, profile_summary)
+                    results[metric_name] = response
+                except Exception as e:
+                    results[metric_name] = {
+                        "metric": metric_name,
+                        "recommendations": [],
+                        "explanation": f"Error: {str(e)}"
+                    }
+            user_results[user_id] = results
+        return user_results
     
     async def evaluate_results(self, metric_results):
         """Valuta e combina i risultati delle diverse metriche"""
@@ -504,7 +521,7 @@ class RecommenderSystem:
         
         try:
             # Ottieni il catalogo ottimizzato
-            catalog = get_optimized_catalog(limit=30)
+            catalog = get_optimized_catalog(limit=100)
             
             results_str = json.dumps(metric_results, ensure_ascii=False, indent=2)
             evaluation = await self.evaluator_tool.coroutine(results_str, catalog)
@@ -532,81 +549,90 @@ class RecommenderSystem:
             # NUOVO: usa le variabili globali
             global filtered_ratings, user_profiles, movies
             
-            # Estrai le raccomandazioni
-            precision_at_k_recs = metric_results.get('precision_at_k', {}).get('recommendations', [])
-            coverage_recs = metric_results.get('coverage', {}).get('recommendations', [])
+            # -------------------------------------------------------------
+            # 1. Aggrega le raccomandazioni per metrica considerando TUTTI
+            #    gli utenti presenti in metric_results.
+            # -------------------------------------------------------------
+            precision_at_k_recs = []
+            coverage_recs = []
+            
+            # metric_results è del tipo { user_id: { 'precision_at_k': {...}, 'coverage': {...} } }
+            for user_id, per_user_metrics in metric_results.items():
+                precision_at_k_recs.extend(per_user_metrics.get('precision_at_k', {}).get('recommendations', []))
+                coverage_recs.extend(per_user_metrics.get('coverage', {}).get('recommendations', []))
+            
+            # Rimuovi eventuali duplicati mantenendo l'ordine
+            precision_at_k_recs = list(dict.fromkeys(precision_at_k_recs))
+            coverage_recs = list(dict.fromkeys(coverage_recs))
+            
+            # Raccomandazioni finali prodotte dall'evaluator (già globali)
             final_recs = final_evaluation.get('final_recommendations', [])
             
-            # Prepara i dati per il calcolo delle metriche
+            # -------------------------------------------------------------
+            # 2. Prepara i dati per il calcolo delle metriche
+            # -------------------------------------------------------------
             all_movie_ids = movies['movie_id'].tolist()
             
-            # MODIFICATO: non usare più i primi 100 film come proxy
-            # Utilizziamo uno strumento di RAG per consentire al LLM di determinare i film rilevanti
+            # Utilizziamo RAG per determinare i film veramente popolari/rilevanti
             rag = MovieRAG(model_name=LLM_MODEL_ID)
-            
-            # Converti movies DataFrame in lista di dizionari
             movies_list = movies.to_dict('records')
-            
-            # Inizializza il vector store
             rag.load_or_create_vector_store(movies_list, force_recreate=False)
-            
-            # Otteniamo la selection per precision@k dal RAG
             precision_selection = rag._filter_by_popularity()
-            
-            # Estraiamo gli ID dei film considerati rilevanti (film popolari e di qualità)
             relevant_items = [movie['movie_id'] for movie in precision_selection]
             
-            # Calcola precision@k
+            # -------------------------------------------------------------
+            # 3. Calcola precision@k
+            # -------------------------------------------------------------
             precision_pak_value = calculate_precision_at_k(precision_at_k_recs, relevant_items)
             coverage_pak_value = calculate_precision_at_k(coverage_recs, relevant_items)
             final_pak_value = calculate_precision_at_k(final_recs, relevant_items)
             
-            # Calcola coverage
-            all_recommendations = [precision_at_k_recs, coverage_recs, final_recs]
-            
-            # Per la coverage, usiamo il numero di generi unici coperti come approssimazione
+            # -------------------------------------------------------------
+            # 4. Calcola Coverage per genere
+            # -------------------------------------------------------------
+            all_recommendations_sets = [precision_at_k_recs, coverage_recs, final_recs]
             all_genres = set()
             genre_coverage = {}
             
-            # Funzione per estrarre i generi di un film
             def get_film_genres(movie_id):
                 movie = movies[movies['movie_id'] == movie_id]
                 if not movie.empty:
-                    genres_str = movie.iloc[0]['genres']
-                    return set(genres_str.split('|'))
+                    return set(movie.iloc[0]['genres'].split('|'))
                 return set()
             
-            # Calcola i generi unici per ogni set di raccomandazioni
-            for name, recs in [("precision_at_k", precision_at_k_recs), 
-                              ("coverage", coverage_recs), 
-                              ("final", final_recs)]:
+            for name, recs in [("precision_at_k", precision_at_k_recs),
+                               ("coverage", coverage_recs),
+                               ("final", final_recs)]:
                 recs_genres = set()
-                for movie_id in recs:
-                    recs_genres.update(get_film_genres(movie_id))
-                
+                for mid in recs:
+                    recs_genres.update(get_film_genres(mid))
                 all_genres.update(recs_genres)
                 genre_coverage[name] = len(recs_genres) / (len(all_genres) if all_genres else 1)
             
-            # Calcola la coverage totale (film unici raccomandati / totale film)
-            all_recommended_ids = set()
-            for recs in all_recommendations:
-                all_recommended_ids.update(recs)
-            total_coverage = len(all_recommended_ids) / len(all_movie_ids)
+            # -------------------------------------------------------------
+            # 5. Coverage totale (film unici raccomandati / totale film)
+            # -------------------------------------------------------------
+            unique_recommended_ids = set()
+            for recs in all_recommendations_sets:
+                unique_recommended_ids.update(recs)
+            total_coverage = len(unique_recommended_ids) / len(all_movie_ids)
             
-            # Visualizza i risultati
+            # -------------------------------------------------------------
+            # 6. Stampa e salva risultati
+            # -------------------------------------------------------------
             print("\nMetriche calcolate:")
-            print(f"Precision@k per precision_at_k: {precision_pak_value:.4f}")
-            print(f"Precision@k per coverage: {coverage_pak_value:.4f}")
-            print(f"Precision@k per raccomandazioni finali: {final_pak_value:.4f}")
+            print(f"Precision@k aggregata - precision_at_k: {precision_pak_value:.4f}")
+            print(f"Precision@k aggregata - coverage: {coverage_pak_value:.4f}")
+            print(f"Precision@k aggregata - final: {final_pak_value:.4f}")
             
-            print(f"\nCoverage per genere (generi unici coperti / totale generi):")
+            print("\nCoverage per genere (generi unici coperti / totale generi):")
             print(f"  precision_at_k: {genre_coverage.get('precision_at_k', 0):.4f}")
             print(f"  coverage: {genre_coverage.get('coverage', 0):.4f}")
             print(f"  final: {genre_coverage.get('final', 0):.4f}")
             
             print(f"\nCoverage totale (film unici raccomandati / totale film): {total_coverage:.4f}")
             
-            # Aggiungi le metriche al risultato finale
+            # Costruisci dizionario metrica
             metrics = {
                 "precision_at_k": {
                     "precision_score": precision_pak_value,
@@ -623,14 +649,15 @@ class RecommenderSystem:
                 "total_coverage": total_coverage
             }
             
-            # Aggiungi le metriche ai file di risultati
-            with open("recommendation_results.json", "r", encoding="utf-8") as f:
-                results = json.load(f)
-            
-            results["metrics"] = metrics
-            
-            with open("recommendation_results.json", "w", encoding="utf-8") as f:
-                json.dump(results, f, ensure_ascii=False, indent=2)
+            # Salva nel file risultati
+            try:
+                with open("recommendation_results.json", "r", encoding="utf-8") as f:
+                    results_file = json.load(f)
+                results_file["metrics"] = metrics
+                with open("recommendation_results.json", "w", encoding="utf-8") as f:
+                    json.dump(results_file, f, ensure_ascii=False, indent=2)
+            except FileNotFoundError:
+                pass
             
             return metrics
         except Exception as e:

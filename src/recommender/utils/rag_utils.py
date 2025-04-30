@@ -159,12 +159,11 @@ class MovieRAG:
     
     def _filter_by_popularity(self) -> List[Dict[str, Any]]:
         """
-        Seleziona un campione di film senza applicare criteri di popolarità.
-        Lascia che sia il LLM a determinare quali film sono popolari in base 
-        alle sue conoscenze interne.
+        Seleziona un campione di film basandosi esclusivamente sul numero di valutazioni ricevute
+        come indicatore reale di popolarità.
         
         Returns:
-            Lista di film da cui il LLM determinerà i più popolari
+            Lista dei film più popolari in base al numero di valutazioni
         """
         if self.movies_df is None:
             # Se self.movies_df non è inizializzato, carica i dati dal file
@@ -176,19 +175,35 @@ class MovieRAG:
             else:
                 return []
         
-        # Non filtriamo per popolarità, restituiamo un campione rappresentativo
-        # Restituisci semplicemente i primi 70 film nell'ordine in cui appaiono nel dataset
-        # oppure un campione casuale
-        random.seed(42)  # Per risultati riproducibili
-        
         # Converti il DataFrame in lista di dizionari
         all_movies = self.movies_df.to_dict('records')
         
-        # Seleziona 70 film in modo casuale
-        if len(all_movies) > 70:
-            return random.sample(all_movies, 70)
-        else:
-            return all_movies
+        # Carica i dati delle valutazioni
+        ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
+        try:
+            ratings_df = pd.read_csv(ratings_path)
+            
+            # Calcola il conteggio delle valutazioni per ogni film
+            rating_counts = ratings_df['movie_id'].value_counts().reset_index()
+            rating_counts.columns = ['movie_id', 'count']
+            
+            # Seleziona i top 70 film con più valutazioni
+            top_movie_ids = rating_counts.head(70)['movie_id'].tolist()
+            
+            # Filtra i film per ottenere quelli più popolari
+            popular_movies = [m for m in all_movies if int(m['movie_id']) in top_movie_ids]
+            
+            return popular_movies
+        
+        except FileNotFoundError:
+            print("ATTENZIONE: File delle valutazioni non trovato, usando la selezione casuale come fallback")
+            # Fallback alla selezione casuale in caso di errore
+            random.seed(42)  # Manteniamo il seed per risultati riproducibili
+            
+            if len(all_movies) > 70:
+                return random.sample(all_movies, 70)
+            else:
+                return all_movies
     
     def similarity_search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
         """
