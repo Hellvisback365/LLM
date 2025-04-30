@@ -1,0 +1,502 @@
+[
+  {
+    "movie_id": 6,
+    "title": "Heat (1995)",
+    "genres": "Action|Crime|Thriller"
+  },
+  {
+    "movie_id": 10,
+    "title": "GoldenEye (1995)",
+    "genres": "Action|Adventure|Thriller"
+  },
+  {
+    "movie_id": 16,
+    "title": "Casino (1995)",
+    "genres": "Drama|Thriller"
+  },
+  {
+    "movie_id": 18,
+    "title": "Four Rooms (1995)",
+    "genres": "Thriller"
+  },
+  {
+    "movie_id": 22,
+    "title": "Copycat (1995)",
+    "genres": "Crime|Drama|Thriller"
+  },
+  {
+    "movie_id": 3,
+    "title": "Grumpier Old Men (1995)",
+    "genres": "Comedy|Romance"
+  },
+  {
+    "movie_id": 7,
+    "title": "Sabrina (1995)",
+    "genres": "Comedy|Romance"
+  },
+  {
+    "movie_id": 11,
+    "title": "American President, The (1995)",
+    "genres": "Comedy|Drama|Romance"
+  },
+  {
+    "movie_id": 15,
+    "title": "Cutthroat Island (1995)",
+    "genres": "Action|Adventure|Romance"
+  },
+  {
+    "movie_id": 17,
+    "title": "Sense and Sensibility (1995)",
+    "genres": "Drama|Romance"
+  },
+  {
+    "movie_id": 210,
+    "title": "Wild Bill (1995)",
+    "genres": "Western"
+  },
+  {
+    "movie_id": 266,
+    "title": "Legends of the Fall (1994)",
+    "genres": "Drama|Romance|War|Western"
+  },
+  {
+    "movie_id": 303,
+    "title": "Quick and the Dead, The (1995)",
+    "genres": "Action|Adventure|Western"
+  },
+  {
+    "movie_id": 368,
+    "title": "Maverick (1994)",
+    "genres": "Action|Comedy|Western"
+  },
+  {
+    "movie_id": 383,
+    "title": "Wyatt Earp (1994)",
+    "genres": "Western"
+  },
+  {
+    "movie_id": 4,
+    "title": "Waiting to Exhale (1995)",
+    "genres": "Comedy|Drama"
+  },
+  {
+    "movie_id": 14,
+    "title": "Nixon (1995)",
+    "genres": "Drama"
+  },
+  {
+    "movie_id": 21,
+    "title": "Get Shorty (1995)",
+    "genres": "Action|Comedy|Drama"
+  },
+  {
+    "movie_id": 24,
+    "title": "Powder (1995)",
+    "genres": "Drama|Sci-Fi"
+  },
+  {
+    "movie_id": 25,
+    "title": "Leaving Las Vegas (1995)",
+    "genres": "Drama|Romance"
+  },
+  {
+    "movie_id": 37,
+    "title": "Across the Sea of Time (1995)",
+    "genres": "Documentary"
+  },
+  {
+    "movie_id": 77,
+    "title": "Nico Icon (1995)",
+    "genres": "Documentary"
+  },
+  {
+    "movie_id": 99,
+    "title": "Heidi Fleiss: Hollywood Madam (1995)",
+    "genres": "Documentary"
+  },
+  {
+    "movie_id": 108,
+    "title": "Catwalk (1995)",
+    "genres": "Documentary"
+  },
+  {
+    "movie_id": 116,
+    "title": "Anne Frank Remembered (1995)",
+    "genres": "Documentary"
+  },
+  {
+    "movie_id": 29,
+    "title": "City of Lost Children, The (1995)",
+    "genres": "Adventure|Sci-Fi"
+  },
+  {
+    "movie_id": 32,
+    "title": "Twelve Monkeys (1995)",
+    "genres": "Drama|Sci-Fi"
+  },
+  {
+    "movie_id": 66,
+    "title": "Lawnmower Man 2: Beyond Cyberspace (1996)",
+    "genres": "Sci-Fi|Thriller"
+  },
+  {
+    "movie_id": 76,
+    "title": "Screamers (1995)",
+    "genres": "Sci-Fi|Thriller"
+  },
+  {
+    "movie_id": 160,
+    "title": "Congo (1995)",
+    "genres": "Action|Adventure|Mystery|Sci-Fi"
+  },
+  {
+    "movie_id": 1,
+    "title": "Toy Story (1995)",
+    "genres": "Animation|Children's|Comedy"
+  },
+  {
+    "movie_id": 5,
+    "title": "Father of the Bride Part II (1995)",
+    "genres": "Comedy"
+  },
+  {
+    "movie_id": 12,
+    "title": "Dracula: Dead and Loving It (1995)",
+    "genres": "Comedy|Horror"
+  },
+  {
+    "movie_id": 19,
+    "title": "Ace Ventura: When Nature Calls (1995)",
+    "genres": "Comedy"
+  },
+  {
+    "movie_id": 34,
+    "title": "Babe (1995)",
+    "genres": "Children's|Comedy|Drama"
+  },
+  {
+    "movie_id": 70,
+    "title": "From Dusk Till Dawn (1996)",
+    "genres": "Action|Comedy|Crime|Horror|Thriller"
+  },
+  {
+    "movie_id": 152,
+    "title": "Addiction, The (1995)",
+    "genres": "Horror"
+  },
+  {
+    "movie_id": 177,
+    "title": "Lord of Illusions (1995)",
+    "genres": "Horror"
+  },
+  {
+    "movie_id": 188,
+    "title": "Prophecy, The (1995)",
+    "genres": "Horror"
+  },
+  {
+    "movie_id": 196,
+    "title": "Species (1995)",
+    "genres": "Horror|Sci-Fi"
+  },
+  {
+    "movie_id": 59,
+    "title": "Confessional, The (Le Confessionnal) (1995)",
+    "genres": "Drama|Mystery"
+  },
+  {
+    "movie_id": 113,
+    "title": "Before and After (1996)",
+    "genres": "Drama|Mystery"
+  },
+  {
+    "movie_id": 123,
+    "title": "Chungking Express (1994)",
+    "genres": "Drama|Mystery|Romance"
+  },
+  {
+    "movie_id": 164,
+    "title": "Devil in a Blue Dress (1995)",
+    "genres": "Crime|Film-Noir|Mystery|Thriller"
+  },
+  {
+    "movie_id": 257,
+    "title": "Just Cause (1995)",
+    "genres": "Mystery|Thriller"
+  },
+  {
+    "movie_id": 320,
+    "title": "Suture (1993)",
+    "genres": "Film-Noir|Thriller"
+  },
+  {
+    "movie_id": 541,
+    "title": "Blade Runner (1982)",
+    "genres": "Film-Noir|Sci-Fi"
+  },
+  {
+    "movie_id": 707,
+    "title": "Mulholland Falls (1996)",
+    "genres": "Crime|Film-Noir|Thriller"
+  },
+  {
+    "movie_id": 746,
+    "title": "Force of Evil (1948)",
+    "genres": "Film-Noir"
+  },
+  {
+    "movie_id": 913,
+    "title": "Maltese Falcon, The (1941)",
+    "genres": "Film-Noir|Mystery"
+  },
+  {
+    "movie_id": 2,
+    "title": "Jumanji (1995)",
+    "genres": "Adventure|Children's|Fantasy"
+  },
+  {
+    "movie_id": 56,
+    "title": "Kids of the Round Table (1995)",
+    "genres": "Adventure|Children's|Fantasy"
+  },
+  {
+    "movie_id": 60,
+    "title": "Indian in the Cupboard, The (1995)",
+    "genres": "Adventure|Children's|Fantasy"
+  },
+  {
+    "movie_id": 126,
+    "title": "NeverEnding Story III, The (1994)",
+    "genres": "Adventure|Children's|Fantasy"
+  },
+  {
+    "movie_id": 247,
+    "title": "Heavenly Creatures (1994)",
+    "genres": "Drama|Fantasy|Romance|Thriller"
+  },
+  {
+    "movie_id": 13,
+    "title": "Balto (1995)",
+    "genres": "Animation|Children's"
+  },
+  {
+    "movie_id": 48,
+    "title": "Pocahontas (1995)",
+    "genres": "Animation|Children's|Musical|Romance"
+  },
+  {
+    "movie_id": 239,
+    "title": "Goofy Movie, A (1995)",
+    "genres": "Animation|Children's|Comedy|Romance"
+  },
+  {
+    "movie_id": 244,
+    "title": "Gumby: The Movie (1995)",
+    "genres": "Animation|Children's"
+  },
+  {
+    "movie_id": 313,
+    "title": "Swan Princess, The (1994)",
+    "genres": "Animation|Children's"
+  },
+  {
+    "movie_id": 42,
+    "title": "Dead Presidents (1995)",
+    "genres": "Action|Crime|Drama"
+  },
+  {
+    "movie_id": 47,
+    "title": "Seven (Se7en) (1995)",
+    "genres": "Crime|Thriller"
+  },
+  {
+    "movie_id": 50,
+    "title": "Usual Suspects, The (1995)",
+    "genres": "Crime|Thriller"
+  },
+  {
+    "movie_id": 81,
+    "title": "Things to Do in Denver when You're Dead (1995)",
+    "genres": "Crime|Drama|Romance"
+  },
+  {
+    "movie_id": 112,
+    "title": "Rumble in the Bronx (1995)",
+    "genres": "Action|Adventure|Crime"
+  },
+  {
+    "movie_id": 41,
+    "title": "Richard III (1995)",
+    "genres": "Drama|War"
+  },
+  {
+    "movie_id": 110,
+    "title": "Braveheart (1995)",
+    "genres": "Action|Drama|War"
+  },
+  {
+    "movie_id": 151,
+    "title": "Rob Roy (1995)",
+    "genres": "Drama|Romance|War"
+  },
+  {
+    "movie_id": 155,
+    "title": "Beyond Rangoon (1995)",
+    "genres": "Drama|War"
+  },
+  {
+    "movie_id": 157,
+    "title": "Canadian Bacon (1994)",
+    "genres": "Comedy|War"
+  },
+  {
+    "movie_id": 73,
+    "title": "Misérables, Les (1995)",
+    "genres": "Drama|Musical"
+  },
+  {
+    "movie_id": 107,
+    "title": "Muppet Treasure Island (1996)",
+    "genres": "Adventure|Children's|Comedy|Musical"
+  },
+  {
+    "movie_id": 199,
+    "title": "Umbrellas of Cherbourg, The (Parapluies de Cherbourg, Les) (1964)",
+    "genres": "Drama|Musical"
+  },
+  {
+    "movie_id": 242,
+    "title": "Farinelli: il castrato (1994)",
+    "genres": "Drama|Musical"
+  },
+  {
+    "movie_id": 327,
+    "title": "Tank Girl (1995)",
+    "genres": "Action|Comedy|Musical|Sci-Fi"
+  },
+  {
+    "movie_id": 9,
+    "title": "Sudden Death (1995)",
+    "genres": "Action"
+  },
+  {
+    "movie_id": 20,
+    "title": "Money Train (1995)",
+    "genres": "Action"
+  },
+  {
+    "movie_id": 44,
+    "title": "Mortal Kombat (1995)",
+    "genres": "Action|Adventure"
+  },
+  {
+    "movie_id": 51,
+    "title": "Guardian Angel (1994)",
+    "genres": "Action|Drama|Thriller"
+  },
+  {
+    "movie_id": 71,
+    "title": "Fair Game (1995)",
+    "genres": "Action"
+  },
+  {
+    "movie_id": 8,
+    "title": "Tom and Huck (1995)",
+    "genres": "Adventure|Children's"
+  },
+  {
+    "movie_id": 33,
+    "title": "Wings of Courage (1995)",
+    "genres": "Adventure|Romance"
+  },
+  {
+    "movie_id": 86,
+    "title": "White Squall (1996)",
+    "genres": "Adventure|Drama"
+  },
+  {
+    "movie_id": 146,
+    "title": "Amazing Panda Adventure, The (1995)",
+    "genres": "Adventure|Children's"
+  },
+  {
+    "movie_id": 153,
+    "title": "Batman Forever (1995)",
+    "genres": "Action|Adventure|Comedy|Crime"
+  },
+  {
+    "movie_id": 54,
+    "title": "Big Green, The (1995)",
+    "genres": "Children's|Comedy"
+  },
+  {
+    "movie_id": 87,
+    "title": "Dunston Checks In (1996)",
+    "genres": "Children's|Comedy"
+  },
+  {
+    "movie_id": 158,
+    "title": "Casper (1995)",
+    "genres": "Adventure|Children's"
+  },
+  {
+    "movie_id": 169,
+    "title": "Free Willy 2: The Adventure Home (1995)",
+    "genres": "Adventure|Children's|Drama"
+  },
+  {
+    "movie_id": 181,
+    "title": "Mighty Morphin Power Rangers: The Movie (1995)",
+    "genres": "Action|Children's"
+  },
+  {
+    "movie_id": 2778,
+    "title": "Never Talk to Strangers (1995)",
+    "genres": "Thriller"
+  },
+  {
+    "movie_id": 547,
+    "title": "Surviving the Game (1994)",
+    "genres": "Action|Adventure|Thriller"
+  },
+  {
+    "movie_id": 172,
+    "title": "Johnny Mnemonic (1995)",
+    "genres": "Action|Sci-Fi|Thriller"
+  },
+  {
+    "movie_id": 3196,
+    "title": "Stalag 17 (1953)",
+    "genres": "Drama|War"
+  },
+  {
+    "movie_id": 1235,
+    "title": "Harold and Maude (1971)",
+    "genres": "Comedy"
+  },
+  {
+    "movie_id": 1109,
+    "title": "Charm's Incidents (1996)",
+    "genres": "Drama"
+  },
+  {
+    "movie_id": 1017,
+    "title": "Swiss Family Robinson (1960)",
+    "genres": "Adventure|Children's"
+  },
+  {
+    "movie_id": 664,
+    "title": "Faithful (1996)",
+    "genres": "Comedy"
+  },
+  {
+    "movie_id": 3175,
+    "title": "Galaxy Quest (1999)",
+    "genres": "Adventure|Comedy|Sci-Fi"
+  },
+  {
+    "movie_id": 509,
+    "title": "Piano, The (1993)",
+    "genres": "Drama|Romance"
+  }
+]

@@ -3,18 +3,18 @@
     "metric": "precision_at_k",
     "recommendations": [
       1,
-      2,
-      10
+      10,
+      104
     ],
-    "explanation": "Ho scelto 'Toy Story', 'Jumanji' e 'GoldenEye' perché sono film estremamente popolari e ben recensiti che coprono diversi generi, attirando un ampio pubblico. 'Toy Story' è un classico dell'animazione, 'Jumanji' è un'avventura fantastica amata da bambini e adulti, mentre 'GoldenEye' è un'icona del cinema d'azione. Questi film hanno una probabilità molto alta di essere apprezzati da un utente generico."
+    "explanation": "Ho scelto 'Toy Story', 'GoldenEye' e 'Happy Gilmore' perché sono film altamente popolari e ben valutati in base ai generi più amati (animazione, azione e commedia). Questi film hanno un'ampia attrattiva e una probabilità elevata che un utente generico li apprezzi."
   },
   "coverage": {
     "metric": "coverage",
     "recommendations": [
-      1,
-      6,
-      3085
+      48,
+      3085,
+      423
     ],
-    "explanation": "Le raccomandazioni includono 'Toy Story' (Animazione/Commedia), 'Heat' (Azione/Thriller) e 'Living Dead Girl' (Horror), coprendo tre generi distinti: animazione, azione e horror. Questo approccio massimizza la copertura dei generi presenti nel catalogo, riducendo il rischio di filter bubble."
+    "explanation": "Ho scelto 'Pocahontas' per rappresentare l'animazione e il genere musicale, 'Living Dead Girl' per coprire l'horror e 'Blown Away' per il genere action e thriller. Queste scelte massimizzano la diversità dei generi, migliorando la copertura del catalogo."
   }
 }

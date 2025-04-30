@@ -42,38 +42,6 @@ class MovieRAG:
         self.metrics_definitions = self._load_or_generate_metrics_definitions()
         self.movies_df = None
         
-    def _clean_descriptions(self, movies_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Corregge errori comuni nelle descrizioni e nei generi dei film
-        
-        Args:
-            movies_list: Lista di dizionari rappresentanti i film
-            
-        Returns:
-            Lista di film con descrizioni corrette
-        """
-        corrections = {
-            "drammatica Roma": "dramma romantico",
-            "Dracula: Dead and Loving It": "Dracula: Dead and Loving It (commedia horror)",
-            "Heat": "Heat (azione)",
-            "Sense and Sensibility": "Sense and Sensibility (dramma romantico)"
-        }
-        
-        for movie in movies_list:
-            # Correggi le descrizioni se ci sono errori noti
-            if 'description' in movie:
-                for error, correction in corrections.items():
-                    if error in movie['description']:
-                        movie['description'] = movie['description'].replace(error, correction)
-            
-            # Correggi anche i titoli nei generi se necessario
-            if 'genres' in movie:
-                for error, correction in corrections.items():
-                    if error in str(movie['genres']):
-                        movie['genres'] = str(movie['genres']).replace(error, correction)
-        
-        return movies_list
-    
     def initialize_data(self, movies: List[Dict[str, Any]]):
         """Inizializza i dati dei film"""
         self.movies_df = pd.DataFrame(movies)
@@ -94,15 +62,43 @@ class MovieRAG:
         with open(catalog_path, 'w', encoding='utf-8') as f:
             json.dump(movies, f, ensure_ascii=False, indent=2)
     
-    def _filter_by_genres(self, genres: List[str]) -> List[Dict[str, Any]]:
+    def _extract_all_genres(self) -> List[str]:
         """
-        Filtra i film per genere
+        Estrae automaticamente tutti i generi presenti nel dataset
+        
+        Returns:
+            Lista di tutti i generi unici presenti nel dataset
+        """
+        if self.movies_df is None:
+            catalog_path = os.path.join(RAG_DIR, 'movies_catalog.json')
+            if os.path.exists(catalog_path):
+                with open(catalog_path, 'r', encoding='utf-8') as f:
+                    movies = json.load(f)
+                self.initialize_data(movies)
+            else:
+                return []
+        
+        # Estrai tutti i generi unici dal dataset
+        all_genres = set()
+        for _, movie in self.movies_df.iterrows():
+            genres = str(movie['genres']).split('|')
+            for genre in genres:
+                if genre and genre.strip():  # Ignora stringhe vuote
+                    all_genres.add(genre.strip())
+        
+        return list(all_genres)
+
+    def _filter_by_genres(self, genres: List[str] = None) -> List[Dict[str, Any]]:
+        """
+        Seleziona un campione rappresentativo di film che offre una buona coverage dei generi.
+        Invece di applicare filtri rigidi, fornisce un ampio campione al LLM
+        lasciandogli la libertà di selezionare i film più appropriati per la metrica coverage.
         
         Args:
-            genres: Lista di generi da cercare
+            genres: Lista di generi da considerare (opzionale, se None usa tutti i generi disponibili)
             
         Returns:
-            Lista di film che corrispondono ai generi specificati
+            Lista di film rappresentativa per la metrica coverage
         """
         if self.movies_df is None:
             # Se self.movies_df non è inizializzato, carica i dati dal file
@@ -114,14 +110,52 @@ class MovieRAG:
             else:
                 return []
         
-        # Cerca film che contengano almeno uno dei generi specificati
-        filtered_movies = []
-        for _, movie in self.movies_df.iterrows():
-            movie_genres = str(movie['genres']).lower()
-            if any(genre.lower() in movie_genres for genre in genres):
-                filtered_movies.append(movie.to_dict())
+        # Converti il DataFrame in lista di dizionari
+        all_movies = self.movies_df.to_dict('records')
         
-        return filtered_movies[:70]  # Limita a 70 risultati
+        # Se non sono specificati generi, usa tutti i generi disponibili nel dataset
+        if genres is None or len(genres) == 0:
+            genres = self._extract_all_genres()
+        
+        # Strategia: Creare un campione che massimizzi la diversità di generi
+        # senza limitare artificialmente le scelte del LLM
+        
+        # Inizializza un campione vuoto e un set di ID già inclusi
+        sample = []
+        included_ids = set()
+        
+        # Per ogni genere, includi alcuni film rappresentativi
+        for genre in genres:
+            genre_lower = genre.lower()
+            genre_movies = []
+            
+            # Trova film di questo genere
+            for movie in all_movies:
+                if movie['movie_id'] not in included_ids and genre_lower in str(movie['genres']).lower():
+                    genre_movies.append(movie)
+                    
+                    # Limita a 5 film per genere per garantire diversità
+                    if len(genre_movies) >= 5:
+                        break
+            
+            # Aggiungi questi film al campione e aggiorna gli ID inclusi
+            for movie in genre_movies:
+                sample.append(movie)
+                included_ids.add(movie['movie_id'])
+        
+        # Se non abbiamo abbastanza film, aggiungi altri film casuali fino a raggiungere una dimensione adeguata
+        if len(sample) < 100 and len(all_movies) > len(sample):
+            # Film rimanenti non ancora inclusi nel campione
+            remaining_movies = [movie for movie in all_movies if movie['movie_id'] not in included_ids]
+            
+            # Aggiungi film casuali (con seed fisso per riproducibilità)
+            random.seed(42)
+            remaining_to_add = min(100 - len(sample), len(remaining_movies))
+            if remaining_to_add > 0:
+                sample.extend(random.sample(remaining_movies, remaining_to_add))
+        
+        # Limita la dimensione del campione per non sovraccaricare il LLM
+        return sample[:150]  # Ampliamo il limite per dare più opzioni al LLM
     
     def _filter_by_popularity(self) -> List[Dict[str, Any]]:
         """
@@ -158,46 +192,93 @@ class MovieRAG:
     
     def similarity_search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
         """
-        Implementazione semplificata di ricerca basata su keyword matching
+        Implementazione che fornisce dati ricchi al LLM per permettergli 
+        di applicare autonomamente le metriche di coverage e precision@k.
+        Non impone filtri rigidi ma offre una selezione ampia e diversificata.
         
         Args:
             query: Query di ricerca
             k: Numero di risultati da restituire
             
         Returns:
-            Lista di film più rilevanti per la query
+            Lista di film rilevanti per la query
         """
-        # Estrai informazioni dalla query
-        precision_keywords = ["precision", "accurate", "relevant", "popular"]
-        coverage_keywords = ["coverage", "diversity", "diverse", "variety", "different genres"]
+        # Prepariamo due selezioni complementari per le due metriche
         
-        # Controlla quale metrica viene menzionata
-        if any(keyword in query.lower() for keyword in precision_keywords):
-            # Per precision@k, restituisci film popolari
-            results = self._filter_by_popularity()
-        elif any(keyword in query.lower() for keyword in coverage_keywords):
-            # Per coverage, restituisci film di generi diversi
-            common_genres = ["Drama", "Comedy", "Action", "Romance", "Thriller", "Sci-Fi", "Adventure", "Crime"]
-            results = self._filter_by_genres(common_genres)
-        else:
-            # Default: mescola entrambi gli approcci
-            popular = self._filter_by_popularity()[:k//2]
-            diverse = self._filter_by_genres(["Drama", "Comedy", "Action", "Sci-Fi"])[:k//2]
-            
-            # Unisci mantenendo l'unicità degli ID
-            results = popular.copy()
-            movie_ids = {movie['movie_id'] for movie in results}
-            
-            for movie in diverse:
-                if movie['movie_id'] not in movie_ids:
-                    results.append(movie)
-                    movie_ids.add(movie['movie_id'])
-                    
-                    if len(results) >= k:
-                        break
+        # Per precision@k: selezione che privilegia la popolarità
+        precision_selection = self._filter_by_popularity()
         
-        # Limita al numero richiesto
-        return results[:k]
+        # Per coverage: selezione che privilegia la diversità dei generi
+        # Non specifichiamo manualmente i generi, ma usiamo tutti quelli disponibili
+        coverage_selection = self._filter_by_genres()
+        
+        # Estraiamo parole chiave dalla query per capire su quale metrica concentrarsi
+        precision_keywords = ["precision", "accurate", "relevant", "popular", "liked", "rating"]
+        coverage_keywords = ["coverage", "diversity", "diverse", "variety", "different", "genres", "broad"]
+        
+        # Prepara una risposta che combina entrambe le selezioni
+        # dando la priorità a una delle due in base alla query
+        combined_selection = []
+        existing_ids = set()
+        
+        # Determiniamo le proporzioni in base alla query
+        precision_focus = any(keyword in query.lower() for keyword in precision_keywords)
+        coverage_focus = any(keyword in query.lower() for keyword in coverage_keywords)
+        
+        # Se entrambe le metriche sono menzionate o nessuna è menzionata,
+        # facciamo un mix bilanciato
+        if (precision_focus and coverage_focus) or (not precision_focus and not coverage_focus):
+            # Alterna tra le due selezioni
+            for i in range(max(len(precision_selection), len(coverage_selection))):
+                # Aggiungi dalla selezione precision
+                if i < len(precision_selection) and precision_selection[i]['movie_id'] not in existing_ids:
+                    combined_selection.append(precision_selection[i])
+                    existing_ids.add(precision_selection[i]['movie_id'])
+                
+                # Aggiungi dalla selezione coverage
+                if i < len(coverage_selection) and coverage_selection[i]['movie_id'] not in existing_ids:
+                    combined_selection.append(coverage_selection[i])
+                    existing_ids.add(coverage_selection[i]['movie_id'])
+                
+                # Limita la dimensione
+                if len(combined_selection) >= k*20:
+                    break
+        
+        # Se la query si concentra sulla precision
+        elif precision_focus:
+            # Prima aggiungiamo tutti i film dalla selezione precision
+            for movie in precision_selection:
+                if movie['movie_id'] not in existing_ids:
+                    combined_selection.append(movie)
+                    existing_ids.add(movie['movie_id'])
+            
+            # Poi aggiungiamo alcuni film dalla selezione coverage
+            coverage_added = 0
+            for movie in coverage_selection:
+                if movie['movie_id'] not in existing_ids and coverage_added < 50:
+                    combined_selection.append(movie)
+                    existing_ids.add(movie['movie_id'])
+                    coverage_added += 1
+        
+        # Se la query si concentra sulla coverage
+        elif coverage_focus:
+            # Prima aggiungiamo tutti i film dalla selezione coverage
+            for movie in coverage_selection:
+                if movie['movie_id'] not in existing_ids:
+                    combined_selection.append(movie)
+                    existing_ids.add(movie['movie_id'])
+            
+            # Poi aggiungiamo alcuni film dalla selezione precision
+            precision_added = 0
+            for movie in precision_selection:
+                if movie['movie_id'] not in existing_ids and precision_added < 50:
+                    combined_selection.append(movie)
+                    existing_ids.add(movie['movie_id'])
+                    precision_added += 1
+        
+        # Restituiamo un campione più ampio per dare libertà al LLM
+        # Il parametro k è moltiplicato per dare al LLM più opzioni
+        return combined_selection[:k*20]
     
     def _load_or_generate_metrics_definitions(self) -> Dict[str, str]:
         """
@@ -213,7 +294,7 @@ class MovieRAG:
             with open(metrics_path, 'r') as f:
                 return json.load(f)
         
-        # Definizioni complete che combinano entrambe le implementazioni
+        # Definizioni solo per le due metriche richieste
         metrics_definitions = {
             "precision_at_k": (
                 "La metrica Precision@K misura la proporzione di item raccomandati che sono rilevanti. "
@@ -227,10 +308,7 @@ class MovieRAG:
                 "delle raccomandazioni. Un sistema con alta coverage esplora meglio lo spazio dei film disponibili "
                 "e riduce il rischio di filter bubble. Formula: (numero di film unici raccomandati a tutti gli utenti) / "
                 "(numero totale di film nel catalogo)."
-            ),
-            "accuracy": "Precisione nel suggerire film che corrispondono alle preferenze dell'utente basate sulla sua cronologia di valutazioni. Film con generi o attori simili a quelli che l'utente ha valutato positivamente in passato.",
-            "diversity": "Varietà di generi, registi e stili di film nelle raccomandazioni. Film che coprono un'ampia gamma di categorie per espandere gli interessi dell'utente.",
-            "novelty": "Film che l'utente probabilmente non conosce o non ha ancora scoperto, ma che potrebbero interessargli. Film meno mainstream o di nicchia che offrono nuove esperienze."
+            )
         }
         
         # Salva le definizioni generate
@@ -245,7 +323,7 @@ class MovieRAG:
         
         Args:
             movies: Lista di dizionari rappresentanti i film
-            metric: Metrica per cui ottimizzare (precision_at_k, coverage, accuracy, diversity, novelty)
+            metric: Metrica per cui ottimizzare (precision_at_k o coverage)
             
         Returns:
             Lista di film ottimizzati per la metrica specificata
@@ -255,47 +333,21 @@ class MovieRAG:
             self.initialize_data(movies)
             
         # Verifica che la metrica sia supportata
-        if metric not in self.metrics_definitions and metric not in ["accuracy", "diversity", "novelty"]:
+        if metric not in self.metrics_definitions:
             supported = list(self.metrics_definitions.keys())
             raise ValueError(f"Metrica {metric} non supportata. Usa una tra: {', '.join(supported)}")
             
-        if metric == "precision_at_k" or metric == "accuracy":
-            # Per precision@k/accuracy, seleziona film popolari (basati sull'ID come semplificazione)
+        if metric == "precision_at_k":
+            # Per precision@k, usa la selezione che privilegia la popolarità
             return self._filter_by_popularity()
         
-        elif metric == "coverage" or metric == "diversity":
-            # Per coverage/diversity, cerca di avere almeno un film per ogni genere principale
-            if metric == "diversity":
-                genre_covered = {}
-                diverse_movies = []
-                
-                for movie in movies:
-                    genres = str(movie['genres']).split('|')
-                    for genre in genres:
-                        if genre not in genre_covered:
-                            genre_covered[genre] = True
-                            diverse_movies.append(movie)
-                            break
-                    
-                    if len(diverse_movies) >= 100:
-                        break
-                
-                return diverse_movies
-            else:
-                # Per coverage, seleziona film di generi diversi
-                common_genres = ["Drama", "Comedy", "Action", "Romance", "Thriller", "Sci-Fi", "Adventure", "Crime"]
-                return self._filter_by_genres(common_genres)
-                
-        elif metric == "novelty":
-            # Per novelty, scegli film con ID più alti (ipotizzando che siano film meno mainstream)
-            if self.movies_df is None:
-                self.initialize_data(movies)
-            
-            # Ottieni film meno popolari (con ID più alti nell'esempio)
-            return self.movies_df.sort_values('movie_id', ascending=False).head(100).to_dict('records')
-            
+        elif metric == "coverage":
+            # Per coverage, usa la selezione che massimizza la diversità di generi
+            # Nota: non specifichiamo generi manualmente, usiamo quelli estratti dal dataset
+            return self._filter_by_genres()
+        
         else:
-            # Default fallback
+            # Default fallback (non dovrebbe mai verificarsi con la validazione sopra)
             return movies[:100]
     
     def merge_catalogs(self, precision_catalog: List[Dict[str, Any]], 
@@ -360,9 +412,6 @@ class MovieRAG:
         # Limita la dimensione se necessario
         if limit and len(merged_catalog) > limit:
             merged_catalog = merged_catalog[:limit]
-        
-        # Correggi eventuali errori nelle descrizioni
-        merged_catalog = self._clean_descriptions(merged_catalog)
         
         # Converti in JSON
         catalog_json = json.dumps(merged_catalog, ensure_ascii=False)

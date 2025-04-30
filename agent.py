@@ -45,7 +45,7 @@ LLM_MODEL_ID = "openai/gpt-4o-mini"
 # ----------------------------
 DATASETS_LOADED = False
 
-def load_datasets(force_reload=False):
+def load_datasets(force_reload=False): 
     """Carica e prepara i dataset"""
     global DATASETS_LOADED
     global filtered_ratings, user_profiles, movies  # Aggiunte variabili globali per accesso
@@ -540,9 +540,21 @@ class RecommenderSystem:
             # Prepara i dati per il calcolo delle metriche
             all_movie_ids = movies['movie_id'].tolist()
             
-            # Simula dati rilevanti per precision@k (top 100 film più popolari come proxy)
-            # In un caso reale, questi sarebbero film che l'utente ha già valutato positivamente
-            relevant_items = all_movie_ids[:100]
+            # MODIFICATO: non usare più i primi 100 film come proxy
+            # Utilizziamo uno strumento di RAG per consentire al LLM di determinare i film rilevanti
+            rag = MovieRAG(model_name=LLM_MODEL_ID)
+            
+            # Converti movies DataFrame in lista di dizionari
+            movies_list = movies.to_dict('records')
+            
+            # Inizializza il vector store
+            rag.load_or_create_vector_store(movies_list, force_recreate=False)
+            
+            # Otteniamo la selection per precision@k dal RAG
+            precision_selection = rag._filter_by_popularity()
+            
+            # Estraiamo gli ID dei film considerati rilevanti (film popolari e di qualità)
+            relevant_items = [movie['movie_id'] for movie in precision_selection]
             
             # Calcola precision@k
             precision_pak_value = calculate_precision_at_k(precision_at_k_recs, relevant_items)

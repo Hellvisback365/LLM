@@ -1,37 +1,37 @@
 {
-  "timestamp": "2025-04-29T20:50:05.732849",
+  "timestamp": "2025-04-30T12:04:49.868642",
   "metric_recommendations": {
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
         1,
-        2,
-        10
+        10,
+        104
       ],
-      "explanation": "Ho scelto 'Toy Story', 'Jumanji' e 'GoldenEye' perché sono film estremamente popolari e ben recensiti che coprono diversi generi, attirando un ampio pubblico. 'Toy Story' è un classico dell'animazione, 'Jumanji' è un'avventura fantastica amata da bambini e adulti, mentre 'GoldenEye' è un'icona del cinema d'azione. Questi film hanno una probabilità molto alta di essere apprezzati da un utente generico."
+      "explanation": "Ho scelto 'Toy Story', 'GoldenEye' e 'Happy Gilmore' perché sono film altamente popolari e ben valutati in base ai generi più amati (animazione, azione e commedia). Questi film hanno un'ampia attrattiva e una probabilità elevata che un utente generico li apprezzi."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
-        1,
-        6,
-        3085
+        48,
+        3085,
+        423
       ],
-      "explanation": "Le raccomandazioni includono 'Toy Story' (Animazione/Commedia), 'Heat' (Azione/Thriller) e 'Living Dead Girl' (Horror), coprendo tre generi distinti: animazione, azione e horror. Questo approccio massimizza la copertura dei generi presenti nel catalogo, riducendo il rischio di filter bubble."
+      "explanation": "Ho scelto 'Pocahontas' per rappresentare l'animazione e il genere musicale, 'Living Dead Girl' per coprire l'horror e 'Blown Away' per il genere action e thriller. Queste scelte massimizzano la diversità dei generi, migliorando la copertura del catalogo."
     }
   },
   "final_evaluation": {
     "final_recommendations": [
       1,
-      2,
-      6
+      48,
+      423
     ],
-    "justification": "Ho scelto 'Toy Story' (1), 'Jumanji' (2) e 'Heat' (6) per creare un insieme di raccomandazioni equilibrato. 'Toy Story' è un film animato molto popolare che attira un pubblico ampio, mentre 'Jumanji' offre un'avventura fantastica adatta a tutte le età. 'Heat', d'altra parte, è un thriller d'azione con una trama complessa e attori di alto profilo, che aggiunge una dimensione matura alle raccomandazioni. Questa selezione copre animazione, avventura e azione, massimizzando la varietà e soddisfacendo diverse preferenze del pubblico.",
-    "trade_offs": "Ho dovuto bilanciare la precisione e la copertura. 'Toy Story' e 'Jumanji' sono stati scelti per la loro alta popolarità e apprezzamento, che garantisce precisione. Tuttavia, non ho incluso 'GoldenEye' per dare spazio a 'Heat', che rappresenta un genere diverso e contribuisce alla copertura. Questa scelta implica un compromesso tra il mantenimento di film estremamente popolari e la diversificazione dei generi rappresentati."
+    "justification": "Ho scelto 'Toy Story' (ID 1) per la sua alta popolarità e valutazione, rappresentando bene i generi di animazione e commedia. 'Pocahontas' (ID 48) è stata selezionata per la sua capacità di coprire il genere musicale e l'animazione, garantendo una diversità di contenuto. Infine, 'Blown Away' (ID 423) è un film d'azione e thriller che completa il mix, aggiungendo varietà e coprendo un genere meno rappresentato nelle altre raccomandazioni, migliorando così la copertura del catalogo.",
+    "trade_offs": "Il trade-off principale è stato bilanciare la precisione delle raccomandazioni con la copertura dei generi. Ho scelto 'Toy Story' e 'Blown Away' per la loro alta attrattiva, ma ho dovuto sacrificare la precisione per includere 'Pocahontas', che non era nella lista di alta precisione ma migliorava la diversità. Questa scelta mira a fornire un'esperienza di visione più varia e soddisfacente per un pubblico ampio, piuttosto che focalizzarsi solo su film altamente valutati."
   },
   "metrics": {
     "precision_at_k": {
-      "precision_score": 1.0,
+      "precision_score": 0.3333333333333333,
       "genre_coverage": 1.0
     },
     "coverage": {
@@ -39,9 +39,9 @@
       "genre_coverage": 0.7777777777777778
     },
     "final_recommendations": {
-      "precision_score": 1.0,
-      "genre_coverage": 0.8888888888888888
+      "precision_score": 0.3333333333333333,
+      "genre_coverage": 0.7777777777777778
     },
-    "total_coverage": 0.0012876641771825909
+    "total_coverage": 0.001545197012619109
   }
 }
