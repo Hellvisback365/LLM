@@ -7,10 +7,11 @@ import re
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import DataFrameLoader
 from langchain.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.schema import Document
 from dotenv import load_dotenv
 import random
+from rank_bm25 import BM25Okapi
 
 # Carica variabili d'ambiente
 load_dotenv()
@@ -29,8 +30,12 @@ class MovieRAG:
     Implementazione semplificata che non richiede embeddings esterni
     """
     
-    def __init__(self, model_name: str = "openai/gpt-4o-mini"):
+    def __init__(self, model_name: str = "mistralai/mistral-large-2411"):
         self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+        # Chiave diversa per embeddings OpenAI ufficiale (text-embedding-3-small)
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        if self.openai_api_key is None:
+            print("[WARN] Variabile d'ambiente OPENAI_API_KEY non trovata. Le embeddings potrebbero fallire.")
         self.model_name = model_name
         self.llm = ChatOpenAI(
             model=model_name,
@@ -41,26 +46,88 @@ class MovieRAG:
         )
         self.metrics_definitions = self._load_or_generate_metrics_definitions()
         self.movies_df = None
+        # NEW: structures for real retrieval
+        self.vector_store = None  # FAISS vector store
+        self.bm25 = None          # BM25 index for hybrid / lexical retrieval
+        self.corpus_tokens = []
+        self.embedding_model = None
         
     def initialize_data(self, movies: List[Dict[str, Any]]):
         """Inizializza i dati dei film"""
         self.movies_df = pd.DataFrame(movies)
         
+        # ------------------------------------------------------------------
+        # EMBEDDING & INDEX BUILDERS
+        # ------------------------------------------------------------------
+        # Costruiamo gli indici solo se non esistono già
+        if self.vector_store is None:
+            self._build_embeddings(movies)
+        if self.bm25 is None:
+            self._build_bm25(movies)
+        
+    def _build_embeddings(self, movies: List[Dict[str, Any]], force: bool = False):
+        """Costruisce o carica un vector store FAISS con embeddings."""
+        if self.vector_store is not None and not force:
+            return
+
+        # Persistenza path
+        store_path = os.path.join(RAG_DIR, "faiss_store")
+
+        # Inizializza embedding model solo una volta
+        if self.embedding_model is None:
+            self.embedding_model = OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                openai_api_key=self.openai_api_key
+            )
+
+        # Se lo store esiste e non forziamo ricreazione, caricalo
+        if os.path.exists(store_path) and not force:
+            try:
+                # Consenti la deserializzazione perché l'indice è stato creato localmente e può contenere pickle
+                self.vector_store = FAISS.load_local(
+                    store_path,
+                    self.embedding_model,
+                    allow_dangerous_deserialization=True
+                )
+                return
+            except Exception as e:
+                print(f"Errore nel caricamento dello store FAISS: {e}. Ricreo da zero…")
+
+        # Costruisci da zero
+        print("[RAG] Costruzione embeddings per ~{} film".format(len(movies)))
+        texts = [f"{m['title']}. Genres: {m['genres'].replace('|', ', ')}" for m in movies]
+        metadata = [{"movie_id": m["movie_id"]} for m in movies]
+
+        self.vector_store = FAISS.from_texts(texts, self.embedding_model, metadata)
+        # Salva
+        self.vector_store.save_local(store_path)
+
+    def _build_bm25(self, movies: List[Dict[str, Any]], force: bool = False):
+        """Costruisce indice BM25 per retrieval ibrido"""
+        if self.bm25 is not None and not force:
+            return
+
+        corpus = [f"{m['title']} {m['genres'].replace('|', ' ')}".lower() for m in movies]
+        # tokenize semplice
+        self.corpus_tokens = [doc.split() for doc in corpus]
+        self.bm25 = BM25Okapi(self.corpus_tokens)
+
     def load_or_create_vector_store(self, movies: List[Dict[str, Any]], force_recreate: bool = False):
-        """
-        Versione semplificata che salva i dati dei film senza creare un vector store
-        
-        Args:
-            movies: Lista di dizionari rappresentanti i film
-            force_recreate: Ignorato in questa implementazione
-        """
-        print("Salvando i dati dei film per elaborazione...")
+        """Carica o crea indice vettoriale + BM25 e salva catalogo."""
+        # Inizializza DataFrame interno
         self.initialize_data(movies)
-        
-        # Salva i film in un file JSON per utilizzo futuro
+
+        # Costruisci embeddings + FAISS
+        self._build_embeddings(movies, force=force_recreate)
+
+        # Costruisci indice BM25 per retrieval ibrido
+        self._build_bm25(movies, force=force_recreate)
+
+        # Persisti catalogo per eventuali altri usi
         catalog_path = os.path.join(RAG_DIR, 'movies_catalog.json')
-        with open(catalog_path, 'w', encoding='utf-8') as f:
-            json.dump(movies, f, ensure_ascii=False, indent=2)
+        if not os.path.exists(catalog_path) or force_recreate:
+            with open(catalog_path, 'w', encoding='utf-8') as f:
+                json.dump(movies, f, ensure_ascii=False, indent=2)
     
     def _extract_all_genres(self) -> List[str]:
         """
@@ -205,95 +272,77 @@ class MovieRAG:
             else:
                 return all_movies
     
-    def similarity_search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
-        """
-        Implementazione che fornisce dati ricchi al LLM per permettergli 
-        di applicare autonomamente le metriche di coverage e precision@k.
-        Non impone filtri rigidi ma offre una selezione ampia e diversificata.
-        
-        Args:
-            query: Query di ricerca
-            k: Numero di risultati da restituire
-            
-        Returns:
-            Lista di film rilevanti per la query
-        """
-        # Prepariamo due selezioni complementari per le due metriche
-        
-        # Per precision@k: selezione che privilegia la popolarità
-        precision_selection = self._filter_by_popularity()
-        
-        # Per coverage: selezione che privilegia la diversità dei generi
-        # Non specifichiamo manualmente i generi, ma usiamo tutti quelli disponibili
-        coverage_selection = self._filter_by_genres()
-        
-        # Estraiamo parole chiave dalla query per capire su quale metrica concentrarsi
-        precision_keywords = ["precision", "accurate", "relevant", "popular", "liked", "rating"]
-        coverage_keywords = ["coverage", "diversity", "diverse", "variety", "different", "genres", "broad"]
-        
-        # Prepara una risposta che combina entrambe le selezioni
-        # dando la priorità a una delle due in base alla query
-        combined_selection = []
-        existing_ids = set()
-        
-        # Determiniamo le proporzioni in base alla query
-        precision_focus = any(keyword in query.lower() for keyword in precision_keywords)
-        coverage_focus = any(keyword in query.lower() for keyword in coverage_keywords)
-        
-        # Se entrambe le metriche sono menzionate o nessuna è menzionata,
-        # facciamo un mix bilanciato
-        if (precision_focus and coverage_focus) or (not precision_focus and not coverage_focus):
-            # Alterna tra le due selezioni
-            for i in range(max(len(precision_selection), len(coverage_selection))):
-                # Aggiungi dalla selezione precision
-                if i < len(precision_selection) and precision_selection[i]['movie_id'] not in existing_ids:
-                    combined_selection.append(precision_selection[i])
-                    existing_ids.add(precision_selection[i]['movie_id'])
-                
-                # Aggiungi dalla selezione coverage
-                if i < len(coverage_selection) and coverage_selection[i]['movie_id'] not in existing_ids:
-                    combined_selection.append(coverage_selection[i])
-                    existing_ids.add(coverage_selection[i]['movie_id'])
-                
-                # Limita la dimensione
-                if len(combined_selection) >= k*20:
-                    break
-        
-        # Se la query si concentra sulla precision
-        elif precision_focus:
-            # Prima aggiungiamo tutti i film dalla selezione precision
-            for movie in precision_selection:
-                if movie['movie_id'] not in existing_ids:
-                    combined_selection.append(movie)
-                    existing_ids.add(movie['movie_id'])
-            
-            # Poi aggiungiamo alcuni film dalla selezione coverage
-            coverage_added = 0
-            for movie in coverage_selection:
-                if movie['movie_id'] not in existing_ids and coverage_added < 50:
-                    combined_selection.append(movie)
-                    existing_ids.add(movie['movie_id'])
-                    coverage_added += 1
-        
-        # Se la query si concentra sulla coverage
-        elif coverage_focus:
-            # Prima aggiungiamo tutti i film dalla selezione coverage
-            for movie in coverage_selection:
-                if movie['movie_id'] not in existing_ids:
-                    combined_selection.append(movie)
-                    existing_ids.add(movie['movie_id'])
-            
-            # Poi aggiungiamo alcuni film dalla selezione precision
-            precision_added = 0
-            for movie in precision_selection:
-                if movie['movie_id'] not in existing_ids and precision_added < 50:
-                    combined_selection.append(movie)
-                    existing_ids.add(movie['movie_id'])
-                    precision_added += 1
-        
-        # Restituiamo un campione più ampio per dare libertà al LLM
-        # Il parametro k è moltiplicato per dare al LLM più opzioni
-        return combined_selection[:k*20]
+    # ------------------------------------------------------------------
+    # HELPER UTILITIES
+    # ------------------------------------------------------------------
+    def _get_movies_by_ids(self, ids: List[int]) -> List[Dict[str, Any]]:
+        if self.movies_df is None or len(ids) == 0:
+            return []
+        sub_df = self.movies_df[self.movies_df["movie_id"].isin(ids)]
+        return sub_df.to_dict("records")
+
+    # ------------------------------------------------------------------
+    # HYBRID SIMILARITY SEARCH + RERANKING
+    # ------------------------------------------------------------------
+    def similarity_search(self, query: str, k: int = 20, metric_focus: str = "precision_at_k") -> List[Dict[str, Any]]:
+        """Recupero ibrido (BM25 + FAISS) poi rerank."""
+
+        if self.vector_store is None or self.bm25 is None:
+            raise ValueError("Vector/BM25 store non inizializzato. Chiama load_or_create_vector_store prima.")
+
+        # 1) FAISS retrieval
+        docs = self.vector_store.similarity_search(query, k=k)
+        faiss_ids = [d.metadata["movie_id"] for d in docs]
+
+        # 2) BM25 retrieval
+        query_tokens = query.lower().split()
+        bm25_scores = self.bm25.get_scores(query_tokens)
+        # top bm25 indices
+        top_idx = np.argsort(bm25_scores)[::-1][:k]
+        bm25_ids = [int(self.movies_df.iloc[i]["movie_id"]) for i in top_idx]
+
+        # 3) merge keeping order (simple)
+        merged_ids = []
+        seen = set()
+        for _id in faiss_ids + bm25_ids:
+            if _id not in seen:
+                merged_ids.append(_id)
+                seen.add(_id)
+            if len(merged_ids) >= k*2:
+                break
+
+        # 4) Rerank secondo la metrica (precision vs coverage)
+        reranked_ids = self._rerank_by_metric(merged_ids, metric_focus)
+
+        return self._get_movies_by_ids(reranked_ids[:k])
+
+    def _rerank_by_metric(self, movie_ids: List[int], metric_focus: str) -> List[int]:
+        """Semplice reranker: se coverage ordina per generi unici, se precision per popolarità."""
+        if metric_focus == "coverage":
+            # preferisci film che introducono nuovi generi
+            genre_seen = set()
+            scored = []
+            for mid in movie_ids:
+                movie = self.movies_df[self.movies_df["movie_id"] == mid]
+                if movie.empty:
+                    continue
+                genres = movie.iloc[0]["genres"].split('|')
+                new_genres = len([g for g in genres if g not in genre_seen])
+                score = new_genres
+                scored.append((mid, score))
+                genre_seen.update(genres)
+            # sort desc by new_genres
+            scored.sort(key=lambda x: x[1], reverse=True)
+            return [mid for mid, _ in scored]
+        else:
+            # precision: ordina per numero valutazioni (popolarità) se disponibile
+            ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
+            if os.path.exists(ratings_path):
+                rating_counts = pd.read_csv(ratings_path)['movie_id'].value_counts()
+                scored = [(mid, rating_counts.get(mid, 0)) for mid in movie_ids]
+                scored.sort(key=lambda x: x[1], reverse=True)
+                return [mid for mid, _ in scored]
+            return movie_ids  # fallback
     
     def _load_or_generate_metrics_definitions(self) -> Dict[str, str]:
         """
@@ -353,7 +402,11 @@ class MovieRAG:
             raise ValueError(f"Metrica {metric} non supportata. Usa una tra: {', '.join(supported)}")
             
         if metric == "precision_at_k":
-            # Per precision@k, usa la selezione che privilegia la popolarità
+            # Determina i film rilevanti per precision usando rating medio >=4
+            ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
+            ratings_df = pd.read_csv(ratings_path)
+            avg_ratings = ratings_df.groupby('movie_id')['rating'].mean()
+            relevant_items = avg_ratings[avg_ratings >= 4].index.tolist()
             return self._filter_by_popularity()
         
         elif metric == "coverage":
@@ -417,21 +470,16 @@ class MovieRAG:
             self.initialize_data(movies)
             self.load_or_create_vector_store(movies)
         
-        # Genera cataloghi specifici per le metriche
-        precision_catalog = self.generate_metrics_optimized_catalog(movies, 'precision_at_k')
-        coverage_catalog = self.generate_metrics_optimized_catalog(movies, 'coverage')
-        
-        # Unisci i cataloghi
+        # Utilizza retrieval ibrido per entrambe le metriche
+        precision_catalog = self.similarity_search("film popolari rilevanti precision", k=limit, metric_focus="precision_at_k")
+        coverage_catalog = self.similarity_search("diversi generi film", k=limit, metric_focus="coverage")
+
         merged_catalog = self.merge_catalogs(precision_catalog, coverage_catalog)
-        
-        # Limita la dimensione se necessario
+
         if limit and len(merged_catalog) > limit:
             merged_catalog = merged_catalog[:limit]
-        
-        # Converti in JSON
-        catalog_json = json.dumps(merged_catalog, ensure_ascii=False)
-        
-        return catalog_json
+
+        return json.dumps(merged_catalog, ensure_ascii=False)
 
 
 def calculate_precision_at_k(recommended_items: List[int], relevant_items: List[int], k: int = None) -> float:

@@ -3,40 +3,40 @@
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
-        150,
-        527,
-        783
+        1408,
+        141,
+        2231
       ],
-      "explanation": "Ho scelto di raccomandare 'Apollo 13' (150), 'Schindler's List' (527) e 'Hunchback of Notre Dame' (783) perché l'utente ha mostrato una preferenza per film drammatici e d'animazione. 'Apollo 13' e 'Schindler's List' sono entrambi film di alta qualità con forti elementi drammatici che riflettono le sue preferenze. Inoltre, 'Hunchback of Notre Dame' è un film d'animazione, un genere che l'utente ha apprezzato in altri titoli come 'Beauty and the Beast' e 'Aladdin'. Queste scelte mirano a massimizzare la possibilità che l'utente li apprezzi."
+      "explanation": "L'utente ha mostrato una preferenza per film drammatici e romantici. 'The Last of the Mohicans' (ID 1408) e 'Benny & Joon' (ID 141) sono film drammatici con elementi romantici, mentre 'Rounders' (ID 2231) è un film drammatico con elementi di crime, un genere che l'utente sembra apprezzare. Queste raccomandazioni sono state scelte per massimizzare la precisione delle scelte, basandosi sui film che l'utente ha gradito."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
-        150,
-        32,
-        648
+        196,
+        70,
+        1632
       ],
-      "explanation": "Ho scelto 'Apollo 13' (Drama) perché l'utente apprezza film con una forte narrativa e contenuti emotivi. 'Twelve Monkeys' (Drama|Sci-Fi) è stato selezionato per introdurre un elemento di fantascienza, un genere che potrebbe essere interessante per lui, dato che ha gradito film con temi complessi. Infine, 'Mission: Impossible' (Action|Adventure) aggiunge un tocco di azione e avventura, diversificando ulteriormente le raccomandazioni e massimizzando la copertura dei generi."
+      "explanation": "L'utente ha apprezzato film come 'Ben-Hur' (1287), che è un film d'azione, avventura e dramma. Per coprire generi diversi ma allineati con i gusti dell'utente, raccomandiamo 'Species' (196), un film horror e sci-fi, 'From Dusk Till Dawn' (70), un film d'azione, commedia, crimine, horror e thriller, e 'A Smile Like Yours' (1632), una commedia romantica. Questi film espandono la copertura dei generi cinematografici, mantenendo comunque la rilevanza con le preferenze dell'utente."
     }
   },
   "2": {
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
-        260,
-        648,
-        10
+        324,
+        3302,
+        3873
       ],
-      "explanation": "Ho selezionato 'Star Wars: Episode IV - A New Hope' (260) e 'Mission: Impossible' (648) perché l'utente ha mostrato una preferenza per film d'azione e avventura, come evidenziato dai suoi film graditi. 'GoldenEye' (10) è stato scelto per il suo mix di azione e avventura, che si allinea bene con i gusti dell'utente. Queste scelte massimizzano la probabilità che l'utente apprezzi i film raccomandati."
+      "explanation": "L'utente sembra apprezzare film di genere Comedy e Drama, come si evince dai film graditi nel suo profilo. I film raccomandati sono stati selezionati perché combinano questi generi, aumentando la probabilità che l'utente li valuti positivamente."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
-        150,
-        24,
-        32
+        1446,
+        2606,
+        3755
       ],
-      "explanation": "Ho selezionato 'Apollo 13' per rappresentare il genere Drammatico, che si allinea con diversi film apprezzati dall'utente. 'Powder' è un'opzione Sci-Fi che introduce un nuovo genere, ampliando la varietà delle raccomandazioni, mentre 'Twelve Monkeys' combina Drama e Sci-Fi, offrendo un ulteriore contrasto con i gusti dell'utente. Queste scelte massimizzano la copertura di generi diversi."
+      "explanation": "L'utente ha mostrato un apprezzamento per vari generi, tra cui commedia, dramma e azione. Per massimizzare la copertura e introdurre nuovi generi, raccomando 'Kolya' (1446) che è una commedia drammatica, 'Idle Hands' (2606) che combina commedia e horror, e 'The Perfect Storm' (3755) che è un film d'azione e avventura. Questi film non solo coprono generi diversi, ma rispecchiano anche le preferenze dell'utente per storie coinvolgenti e commedie."
     }
   }
 }

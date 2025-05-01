@@ -30,7 +30,7 @@ class RecommenderSystem:
     Sistema di raccomandazione che ottimizza per diverse metriche.
     """
     
-    def __init__(self, model_name: str = "openai/gpt-4o-mini"):
+    def __init__(self, model_name: str = "mistralai/mistral-large-2411"):
         """
         Inizializza il sistema di raccomandazione.
         

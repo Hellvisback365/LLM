@@ -38,7 +38,7 @@ COMMON_LLM_PARAMS = {
     "temperature": 0.7,
     "max_tokens": 512,
 }
-LLM_MODEL_ID = "openai/gpt-4o-mini"
+LLM_MODEL_ID = "mistralai/mistral-large-2411"
 
 # ----------------------------
 # 2. Caricamento del dataset
@@ -474,6 +474,14 @@ class RecommenderSystem:
         self.evaluator_tool = build_evaluator_tool()
         self.all_tools = self.metric_tools + [self.evaluator_tool]
         
+        # Carica dataset film per RAG
+        _, _, movies_df = load_datasets()
+        movies_list = movies_df.to_dict('records')
+
+        # Inizializza vero RAG
+        self.rag = MovieRAG(model_name=LLM_MODEL_ID)
+        self.rag.load_or_create_vector_store(movies_list)
+
         self.agent = initialize_agent(
             self.all_tools,
             llm,
@@ -483,28 +491,31 @@ class RecommenderSystem:
         
     async def run_metric_recommenders(self):
         """Esegue i recommender per ciascuna metrica in parallelo"""
-        results = {}
-        
-        # Ottieni il catalogo ottimizzato
-        catalog = get_optimized_catalog()
-        
-        # Prepara i profili utente (1 e 2)
         user_results = {}
+
         for user_id, profile in user_profiles.iterrows():
             if user_id not in [1, 2]:
                 continue
+
             profile_summary = json.dumps({
                 "user_id": int(user_id),
                 "liked_movies": profile["liked_movies"],
                 "disliked_movies": profile["disliked_movies"]
             }, ensure_ascii=False)
+
+            # Usa RAG per ottenere cataloghi specifici
+            catalog_precision = self.rag.similarity_search(profile_summary, k=100, metric_focus="precision_at_k")
+            catalog_coverage = self.rag.similarity_search("diversi generi " + profile_summary, k=100, metric_focus="coverage")
+            # unisci
+            merged_catalog = self.rag.merge_catalogs(catalog_precision, catalog_coverage)
+            catalog_json = json.dumps(merged_catalog, ensure_ascii=False)
+
             results = {}
             for tool in self.metric_tools:
                 metric_name = tool.name.replace("recommender_", "")
                 print(f"\n--- Running {metric_name} recommender for user {user_id} ---")
-                
                 try:
-                    response = await tool.coroutine(catalog, profile_summary)
+                    response = await tool.coroutine(catalog_json, profile_summary)
                     results[metric_name] = response
                 except Exception as e:
                     results[metric_name] = {
@@ -513,6 +524,7 @@ class RecommenderSystem:
                         "explanation": f"Error: {str(e)}"
                     }
             user_results[user_id] = results
+
         return user_results
     
     async def evaluate_results(self, metric_results):
@@ -530,10 +542,7 @@ class RecommenderSystem:
             print(f"Justification: {evaluation['justification']}")
             print(f"Trade-offs: {evaluation['trade_offs']}")
             
-            # Calcolo delle metriche
-            print("\n--- Calculating metrics ---")
-            self.calculate_and_display_metrics(metric_results, evaluation)
-            
+            # Non calcoliamo qui le metriche per evitare duplicazioni; verranno calcolate a livello superiore
             return evaluation
         except Exception as e:
             print(f"Error in evaluation: {e}")
@@ -573,12 +582,19 @@ class RecommenderSystem:
             # -------------------------------------------------------------
             all_movie_ids = movies['movie_id'].tolist()
             
-            # Utilizziamo RAG per determinare i film veramente popolari/rilevanti
-            rag = MovieRAG(model_name=LLM_MODEL_ID)
-            movies_list = movies.to_dict('records')
-            rag.load_or_create_vector_store(movies_list, force_recreate=False)
-            precision_selection = rag._filter_by_popularity()
-            relevant_items = [movie['movie_id'] for movie in precision_selection]
+            # Determiniamo i film rilevanti come quelli con rating medio >=4
+            ratings_path = os.path.join('data', 'raw', 'ratings.dat')
+            try:
+                # Carica solo le colonne necessarie
+                all_ratings = pd.read_csv(ratings_path, sep='::', engine='python', header=None, names=['user_id','movie_id','rating','timestamp'])
+                avg_ratings = all_ratings.groupby('movie_id')['rating'].mean()
+                relevant_items = avg_ratings[avg_ratings >= 4].index.tolist()
+            except Exception as _:
+                # Fallback: usa i film che hanno almeno un rating >=4 nell'insieme filtrato
+                relevant_items = []
+                for mid, grp in filtered_ratings.groupby('movie_id'):
+                    if (grp['rating'] >=4).any():
+                        relevant_items.append(mid)
             
             # -------------------------------------------------------------
             # 3. Calcola precision@k

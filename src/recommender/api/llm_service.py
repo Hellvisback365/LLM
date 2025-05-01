@@ -23,7 +23,7 @@ class LLMService:
     Classe per gestire l'interazione con i modelli LLM tramite OpenRouter API.
     """
     
-    def __init__(self, model_name: str = "openai/gpt-4o-mini", temperature: float = 0.7):
+    def __init__(self, model_name: str = "mistralai/mistral-large-2411", temperature: float = 0.7):
         """
         Inizializza il servizio LLM.
         
