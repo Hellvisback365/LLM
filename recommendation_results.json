@@ -1,69 +1,69 @@
 {
-  "timestamp": "2025-05-02T12:38:05.252229",
+  "timestamp": "2025-05-02T20:54:16.747939",
   "metric_recommendations": {
     "1": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          910,
+          1172,
           1307,
-          505
+          3616
         ],
-        "explanation": "L'utente ha dimostrato un forte apprezzamento per film di genere Comedy e Drama, spesso con elementi di Romance. Il film 'Some Like It Hot' (910) è una classica commedia romantica che si allinea perfettamente con queste preferenze. 'When Harry Met Sally...' (1307) è un altro eccellente esempio di commedia romantica che ha ottenuto grande acclamazione. 'North' (505) è una commedia che, sebbene meno nota, potrebbe piacere all'utente data la sua inclinazione verso questo genere."
+        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici. 'Cinema Paradiso' (1172) è un film drammatico e romantico che ha vinto numerosi premi e ha una narrazione emotiva che potrebbe risuonare con l'utente. 'When Harry Met Sally...' (1307) è una commedia romantica classica che potrebbe piacere all'utente data la sua preferenza per i film romantici. 'Loser' (3616) è una commedia romantica più recente che si allinea con il gusto dell'utente per i film drammatici e romantici."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          17,
-          21,
-          1613
+          291,
+          337,
+          702
         ],
-        "explanation": "L'utente ha apprezzato una varietà di film, inclusi generi come Drama, Comedy e Romance. Per massimizzare la copertura e mantenere la rilevanza, raccomando i seguenti film: 'Sense and Sensibility' (Drama|Romance), 'Get Shorty' (Action|Comedy|Drama) e 'Star Maps' (Drama). Questi film coprono diversi generi e offrono una buona esplorazione del catalogo, riducendo il rischio di filter bubble."
+        "explanation": "L'utente ha apprezzato film come 'Ben-Hur' (azione, avventura, dramma) e 'Seven' (crime, thriller). Per massimizzare la copertura di diversi generi, raccomando 'The City of Lost Children' (avventura, sci-fi) per esplorare il genere avventura e sci-fi, 'What's Eating Gilbert Grape' (dramma) per approfondire il genere dramma, e 'Faces' (dramma) per un'esperienza più intensa nel dramma. Queste scelte coprono generi diversi ma rimangono rilevanti per i gusti dell'utente."
       }
     },
     "2": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          1440,
-          2418,
-          3481
+          47,
+          1183,
+          1609
         ],
-        "explanation": "L'utente ha mostrato una forte preferenza per i film di genere Comedy. 'Amos & Andrew' (1440) e 'Nothing in Common' (2418) sono film comici che si allineano bene con questa preferenza. Inoltre, 'High Fidelity' (3481) è un film di commedia che potrebbe piacere all'utente grazie al suo stile e al tono simile a quelli dei film comici apprezzati dall'utente."
+        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e thriller. 'Seven' (1995) è un thriller psicologico che ha ricevuto molte recensioni positive per la sua trama intricata e la tensione costante. 'The English Patient' (1996) è un film drammatico e romantico che ha vinto numerosi premi e ha una trama complessa e coinvolgente. '187' (1997) è un dramma intenso che tratta temi di violenza e redenzione, che potrebbe risuonare con l'interesse dell'utente per film drammatici e impegnativi."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          21,
-          1371,
-          2571
+          1,
+          196,
+          3974
         ],
-        "explanation": "L'utente ha mostrato interesse per film drammatici e commedie. 'Get Shorty' (ID 21) è un film che combina azione, commedia e dramma, offrendo una miscela di generi che l'utente potrebbe apprezzare. 'Star Trek: The Motion Picture' (ID 1371) è un film di azione, avventura e fantascienza, che aggiunge un elemento di esplorazione spaziale e fantascienza, un genere che non è così presente tra i film apprezzati dall'utente. Infine, 'The Matrix' (ID 2571) è un film di azione, fantascienza e thriller, che porta un'esperienza visiva e narrativa unica, espandendo ulteriormente la copertura dei generi per l'utente."
+        "explanation": "L'utente ha mostrato interesse per una varietà di generi, inclusi Comedy, Drama, e Thriller. Per massimizzare la copertura di diversi generi e mantenere la rilevanza con le preferenze dell'utente, ho selezionato i seguenti film: 'Toy Story (1995)' per il genere Animation/Children's/Comedy, 'Species (1995)' per Horror/Sci-Fi, e 'Battleship Potemkin, The (Bronenosets Potyomkin) (1925)' per Drama/War. Questi film coprono generi diversi tra loro, ma sono allineati con i gusti dell'utente, esplorando meglio lo spazio dei film disponibili e riducendo il rischio di filter bubble."
       }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      910,
-      21,
-      1613
+      1172,
+      291,
+      1
     ],
-    "justification": "Ho scelto questi film per bilanciare precisione e copertura. 'Some Like It Hot' (910) è una commedia romantica classica che si allinea perfettamente con le preferenze dell'utente per i film di genere Comedy, Drama e Romance. 'Get Shorty' (21) è un film che combina azione, commedia e dramma, offrendo una miscela di generi che l'utente potrebbe apprezzare. Infine, 'Star Maps' (1613) è un film drammatico che amplia la copertura dei generi e riduce il rischio di filter bubble, mantenendo comunque la rilevanza per l'utente.",
-    "trade_offs": "Il trade-off principale è stato tra la precisione e la copertura. 'Some Like It Hot' (910) e 'Get Shorty' (21) sono stati scelti per la loro alta precisione, essendo film che si allineano perfettamente con le preferenze dell'utente. Tuttavia, per evitare di raccomandare solo film di genere Comedy e Drama, ho incluso 'Star Maps' (1613) per aumentare la varietà dei generi, sacrificando leggermente la precisione per una maggiore copertura."
+    "justification": "Ho selezionato 'Cinema Paradiso' (1172) perché è un film drammatico e romantico che ha vinto numerosi premi e ha una narrazione emotiva che potrebbe risuonare con l'utente, data la sua forte preferenza per i film drammatici e romantici. Inoltre, ho incluso 'The City of Lost Children' (291) per esplorare il genere avventura e sci-fi, che massimizza la copertura di diversi generi. Infine, 'Toy Story' (1) è stato scelto per il genere Animation/Children's/Comedy, che aggiunge una diversità di generi mantenendo la rilevanza con le preferenze dell'utente per i film drammatici, romantici e commedie.",
+    "trade_offs": "Ho considerato l'importanza di bilanciare la precisione e la copertura. 'Cinema Paradiso' (1172) e 'The City of Lost Children' (291) sono stati raccomandati per la loro alta precisione e rilevanza con le preferenze dell'utente, mentre 'Toy Story' (1) è stato scelto per massimizzare la copertura di generi diversi. Questo bilanciamento permette di offrire film che sono sia rilevanti che diversificati, riducendo il rischio di filter bubble e mantenendo l'interesse dell'utente."
   },
   "metrics": {
     "precision_at_k": {
-      "precision_score": 0.3333333333333333,
+      "precision_score": 0.5,
       "genre_coverage": 1.0
     },
     "coverage": {
-      "precision_score": 0.4,
-      "genre_coverage": 0.875
+      "precision_score": 0.16666666666666666,
+      "genre_coverage": 0.7
     },
     "final_recommendations": {
-      "precision_score": 0.3333333333333333,
-      "genre_coverage": 0.5
+      "precision_score": 0.6666666666666666,
+      "genre_coverage": 0.6
     },
-    "total_coverage": 0.0028328611898017
+    "total_coverage": 0.003090394025238218
   }
 }

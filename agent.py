@@ -23,6 +23,7 @@ from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_excep
 # ----------------------------
 from src.recommender.utils.data_processor import process_dataset, get_movie_catalog_for_llm, filter_users_by_specific_users, load_ratings, load_movies, create_user_profiles
 from src.recommender.utils.rag_utils import MovieRAG, calculate_precision_at_k, calculate_coverage
+from src.recommender.core.metrics_calculator import calculate_metrics_for_recommendations
 
 # ----------------------------
 # 1. Setup ambiente e parametri
@@ -361,101 +362,137 @@ def build_evaluator_tool():
                 all_recommendations=all_recommendations_str,
                 catalog=catalog_str
             )
-            response = await llm_arun_with_retry(prompt_str)
-            content = response.content if hasattr(response, 'content') else str(response)
-            print(f"Raw evaluator response: {content}")
             
-            # Estrai la parte JSON dalla risposta
-            try:
-                import re
-                # Metodo 1: Cerca un oggetto JSON completo con tutte le chiavi richieste
-                json_match = re.search(r'({[\s\S]*?"final_recommendations"[\s\S]*?"justification"[\s\S]*?"trade_offs"[\s\S]*?})', content)
-                if json_match:
-                    json_str = json_match.group(1)
-                    # Sostituisci newline e spazi per normalizzare il JSON
-                    json_str = re.sub(r'[\n\r\t]', ' ', json_str)
-                    # Rimuovi eventuali caratteri non validi per JSON
-                    json_str = re.sub(r'```json|```', '', json_str)
-                    try:
-                        json_data = json.loads(json_str)
-                        return {
-                            "final_recommendations": json_data.get("final_recommendations", []),
-                            "justification": json_data.get("justification", ""),
-                            "trade_offs": json_data.get("trade_offs", "")
-                        }
-                    except json.JSONDecodeError:
-                        print(f"JSON malformato: {json_str}")
-                
-                # Metodo 2: Cerca ciascun campo separatamente
-                recommendations = []
-                justification = "Non disponibile"
-                trade_offs = "Non disponibile"
-                
-                # Cerca le raccomandazioni
-                recs_match = re.search(r'"final_recommendations"\s*:\s*(\[[\s\d,]*\])', content)
-                if recs_match:
-                    try:
-                        recommendations = json.loads(recs_match.group(1))
-                    except json.JSONDecodeError:
-                        # Fallback: cerca semplicemente una lista in formato JSON
-                        rec_match = re.search(r'\[\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\]', content)
-                        if rec_match:
-                            try:
-                                recommendations = json.loads(rec_match.group())
-                            except:
-                                pass
-                
-                # Cerca la giustificazione
-                just_match = re.search(r'"justification"\s*:\s*"([^"]*)"', content)
-                if just_match:
-                    justification = just_match.group(1)
-                
-                # Cerca i trade-offs
-                trade_match = re.search(r'"trade_offs"\s*:\s*"([^"]*)"', content)
-                if trade_match:
-                    trade_offs = trade_match.group(1)
-                
-                # Se abbiamo estratto almeno le raccomandazioni, restituisci i risultati
-                if recommendations:
-                    return {
-                        "final_recommendations": recommendations,
-                        "justification": justification,
-                        "trade_offs": trade_offs
-                    }
-                
-                # Metodo 3: ultimo tentativo con estrazione più libera
-                numbers = re.findall(r'\b\d+\b', content)
-                if numbers:
-                    unique_nums = list(dict.fromkeys([int(n) for n in numbers]))[:3]
-                    if len(unique_nums) >= 3:
-                        # Cerca di estrarre un testo che assomigli a una giustificazione
-                        para_match = re.search(r'\n\n([^.]*?ho scelto[^.]*\.)', content, re.IGNORECASE)
-                        justification = para_match.group(1) if para_match else "Estratto dai numeri nel testo"
-                        
-                        # Cerca di estrarre i trade-offs
-                        trade_match = re.search(r'\n\n([^.]*?trade-off[^.]*\.)', content, re.IGNORECASE)
-                        trade_offs = trade_match.group(1) if trade_match else "Non disponibile"
-                        
-                        return {
-                            "final_recommendations": unique_nums[:3],
-                            "justification": justification,
-                            "trade_offs": trade_offs
-                        }
-                
-                print("Non è stato possibile estrarre raccomandazioni dalla risposta")
-                return {
-                    "final_recommendations": [16, 10, 6],  # Basato sui risultati precedenti
-                    "justification": "Non è stato possibile estrarre una giustificazione dalla risposta LLM",
-                    "trade_offs": "Non disponibile"
-                }
+            # Aumenta i tentativi e aggiungi ritardi crescenti
+            max_retries = 5
+            retry_delay = 2  # secondi iniziali
+            
+            for attempt in range(max_retries):
+                try:
+                    print(f"\nTentativo {attempt+1}/{max_retries} di valutazione delle raccomandazioni...")
+                    response = await llm_arun_with_retry(prompt_str)
+                    content = response.content if hasattr(response, 'content') else str(response)
+                    print(f"Raw evaluator response: {content}")
                     
-            except Exception as e:
-                print(f"Error parsing evaluator JSON: {str(e)}")
-                return {
-                    "final_recommendations": [16, 10, 6],  # Valori ragionevoli di default basati sui risultati precedenti
-                    "justification": f"Errore nel parsing: {str(e)}. Usando valori predefiniti.",
-                    "trade_offs": "Non disponibile a causa di errori di parsing"
-                }
+                    # Estrai la parte JSON dalla risposta
+                    try:
+                        import re
+                        # Metodo 1: Cerca un oggetto JSON completo con tutte le chiavi richieste
+                        json_match = re.search(r'({[\s\S]*?"final_recommendations"[\s\S]*?"justification"[\s\S]*?"trade_offs"[\s\S]*?})', content)
+                        if json_match:
+                            json_str = json_match.group(1)
+                            # Sostituisci newline e spazi per normalizzare il JSON
+                            json_str = re.sub(r'[\n\r\t]', ' ', json_str)
+                            # Rimuovi eventuali caratteri non validi per JSON
+                            json_str = re.sub(r'```json|```', '', json_str)
+                            try:
+                                json_data = json.loads(json_str)
+                                return {
+                                    "final_recommendations": json_data.get("final_recommendations", []),
+                                    "justification": json_data.get("justification", ""),
+                                    "trade_offs": json_data.get("trade_offs", "")
+                                }
+                            except json.JSONDecodeError:
+                                print(f"JSON malformato: {json_str}")
+                        
+                        # Metodo 2: Cerca ciascun campo separatamente
+                        recommendations = []
+                        justification = "Non disponibile"
+                        trade_offs = "Non disponibile"
+                        
+                        # Cerca le raccomandazioni
+                        recs_match = re.search(r'"final_recommendations"\s*:\s*(\[[\s\d,]*\])', content)
+                        if recs_match:
+                            try:
+                                recommendations = json.loads(recs_match.group(1))
+                            except json.JSONDecodeError:
+                                # Fallback: cerca semplicemente una lista in formato JSON
+                                rec_match = re.search(r'\[\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\]', content)
+                                if rec_match:
+                                    try:
+                                        recommendations = json.loads(rec_match.group())
+                                    except:
+                                        pass
+                        
+                        # Cerca la giustificazione
+                        just_match = re.search(r'"justification"\s*:\s*"([^"]*)"', content)
+                        if just_match:
+                            justification = just_match.group(1)
+                        
+                        # Cerca i trade-offs
+                        trade_match = re.search(r'"trade_offs"\s*:\s*"([^"]*)"', content)
+                        if trade_match:
+                            trade_offs = trade_match.group(1)
+                        
+                        # Se abbiamo estratto almeno le raccomandazioni, restituisci i risultati
+                        if recommendations:
+                            return {
+                                "final_recommendations": recommendations,
+                                "justification": justification,
+                                "trade_offs": trade_offs
+                            }
+                        
+                        # Metodo 3: ultimo tentativo con estrazione più libera
+                        numbers = re.findall(r'\b\d+\b', content)
+                        if numbers:
+                            unique_nums = list(dict.fromkeys([int(n) for n in numbers]))[:3]
+                            if len(unique_nums) >= 3:
+                                # Cerca di estrarre un testo che assomigli a una giustificazione
+                                para_match = re.search(r'\n\n([^.]*?ho scelto[^.]*\.)', content, re.IGNORECASE)
+                                justification = para_match.group(1) if para_match else "Estratto dai numeri nel testo"
+                                
+                                # Cerca di estrarre i trade-offs
+                                trade_match = re.search(r'\n\n([^.]*?trade-off[^.]*\.)', content, re.IGNORECASE)
+                                trade_offs = trade_match.group(1) if trade_match else "Non disponibile"
+                                
+                                return {
+                                    "final_recommendations": unique_nums[:3],
+                                    "justification": justification,
+                                    "trade_offs": trade_offs
+                                }
+                        
+                        # Se tutti i tentativi falliscono e non è l'ultimo retry, passa al prossimo tentativo
+                        if attempt < max_retries - 1:
+                            print(f"Estrazione dati fallita, riprovo tra {retry_delay} secondi...")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2  # Raddoppia il tempo di attesa ad ogni tentativo
+                            continue
+                        
+                        print("Non è stato possibile estrarre raccomandazioni dalla risposta")
+                        return {
+                            "final_recommendations": [16, 10, 6],  # Basato sui risultati precedenti
+                            "justification": "Non è stato possibile estrarre una giustificazione dalla risposta LLM",
+                            "trade_offs": "Non disponibile"
+                        }
+                            
+                    except Exception as e:
+                        print(f"Error parsing evaluator JSON: {str(e)}")
+                        if attempt < max_retries - 1:
+                            print(f"Riprovo tra {retry_delay} secondi...")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2
+                            continue
+                        
+                        return {
+                            "final_recommendations": [16, 10, 6],  # Valori ragionevoli di default
+                            "justification": f"Errore nel parsing: {str(e)}. Usando valori predefiniti.",
+                            "trade_offs": "Non disponibile a causa di errori di parsing"
+                        }
+                except Exception as inner_e:
+                    print(f"Errore nella chiamata LLM: {inner_e}")
+                    if attempt < max_retries - 1:
+                        print(f"Riprovo tra {retry_delay} secondi...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2
+                        continue
+                    raise
+            
+            # Se arriviamo qui, abbiamo esaurito tutti i tentativi
+            return {
+                "final_recommendations": [16, 10, 6],  # Valori di default
+                "justification": "Tutti i tentativi di chiamata LLM sono falliti. Usando valori predefiniti.",
+                "trade_offs": "Non disponibile a causa di errori ripetuti"
+            }
         except Exception as e:
             print(f"Error in evaluator: {e}")
             return {
@@ -723,33 +760,89 @@ class RecommenderSystem:
             # Esegui i recommender per ogni metrica
             metric_results = await self.run_metric_recommenders()
             
-            # Valuta e combina i risultati
-            final_evaluation = await self.evaluate_results(metric_results)
+            # Prepara il file per il salvataggio
+            os.makedirs("experiments", exist_ok=True)
+            filename = f"experiments/experiment_{experiment_name}.json"
             
-            # Crea il risultato con informazioni sull'esperimento
+            try:
+                # Valuta e combina i risultati
+                final_evaluation = await self.evaluate_results(metric_results)
+                
+                # Crea il risultato con informazioni sull'esperimento
+                result = {
+                    "timestamp": datetime.now().isoformat(),
+                    "experiment_info": {
+                        "name": experiment_name,
+                        "prompt_variants": prompt_variants
+                    },
+                    "metric_recommendations": metric_results,
+                    "final_evaluation": final_evaluation
+                }
+                
+                # Salva il risultato
+                with open(filename, "w", encoding="utf-8") as f:
+                    json.dump(result, f, ensure_ascii=False, indent=2)
+                    
+                # Calcola e aggiungi le metriche
+                metrics = calculate_metrics_for_recommendations(metric_results, final_evaluation, filename)
+                
+                return result, filename
+                
+            except Exception as inner_e:
+                print(f"Errore durante la valutazione dell'esperimento {experiment_name}: {inner_e}")
+                
+                # Salva comunque le raccomandazioni intermedie anche se la fase di valutazione fallisce
+                result = {
+                    "timestamp": datetime.now().isoformat(),
+                    "experiment_info": {
+                        "name": experiment_name,
+                        "prompt_variants": prompt_variants,
+                        "status": "incomplete",
+                        "error": str(inner_e)
+                    },
+                    "metric_recommendations": metric_results,
+                    "final_evaluation": {
+                        "final_recommendations": [],
+                        "justification": f"Errore durante la valutazione: {str(inner_e)}",
+                        "trade_offs": "Non disponibile a causa di errori"
+                    }
+                }
+                
+                # Salva il risultato parziale
+                with open(filename, "w", encoding="utf-8") as f:
+                    json.dump(result, f, ensure_ascii=False, indent=2)
+                
+                print(f"Salvate raccomandazioni intermedie in: {filename}")
+                return result, filename
+                
+        except Exception as e:
+            print(f"Errore fatale durante l'esperimento {experiment_name}: {e}")
+            
+            # Crea un file di risultato anche in caso di errore
             result = {
                 "timestamp": datetime.now().isoformat(),
                 "experiment_info": {
                     "name": experiment_name,
-                    "prompt_variants": prompt_variants
-                },
-                "metric_recommendations": metric_results,
-                "final_evaluation": final_evaluation
+                    "prompt_variants": prompt_variants,
+                    "status": "failed",
+                    "error": str(e)
+                }
             }
             
-            # Salva il risultato
+            # Salva il risultato di errore
             os.makedirs("experiments", exist_ok=True)
-            filename = f"experiments/experiment_{experiment_name}.json"
+            filename = f"experiments/experiment_{experiment_name}_failed.json"
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
-                
+            
+            print(f"Log dell'errore salvato in: {filename}")
             return result, filename
             
         finally:
             # Ripristina le varianti di prompt originali
-            for metric, prompt in original_variants.items():
-                PROMPT_VARIANTS[metric] = prompt
-                
+            PROMPT_VARIANTS.clear()
+            PROMPT_VARIANTS.update(original_variants)
+            
             # Ricostruisci gli agent con i prompt originali
             self.metric_tools = build_metric_agents()
             self.all_tools = self.metric_tools + [self.evaluator_tool]
@@ -929,6 +1022,7 @@ class ExperimentReporter:
                 .metric {{ margin-bottom: 20px; }}
                 pre {{ background-color: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }}
                 .chart {{ margin: 20px 0; width: 100%; height: 300px; }}
+                .metrics-table {{ margin-top: 10px; }}
             </style>
         </head>
         <body>
@@ -1026,48 +1120,158 @@ class ExperimentReporter:
                 <pre>{json.dumps(exp.get('experiment_info', {}).get('prompt_variants', {}), indent=2, ensure_ascii=False)}</pre>
                 
                 <h4>Raccomandazioni per Metrica</h4>
+            """
+            
+            # Aggiungi le raccomandazioni per utente e metrica
+            for user_id, user_metrics in exp.get('metric_recommendations', {}).items():
+                html += f"""
+                <h5>Utente {user_id}</h5>
                 <table>
                     <tr>
                         <th>Metrica</th>
                         <th>Raccomandazioni</th>
                         <th>Spiegazione</th>
                     </tr>
-            """
-            
-            # Aggiungi le raccomandazioni per metrica
-            for metric, data in exp.get('metric_recommendations', {}).items():
-                html += f"""
+                """
+                
+                # Itera su ciascuna metrica per questo utente
+                for metric_name, metric_data in user_metrics.items():
+                    html += f"""
                     <tr>
-                        <td>{metric}</td>
-                        <td>{data.get('recommendations', [])}</td>
-                        <td>{data.get('explanation', 'N/A')}</td>
+                        <td>{metric_name}</td>
+                        <td>{metric_data.get('recommendations', [])}</td>
+                        <td>{metric_data.get('explanation', 'N/A')}</td>
                     </tr>
+                    """
+                
+                html += """
+                </table>
                 """
             
-            html += """
-                </table>
+            # Aggiungi le metriche calcolate se presenti
+            if 'metrics' in exp:
+                html += """
+                <h4>Metriche Calcolate</h4>
+                """
                 
+                # Metriche per precision@k
+                html += """
+                <h5>Precision@K</h5>
+                <table class="metrics-table">
+                    <tr>
+                        <th>Metrica</th>
+                        <th>Valore</th>
+                    </tr>
+                """
+                precision_metrics = exp['metrics']['precision_at_k']
+                html += f"""
+                    <tr>
+                        <td>Precision Score</td>
+                        <td>{precision_metrics['precision_score']:.4f}</td>
+                    </tr>
+                    <tr>
+                        <td>Total Coverage</td>
+                        <td>{precision_metrics['total_coverage']:.4f}</td>
+                    </tr>
+                    <tr>
+                        <td>Genre Coverage</td>
+                        <td>{precision_metrics['genre_coverage']:.4f}</td>
+                    </tr>
+                </table>
+                """
+                
+                # Metriche per coverage
+                html += """
+                <h5>Coverage</h5>
+                <table class="metrics-table">
+                    <tr>
+                        <th>Metrica</th>
+                        <th>Valore</th>
+                    </tr>
+                """
+                coverage_metrics = exp['metrics']['coverage']
+                html += f"""
+                    <tr>
+                        <td>Precision Score</td>
+                        <td>{coverage_metrics['precision_score']:.4f}</td>
+                    </tr>
+                    <tr>
+                        <td>Total Coverage</td>
+                        <td>{coverage_metrics['total_coverage']:.4f}</td>
+                    </tr>
+                    <tr>
+                        <td>Genre Coverage</td>
+                        <td>{coverage_metrics['genre_coverage']:.4f}</td>
+                    </tr>
+                </table>
+                """
+                
+                # Metriche per raccomandazioni finali
+                html += """
+                <h5>Raccomandazioni Finali</h5>
+                <table class="metrics-table">
+                    <tr>
+                        <th>Metrica</th>
+                        <th>Valore</th>
+                    </tr>
+                """
+                final_metrics = exp['metrics']['final_recommendations']
+                html += f"""
+                    <tr>
+                        <td>Precision Score</td>
+                        <td>{final_metrics['precision_score']:.4f}</td>
+                    </tr>
+                    <tr>
+                        <td>Total Coverage</td>
+                        <td>{final_metrics['total_coverage']:.4f}</td>
+                    </tr>
+                    <tr>
+                        <td>Genre Coverage</td>
+                        <td>{final_metrics['genre_coverage']:.4f}</td>
+                    </tr>
+                </table>
+                """
+                
+                # Coverage totale del sistema
+                html += """
+                <h5>Coverage Totale del Sistema</h5>
+                <table class="metrics-table">
+                    <tr>
+                        <th>Metrica</th>
+                        <th>Valore</th>
+                    </tr>
+                """
+                system_metrics = exp['metrics']['system_coverage']
+                html += f"""
+                    <tr>
+                        <td>Total Coverage</td>
+                        <td>{system_metrics['total_coverage']:.4f}</td>
+                    </tr>
+                    <tr>
+                        <td>Genre Coverage</td>
+                        <td>{system_metrics['genre_coverage']:.4f}</td>
+                    </tr>
+                </table>
+                """
+            
+            html += f"""
                 <h4>Valutazione Finale</h4>
                 <table>
                     <tr>
                         <th>Raccomandazioni Finali</th>
-                        <td>{}</td>
+                        <td>{exp.get('final_evaluation', {}).get('final_recommendations', [])}</td>
                     </tr>
                     <tr>
                         <th>Giustificazione</th>
-                        <td>{}</td>
+                        <td>{exp.get('final_evaluation', {}).get('justification', 'N/A')}</td>
                     </tr>
                     <tr>
                         <th>Trade-offs</th>
-                        <td>{}</td>
+                        <td>{exp.get('final_evaluation', {}).get('trade_offs', 'N/A')}</td>
                     </tr>
                 </table>
             </div>
-            """.format(
-                exp.get('final_evaluation', {}).get('final_recommendations', []),
-                exp.get('final_evaluation', {}).get('justification', 'N/A'),
-                exp.get('final_evaluation', {}).get('trade_offs', 'N/A')
-            )
+            """
         
         html += """
         </body>
@@ -1162,12 +1366,57 @@ Data: {timestamp}
                 explanation = data.get('explanation', 'N/A').replace('\n', ' ')
                 md += f"| {metric} | {recs} | {explanation} |\n"
             
+            # Aggiungi le metriche calcolate se presenti
+            if 'metrics' in exp:
+                md += """
+#### Metriche Calcolate
+
+##### Precision@K
+
+| Metrica | Valore |
+|---------|--------|
+"""
+                precision_metrics = exp['metrics']['precision_at_k']
+                md += f"""| Precision Score | {precision_metrics['precision_score']:.4f} |
+| Total Coverage | {precision_metrics['total_coverage']:.4f} |
+| Genre Coverage | {precision_metrics['genre_coverage']:.4f} |
+
+##### Coverage
+
+| Metrica | Valore |
+|---------|--------|
+"""
+                coverage_metrics = exp['metrics']['coverage']
+                md += f"""| Precision Score | {coverage_metrics['precision_score']:.4f} |
+| Total Coverage | {coverage_metrics['total_coverage']:.4f} |
+| Genre Coverage | {coverage_metrics['genre_coverage']:.4f} |
+
+##### Raccomandazioni Finali
+
+| Metrica | Valore |
+|---------|--------|
+"""
+                final_metrics = exp['metrics']['final_recommendations']
+                md += f"""| Precision Score | {final_metrics['precision_score']:.4f} |
+| Total Coverage | {final_metrics['total_coverage']:.4f} |
+| Genre Coverage | {final_metrics['genre_coverage']:.4f} |
+
+##### Coverage Totale del Sistema
+
+| Metrica | Valore |
+|---------|--------|
+"""
+                system_metrics = exp['metrics']['system_coverage']
+                md += f"""| Total Coverage | {system_metrics['total_coverage']:.4f} |
+| Genre Coverage | {system_metrics['genre_coverage']:.4f} |
+"""
+            
             md += f"""
 #### Valutazione Finale
 
 - **Raccomandazioni Finali**: {exp.get('final_evaluation', {}).get('final_recommendations', [])}
-- **Giustificazione**: {exp.get('final_evaluation', {}).get('justification', 'N/A').replace('\n', ' ')}
-- **Trade-offs**: {exp.get('final_evaluation', {}).get('trade_offs', 'N/A').replace('\n', ' ')}
+- **Giustificazione**: {exp.get('final_evaluation', {}).get('justification', 'N/A')}
+- **Trade-offs**: {exp.get('final_evaluation', {}).get('trade_offs', 'N/A')}
 
 """
         

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-04-29T19:00:45.910687",
+  "timestamp": "2025-05-02T18:51:37.512450",
   "experiment_info": {
     "name": "coverage_genre_balance",
     "prompt_variants": {
@@ -7,32 +7,75 @@
     }
   },
   "metric_recommendations": {
-    "precision_at_k": {
-      "metric": "precision_at_k",
-      "recommendations": [
-        1,
-        2,
-        17
-      ],
-      "explanation": "Toy Story è un classico animato di Pixar molto apprezzato, Jumanji è un film di avventura e fantasia che ha avuto un grande successo presso il pubblico, e Sense and Sensibility è un classico del genere Romance, basato su un romanzo di Jane Austen."
+    "1": {
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          1183,
+          24,
+          1962
+        ],
+        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici, con un focus su temi profondi e storie coinvolgenti. 'The English Patient' (1183) è un film drammatico e romantico che ha vinto numerosi premi e che probabilmente risuonerà con le preferenze dell'utente per storie emotivamente intense. 'Powder' (24) è un film drammatico con elementi di fantascienza che esplora temi di accettazione e differenza, simile a molti dei film che l'utente ha apprezzato. Infine, 'Forrest Gump' (1962) è un film drammatico che racconta una storia di vita toccante e ricca di emozioni, elementi che l'utente ha chiaramente apprezzato in altri film."
+      },
+      "coverage": {
+        "metric": "coverage",
+        "recommendations": [
+          196,
+          1609,
+          2571
+        ],
+        "explanation": "I film raccomandati coprono una vasta gamma di generi cinematografici per massimizzare la copertura. 'Species' (Horror|Sci-Fi) offre una combinazione unica di horror e fantascienza. '187' (Drama) rappresenta il genere drammatico. 'The Matrix' (Action|Sci-Fi|Thriller) copre l'azione, la fantascienza e il thriller, garantendo una copertura ampia e bilanciata dei generi."
+      }
     },
-    "coverage": {
-      "metric": "coverage",
-      "recommendations": [
-        1,
-        8,
-        13
-      ],
-      "explanation": "L'obiettivo è rappresentare l'ampiezza del catalogo con sole 3 raccomandazioni. Ho scelto Toy Story (Animazione) per rappresentare il genere Animation, Tom and Huck (Avventura) per rappresentare il genere Children's e Balto (Animazione) per rappresentare un genere completamente diverso."
+    "2": {
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          1183,
+          527,
+          1186
+        ],
+        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici con temi storici e sentimentali. 'The English Patient' (1183) è un film drammatico e romantico ambientato durante la Seconda Guerra Mondiale, che corrisponde ai gusti dell'utente per i film storici e sentimentali. 'Schindler's List' (527) è un altro film drammatico e storico che ha ricevuto grande apprezzamento per la sua profondità emotiva e narrativa, elementi che l'utente sembra apprezzare. 'Sex, Lies, and Videotape' (1186) è un film drammatico che esplora temi di relazioni e segreti, il che si allinea con la preferenza dell'utente per film che approfondiscono le dinamiche umane e le emozioni."
+      },
+      "coverage": {
+        "metric": "coverage",
+        "recommendations": [
+          1,
+          196,
+          28
+        ],
+        "explanation": "La raccomandazione comprende film di generi completamente diversi per massimizzare la copertura del catalogo. 'Toy Story' rappresenta il genere Animation|Children's|Comedy, 'Species' rappresenta il genere Horror|Sci-Fi, e 'The Matrix' rappresenta il genere Action|Sci-Fi|Thriller. Questi film coprono un'ampia gamma di generi cinematografici, garantendo una vasta copertura del catalogo."
+      }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      1,
-      8,
-      17
+      1183,
+      527,
+      1609
     ],
-    "justification": "Ho scelto Toy Story (1995) perché è un film di animazione molto apprezzato, Tom and Huck (1995) per rappresentare l'ampiezza del catalogo con un film di avventura e children's, e Sense and Sensibility (1995) per rappresentare il genere Romance e bilanciare la precisione con un film di maggiore successo presso il pubblico.",
-    "trade_offs": "Ho considerato i trade-off tra precisione e ampiezza del catalogo. Ho scelto di privilegiare la precisione, ma ho anche cercato di rappresentare un'ampiezza sufficiente del catalogo con solo 3 raccomandazioni. Ho scelto di sacrificare la precisione solo con una raccomandazione della metrica coverage, cioè Balto (1995), perché non era presente tra le raccomandazioni della metrica precision@k e non avrebbe aggiunto altro valore alla lista, dato che già sono presenti un film da ciascun genere che sono stati raccomandati sia dalla precision@k che dalla metrica coverage."
+    "justification": "Ho scelto 'The English Patient' (1183) perché è stato raccomandato da entrambi i sistemi di precision_at_k, indicando una forte rilevanza per le preferenze dell'utente per film drammatici e romantici con temi profondi e storie coinvolgenti. 'Schindler's List' (527) è stato selezionato per la sua profondità emotiva e narrativa, elementi che l'utente sembra apprezzare, e perché è stato raccomandato dal sistema di precision_at_k che si concentra su film drammatici e storici. Infine, '187' (1609) è stato scelto per massimizzare la copertura del catalogo, rappresentando il genere drammatico e offrendo una varietà che potrebbe interessare l'utente.",
+    "trade_offs": "Il trade-off principale considerato è stato bilanciare la precisione delle raccomandazioni con la copertura del catalogo. 'The English Patient' e 'Schindler's List' sono stati scelti per la loro alta precisione, mentre '187' è stato incluso per garantire una copertura ampia e bilanciata dei generi. Questo approccio mira a soddisfare sia le preferenze specifiche dell'utente che la necessità di esplorare nuovi generi."
+  },
+  "metrics": {
+    "precision_at_k": {
+      "precision_score": 0.0,
+      "total_coverage": 0.0,
+      "genre_coverage": 0.0
+    },
+    "coverage": {
+      "precision_score": 0.0,
+      "total_coverage": 0.0,
+      "genre_coverage": 0.0
+    },
+    "final_recommendations": {
+      "precision_score": 0.3333333333333333,
+      "total_coverage": 0.03,
+      "genre_coverage": 0.0625
+    },
+    "system_coverage": {
+      "total_coverage": 0.03,
+      "genre_coverage": 0.0625
+    }
   }
 }

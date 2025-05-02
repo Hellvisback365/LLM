@@ -1,0 +1,49 @@
+=== MODULE DEBUG TRACE - 2025-05-02T16:11:29.876022 ===
+
+[2025-05-02 16:11:29.876258] Starting simplified test of recommender system
+[2025-05-02 16:11:29.877143] Loading datasets
+[2025-05-02 16:11:35.263764] Loaded data: 3883 movies, 2 user profiles
+[2025-05-02 16:11:35.265314] Creating test catalog from the first 20 movies
+[2025-05-02 16:11:35.266365] Saving movies catalog for metrics_calculator
+[2025-05-02 16:11:35.268024] Creating test user profile
+[2025-05-02 16:11:35.268851] Creating LLMService instance
+[2025-05-02 16:11:35.269435] Building metric chains
+[2025-05-02 16:11:35.270101] CALL src.recommender.api.llm_service.build_metric_chains
+[2025-05-02 16:11:35.270650] CALL src.recommender.api.llm_service._create_llm
+[2025-05-02 16:11:35.723140] RETURN src.recommender.api.llm_service._create_llm -> <class 'langchain_openai.chat_models.base.ChatOpenAI'>
+[2025-05-02 16:11:35.724122] CALL src.recommender.api.llm_service.make_prompt_with_parser
+[2025-05-02 16:11:35.724809] RETURN src.recommender.api.llm_service.make_prompt_with_parser -> <class 'tuple'>
+[2025-05-02 16:11:35.725741] CALL src.recommender.api.llm_service.make_prompt_with_parser
+[2025-05-02 16:11:35.726936] RETURN src.recommender.api.llm_service.make_prompt_with_parser -> <class 'tuple'>
+[2025-05-02 16:11:35.727638] RETURN src.recommender.api.llm_service.build_metric_chains -> <class 'tuple'>
+[2025-05-02 16:11:35.728615] Generating recommendations for accuracy metric
+[2025-05-02 16:11:35.729320] ASYNC CALL LLMService.generate_recommendations
+[2025-05-02 16:11:39.249326] ASYNC RETURN LLMService.generate_recommendations -> <class 'tuple'>
+[2025-05-02 16:11:39.251008] Accuracy recommendations: [2, 1, 8, 10, 6, 20, 15, 19, 17, 16]
+[2025-05-02 16:11:39.251995] Building evaluator chain
+[2025-05-02 16:11:39.252891] CALL src.recommender.api.llm_service.build_evaluator_chain
+[2025-05-02 16:11:39.253722] CALL src.recommender.api.llm_service._create_llm
+[2025-05-02 16:11:39.806073] RETURN src.recommender.api.llm_service._create_llm -> <class 'langchain_openai.chat_models.base.ChatOpenAI'>
+[2025-05-02 16:11:39.808105] RETURN src.recommender.api.llm_service.build_evaluator_chain -> <class 'tuple'>
+[2025-05-02 16:11:39.809046] Evaluating recommendations
+[2025-05-02 16:11:39.809658] ASYNC CALL LLMService.evaluate_recommendations
+[2025-05-02 16:11:44.243898] ASYNC RETURN LLMService.evaluate_recommendations -> <class 'dict'>
+[2025-05-02 16:11:44.245422] Evaluation result: {'final_recommendations': [2, 1, 8, 6, 15, 19, 4, 5], 'justification': "La lista finale di raccomandazioni è stata creata bilanciando accuracy, diversity e novelty. Sono stati inclusi elementi che hanno un alto grado di precisione rispetto alle preferenze dell'utente (2, 1, 8, 6, 15, 19), ma sono stati anche aggiunti elementi per garantire una maggiore diversità di generi (4, 5). Questo approccio assicura che le raccomandazioni siano non solo accurate, ma anche variegate, migliorando l'esperienza complessiva dell'utente."}
+[2025-05-02 16:11:44.246660] Creating mock ratings data for metrics calculation
+[2025-05-02 16:11:44.247636] Calculating metrics
+[2025-05-02 16:11:44.254998] Metrics calculated: ['precision_at_k', 'coverage', 'final_recommendations', 'total_coverage', 'genre_information']
+[2025-05-02 16:11:44.255473] Adding metrics to results file
+[2025-05-02 16:11:44.268683] Metrics added to results: True
+[2025-05-02 16:11:44.269271] 
+DEBUG SUMMARY:
+[2025-05-02 16:11:44.270097] 1. LLMService methods called:
+[2025-05-02 16:11:44.270698]    - __init__
+[2025-05-02 16:11:44.271220]    - build_metric_chains
+[2025-05-02 16:11:44.271677]    - generate_recommendations
+[2025-05-02 16:11:44.272013]    - build_evaluator_chain
+[2025-05-02 16:11:44.272650]    - evaluate_recommendations
+[2025-05-02 16:11:44.273095] 2. metrics_calculator functions called:
+[2025-05-02 16:11:44.273737]    - calculate_metrics_for_recommendations
+[2025-05-02 16:11:44.274119]    - add_metrics_to_results
+[2025-05-02 16:11:44.274616] 
+Both modules are actively used during execution and contribute to the final results
