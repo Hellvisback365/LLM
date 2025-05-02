@@ -1,4 +1,3 @@
-
 """
 Sistema di raccomandazione multi-metrica.
 
@@ -89,7 +88,7 @@ class RecommenderSystem:
                 
                 # Prepara il catalogo ottimizzato per il LLM
                 print("\n=== Preparazione del catalogo ottimizzato per RAG ===\n")
-                self.rag = MovieRAG(model_name=self.model_name)
+                self.rag = MovieRAG()
                 
                 # Converti movies DataFrame in lista di dizionari
                 movies_list = self.movies.to_dict('records')

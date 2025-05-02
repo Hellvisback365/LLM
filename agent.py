@@ -90,7 +90,7 @@ def load_datasets(force_reload=False):
             
             # Prepara il catalogo ottimizzato per il LLM
             print("\n=== Preparazione del catalogo ottimizzato per RAG ===\n")
-            rag = MovieRAG(model_name=LLM_MODEL_ID)
+            rag = MovieRAG()
             
             # Converti movies DataFrame in lista di dizionari
             movies_list = movies.to_dict('records')
@@ -146,13 +146,19 @@ def get_optimized_catalog(limit=50):
 PROMPT_VARIANTS = {
     "precision_at_k": (
         "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. "
-        "Data una lista di film, consiglia i 3 film più rilevanti SPECIFICAMENTE per l'utente di cui stai analizzando il profilo. "
-        "Massimizza la proporzione di film raccomandati che saranno effettivamente apprezzati DA QUESTO SPECIFICO UTENTE. "
-        "La precision@k misura la frazione di film raccomandati che l'utente valuterebbe positivamente. "
-        "Concentrati sulle preferenze specifiche dell'utente evidenziate nel suo profilo (film graditi e non graditi). "
-        "IMPORTANTE: Assicurati che le tue raccomandazioni siano altamente personalizzate per questo utente, non per un utente generico. "
-        "Analizza attentamente quali generi, attori o temi sembrano piacere all'utente dai film che ha gradito. "
-        "NON raccomandare più di 3 film."
+        "Il tuo obiettivo è raccomandare film che l'utente valuterà con un rating 4 o 5 su 5. "
+        "Analizza attentamente il profilo dell'utente e concentrati sui seguenti elementi:\n"
+        "1. Generi che l'utente ha costantemente valutato con punteggi elevati\n"
+        "2. Attributi specifici (attori, registi, temi, epoche) presenti nei film apprezzati\n"
+        "3. Modelli nelle valutazioni negative per evitare film simili\n\n"
+        "La precision@k misura quanti dei film raccomandati saranno effettivamente valutati positivamente. "
+        "Quando analizzi il catalogo, presta particolare attenzione a:\n"
+        "- Corrispondenza di genere con i film valutati positivamente\n"
+        "- Somiglianza tematica e stilistica ai film preferiti\n"
+        "- Evita film simili a quelli che l'utente non ha apprezzato\n\n"
+        "NON raccomandare film in base alla popolarità generale o alle tendenze, a meno che queste "
+        "caratteristiche non si allineino alle preferenze specifiche di questo utente. "
+        "Fornisci ESATTAMENTE 3 film che l'utente molto probabilmente valuterà positivamente."
     ),
     "coverage": (
         "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE. "
@@ -479,7 +485,7 @@ class RecommenderSystem:
         movies_list = movies_df.to_dict('records')
 
         # Inizializza vero RAG
-        self.rag = MovieRAG(model_name=LLM_MODEL_ID)
+        self.rag = MovieRAG()
         self.rag.load_or_create_vector_store(movies_list)
 
         self.agent = initialize_agent(
@@ -503,9 +509,19 @@ class RecommenderSystem:
                 "disliked_movies": profile["disliked_movies"]
             }, ensure_ascii=False)
 
-            # Usa RAG per ottenere cataloghi specifici
-            catalog_precision = self.rag.similarity_search(profile_summary, k=100, metric_focus="precision_at_k")
-            catalog_coverage = self.rag.similarity_search("diversi generi " + profile_summary, k=100, metric_focus="coverage")
+            # Usa RAG per ottenere cataloghi specifici, passando l'ID utente
+            catalog_precision = self.rag.similarity_search(
+                profile_summary, 
+                k=100, 
+                metric_focus="precision_at_k",
+                user_id=int(user_id)  # Passiamo l'ID utente per personalizzare il riordino
+            )
+            catalog_coverage = self.rag.similarity_search(
+                "diversi generi " + profile_summary, 
+                k=100, 
+                metric_focus="coverage",
+                user_id=int(user_id)  # Passiamo l'ID utente per coerenza
+            )
             # unisci
             merged_catalog = self.rag.merge_catalogs(catalog_precision, catalog_coverage)
             catalog_json = json.dumps(merged_catalog, ensure_ascii=False)

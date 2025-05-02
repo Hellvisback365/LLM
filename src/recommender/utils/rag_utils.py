@@ -7,7 +7,7 @@ import re
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import DataFrameLoader
 from langchain.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain.schema import Document
 from dotenv import load_dotenv
 import random
@@ -30,20 +30,11 @@ class MovieRAG:
     Implementazione semplificata che non richiede embeddings esterni
     """
     
-    def __init__(self, model_name: str = "mistralai/mistral-large-2411"):
-        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-        # Chiave diversa per embeddings OpenAI ufficiale (text-embedding-3-small)
+    def __init__(self):
+        # Chiave per embeddings OpenAI ufficiale (text-embedding-3-small)
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         if self.openai_api_key is None:
             print("[WARN] Variabile d'ambiente OPENAI_API_KEY non trovata. Le embeddings potrebbero fallire.")
-        self.model_name = model_name
-        self.llm = ChatOpenAI(
-            model=model_name,
-            openai_api_base="https://openrouter.ai/api/v1",
-            openai_api_key=self.openrouter_api_key,
-            temperature=0.7,
-            max_tokens=512,
-        )
         self.metrics_definitions = self._load_or_generate_metrics_definitions()
         self.movies_df = None
         # NEW: structures for real retrieval
@@ -111,12 +102,12 @@ class MovieRAG:
         # tokenize semplice
         self.corpus_tokens = [doc.split() for doc in corpus]
         self.bm25 = BM25Okapi(self.corpus_tokens)
-
+        
     def load_or_create_vector_store(self, movies: List[Dict[str, Any]], force_recreate: bool = False):
         """Carica o crea indice vettoriale + BM25 e salva catalogo."""
         # Inizializza DataFrame interno
         self.initialize_data(movies)
-
+        
         # Costruisci embeddings + FAISS
         self._build_embeddings(movies, force=force_recreate)
 
@@ -284,7 +275,7 @@ class MovieRAG:
     # ------------------------------------------------------------------
     # HYBRID SIMILARITY SEARCH + RERANKING
     # ------------------------------------------------------------------
-    def similarity_search(self, query: str, k: int = 20, metric_focus: str = "precision_at_k") -> List[Dict[str, Any]]:
+    def similarity_search(self, query: str, k: int = 20, metric_focus: str = "precision_at_k", user_id: int = None) -> List[Dict[str, Any]]:
         """Recupero ibrido (BM25 + FAISS) poi rerank."""
 
         if self.vector_store is None or self.bm25 is None:
@@ -309,15 +300,15 @@ class MovieRAG:
                 merged_ids.append(_id)
                 seen.add(_id)
             if len(merged_ids) >= k*2:
-                break
-
-        # 4) Rerank secondo la metrica (precision vs coverage)
-        reranked_ids = self._rerank_by_metric(merged_ids, metric_focus)
+                    break
+        
+        # 4) Rerank secondo la metrica (precision vs coverage) - Ora passiamo user_id
+        reranked_ids = self._rerank_by_metric(merged_ids, metric_focus, user_id)
 
         return self._get_movies_by_ids(reranked_ids[:k])
 
-    def _rerank_by_metric(self, movie_ids: List[int], metric_focus: str) -> List[int]:
-        """Semplice reranker: se coverage ordina per generi unici, se precision per popolarità."""
+    def _rerank_by_metric(self, movie_ids: List[int], metric_focus: str, user_id: int = None) -> List[int]:
+        """Reranker avanzato: se coverage ordina per generi unici, se precision per rilevanza per utente specifico."""
         if metric_focus == "coverage":
             # preferisci film che introducono nuovi generi
             genre_seen = set()
@@ -334,8 +325,49 @@ class MovieRAG:
             # sort desc by new_genres
             scored.sort(key=lambda x: x[1], reverse=True)
             return [mid for mid, _ in scored]
-        else:
-            # precision: ordina per numero valutazioni (popolarità) se disponibile
+        else:  # precision@k
+            # Se user_id è fornito, usa similarità basata sui contenuti personalizzata per l'utente
+            if user_id is not None:
+                ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
+                if os.path.exists(ratings_path):
+                    user_ratings = pd.read_csv(ratings_path)
+                    user_ratings = user_ratings[user_ratings['user_id'] == user_id]
+                    
+                    # Ottieni i film piaciuti all'utente (rating >= 4)
+                    liked_movie_ids = user_ratings[user_ratings['rating'] >= 4]['movie_id'].tolist()
+                    
+                    # Se l'utente ha film che gli piacciono, usa quelli per il riordinamento
+                    if liked_movie_ids:
+                        # Estrai i generi dei film piaciuti
+                        liked_genres = set()
+                        for mid in liked_movie_ids:
+                            movie = self.movies_df[self.movies_df['movie_id'] == mid]
+                            if not movie.empty:
+                                liked_genres.update(movie.iloc[0]['genres'].split('|'))
+                        
+                        # Calcola punteggi per i film candidati in base alla sovrapposizione di generi
+                        scored = []
+                        for mid in movie_ids:
+                            movie = self.movies_df[self.movies_df['movie_id'] == mid]
+                            if movie.empty:
+                                continue
+                            
+                            # Calcola sovrapposizione di generi
+                            movie_genres = set(movie.iloc[0]['genres'].split('|'))
+                            overlap = len(movie_genres.intersection(liked_genres))
+                            
+                            # Calcola popolarità (fattore secondario)
+                            popularity = len(user_ratings[user_ratings['movie_id'] == mid])
+                            
+                            # Punteggio combinato: primario è overlap, secondario è popolarità
+                            score = (overlap, popularity)
+                            scored.append((mid, score))
+                        
+                        # Ordina per sovrapposizione (decrescente), poi per popolarità (decrescente)
+                        scored.sort(key=lambda x: (x[1][0], x[1][1]), reverse=True)
+                        return [mid for mid, _ in scored]
+            
+            # Fallback al ranking basato sulla popolarità generale (comportamento originale)
             ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
             if os.path.exists(ratings_path):
                 rating_counts = pd.read_csv(ratings_path)['movie_id'].value_counts()
@@ -473,12 +505,12 @@ class MovieRAG:
         # Utilizza retrieval ibrido per entrambe le metriche
         precision_catalog = self.similarity_search("film popolari rilevanti precision", k=limit, metric_focus="precision_at_k")
         coverage_catalog = self.similarity_search("diversi generi film", k=limit, metric_focus="coverage")
-
+        
         merged_catalog = self.merge_catalogs(precision_catalog, coverage_catalog)
-
+        
         if limit and len(merged_catalog) > limit:
             merged_catalog = merged_catalog[:limit]
-
+        
         return json.dumps(merged_catalog, ensure_ascii=False)
 
 

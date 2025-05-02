@@ -3,40 +3,40 @@
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
-        1408,
-        141,
-        2231
+        910,
+        1307,
+        505
       ],
-      "explanation": "L'utente ha mostrato una preferenza per film drammatici e romantici. 'The Last of the Mohicans' (ID 1408) e 'Benny & Joon' (ID 141) sono film drammatici con elementi romantici, mentre 'Rounders' (ID 2231) è un film drammatico con elementi di crime, un genere che l'utente sembra apprezzare. Queste raccomandazioni sono state scelte per massimizzare la precisione delle scelte, basandosi sui film che l'utente ha gradito."
+      "explanation": "L'utente ha dimostrato un forte apprezzamento per film di genere Comedy e Drama, spesso con elementi di Romance. Il film 'Some Like It Hot' (910) è una classica commedia romantica che si allinea perfettamente con queste preferenze. 'When Harry Met Sally...' (1307) è un altro eccellente esempio di commedia romantica che ha ottenuto grande acclamazione. 'North' (505) è una commedia che, sebbene meno nota, potrebbe piacere all'utente data la sua inclinazione verso questo genere."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
-        196,
-        70,
-        1632
+        17,
+        21,
+        1613
       ],
-      "explanation": "L'utente ha apprezzato film come 'Ben-Hur' (1287), che è un film d'azione, avventura e dramma. Per coprire generi diversi ma allineati con i gusti dell'utente, raccomandiamo 'Species' (196), un film horror e sci-fi, 'From Dusk Till Dawn' (70), un film d'azione, commedia, crimine, horror e thriller, e 'A Smile Like Yours' (1632), una commedia romantica. Questi film espandono la copertura dei generi cinematografici, mantenendo comunque la rilevanza con le preferenze dell'utente."
+      "explanation": "L'utente ha apprezzato una varietà di film, inclusi generi come Drama, Comedy e Romance. Per massimizzare la copertura e mantenere la rilevanza, raccomando i seguenti film: 'Sense and Sensibility' (Drama|Romance), 'Get Shorty' (Action|Comedy|Drama) e 'Star Maps' (Drama). Questi film coprono diversi generi e offrono una buona esplorazione del catalogo, riducendo il rischio di filter bubble."
     }
   },
   "2": {
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
-        324,
-        3302,
-        3873
+        1440,
+        2418,
+        3481
       ],
-      "explanation": "L'utente sembra apprezzare film di genere Comedy e Drama, come si evince dai film graditi nel suo profilo. I film raccomandati sono stati selezionati perché combinano questi generi, aumentando la probabilità che l'utente li valuti positivamente."
+      "explanation": "L'utente ha mostrato una forte preferenza per i film di genere Comedy. 'Amos & Andrew' (1440) e 'Nothing in Common' (2418) sono film comici che si allineano bene con questa preferenza. Inoltre, 'High Fidelity' (3481) è un film di commedia che potrebbe piacere all'utente grazie al suo stile e al tono simile a quelli dei film comici apprezzati dall'utente."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
-        1446,
-        2606,
-        3755
+        21,
+        1371,
+        2571
       ],
-      "explanation": "L'utente ha mostrato un apprezzamento per vari generi, tra cui commedia, dramma e azione. Per massimizzare la copertura e introdurre nuovi generi, raccomando 'Kolya' (1446) che è una commedia drammatica, 'Idle Hands' (2606) che combina commedia e horror, e 'The Perfect Storm' (3755) che è un film d'azione e avventura. Questi film non solo coprono generi diversi, ma rispecchiano anche le preferenze dell'utente per storie coinvolgenti e commedie."
+      "explanation": "L'utente ha mostrato interesse per film drammatici e commedie. 'Get Shorty' (ID 21) è un film che combina azione, commedia e dramma, offrendo una miscela di generi che l'utente potrebbe apprezzare. 'Star Trek: The Motion Picture' (ID 1371) è un film di azione, avventura e fantascienza, che aggiunge un elemento di esplorazione spaziale e fantascienza, un genere che non è così presente tra i film apprezzati dall'utente. Infine, 'The Matrix' (ID 2571) è un film di azione, fantascienza e thriller, che porta un'esperienza visiva e narrativa unica, espandendo ulteriormente la copertura dei generi per l'utente."
     }
   }
 }
