@@ -1,0 +1,82 @@
+{
+  "timestamp": "2025-05-02T21:02:54.949213",
+  "experiment_info": {
+    "name": "combined_serendipity_temporal",
+    "prompt_variants": {
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY. Data una lista di film, consiglia i 3 film più rilevanti che potrebbero sorprendere positivamente l'utente. La precision@k misura la frazione di film raccomandati che l'utente valuterebbe positivamente. La serendipity si riferisce a raccomandazioni inaspettate ma gradite. Cerca di bilanciare film popolari con scoperte inaspettate di alta qualità. NON raccomandare più di 3 film.",
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diverse epoche. La coverage temporale misura la capacità di raccomandare film di periodi storici diversi. Seleziona film di decenni diversi, possibilmente distanti tra loro. L'obiettivo è rappresentare l'ampiezza storica del catalogo con sole 3 raccomandazioni. NON raccomandare più di 3 film."
+    }
+  },
+  "metric_recommendations": {
+    "1": {
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          2797,
+          1371,
+          1912
+        ],
+        "explanation": "Le raccomandazioni sono state fatte per bilanciare film popolari con scoperte inaspettate di alta qualità. 'Big' è un film molto apprezzato che potrebbe piacere all'utente. 'Star Trek: The Motion Picture' aggiunge un elemento di fantascienza che potrebbe sorprendere positivamente l'utente. Infine, 'Out of Sight' è un film che combina azione, crimine e romance, offrendo una miscela di generi che l'utente potrebbe apprezzare."
+      },
+      "coverage": {
+        "metric": "coverage",
+        "recommendations": [
+          3334,
+          1088,
+          2946
+        ],
+        "explanation": "Questi film sono stati selezionati per massimizzare la copertura temporale. 'Key Largo' (1948) rappresenta gli anni '40, 'Dirty Dancing' (1987) gli anni '80 e 'Help!' (1965) gli anni '60. Questi film coprono tre decenni diversi e distanti tra loro, offrendo una vasta gamma storica nel catalogo."
+      }
+    },
+    "2": {
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          2571,
+          3897,
+          3742
+        ],
+        "explanation": "Le raccomandazioni sono ottimizzate per PRECISION@K con un focus sulla serendipity. 'The Matrix' è un film di fantascienza innovativo che potrebbe sorprendere positivamente l'utente. 'Almost Famous' è un film drammatico con elementi di commedia e musica, che offre una storia coinvolgente. 'The Battleship Potemkin' è un classico del cinema muto, che potrebbe offrire una prospettiva storica interessante e inaspettata per l'utente."
+      },
+      "coverage": {
+        "metric": "coverage",
+        "recommendations": [
+          2256,
+          2821,
+          3742
+        ],
+        "explanation": "Ho scelto questi film per massimizzare la copertura temporale. 'Male and Female' (1919) rappresenta gli anni '10, 'The Battleship Potemkin' (1925) rappresenta gli anni '20 e 'Reds' (1981) rappresenta gli anni '80. Questa selezione copre un ampio spettro storico, offrendo all'utente una varietà di epoche cinematografiche."
+      }
+    }
+  },
+  "final_evaluation": {
+    "final_recommendations": [
+      2797,
+      3334,
+      2256
+    ],
+    "justification": "Ho scelto questi film per bilanciare le metriche di precision@k e coverage, offrendo una combinazione di film popolari, scoperte inaspettate e una vasta gamma storica. 'Big' (2797) è un film molto apprezzato che potrebbe piacere all'utente, offrendo un bilanciamento tra popolarità e qualità. 'Key Largo' (3334) rappresenta gli anni '40 e aggiunge una dimensione storica al catalogo, massimizzando la copertura temporale. Infine, 'Male and Female' (2256) rappresenta gli anni '10, offrendo una prospettiva storica unica e inaspettata, arricchendo ulteriormente la copertura temporale.",
+    "trade_offs": "Ho considerato i trade-off tra la precisione e la copertura temporale. Selezionare film solo in base alla precisione avrebbe potuto limitare la varietà storica, mentre focalizzarsi solo sulla copertura temporale avrebbe potuto sacrificare la rilevanza e la qualità percepita dei film. La combinazione scelta mira a mantenere un alto livello di rilevanza per l'utente, pur offrendo una vasta gamma storica e generi diversi, bilanciando così entrambe le metriche in modo efficace."
+  },
+  "metrics": {
+    "precision_at_k": {
+      "precision_score": 0.0,
+      "total_coverage": 0.0,
+      "genre_coverage": 0.0
+    },
+    "coverage": {
+      "precision_score": 0.0,
+      "total_coverage": 0.0,
+      "genre_coverage": 0.0
+    },
+    "final_recommendations": {
+      "precision_score": 0.6666666666666666,
+      "total_coverage": 0.03,
+      "genre_coverage": 0.0
+    },
+    "system_coverage": {
+      "total_coverage": 0.03,
+      "genre_coverage": 0.0
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "total_experiments": 5,
+  "unique_recommendations": {
+    "count": 15,
+    "items": [
+      1,
+      196,
+      2821,
+      3334,
+      295,
+      296,
+      2952,
+      1226,
+      2988,
+      2797,
+      2256,
+      1393,
+      337,
+      17,
+      25
+    ]
+  },
+  "recommendation_frequency": {
+    "2797": 1,
+    "3334": 1,
+    "2256": 1,
+    "1393": 1,
+    "25": 1,
+    "295": 1,
+    "337": 1,
+    "296": 1,
+    "2821": 1,
+    "2952": 1,
+    "17": 1,
+    "196": 1,
+    "1": 1,
+    "2988": 1,
+    "1226": 1
+  },
+  "metric_performance": {
+    "1": {
+      "total_recommendations": [],
+      "explanation_themes": {},
+      "unique_recommendations": {
+        "count": 0,
+        "items": []
+      }
+    },
+    "2": {
+      "total_recommendations": [],
+      "explanation_themes": {},
+      "unique_recommendations": {
+        "count": 0,
+        "items": []
+      }
+    }
+  }
+}

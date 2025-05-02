@@ -1,0 +1,56 @@
+[
+  {
+    "metric": "precision_at_k",
+    "prompt_hash": "precision_at_k_-3798993108885916390",
+    "prompt_excerpt": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY....",
+    "experiments_count": 2,
+    "unique_recommendations": {
+      "count": 0,
+      "items": []
+    },
+    "experiments": [
+      "combined_serendipity_temporal",
+      "precision_at_k_serendipity"
+    ]
+  },
+  {
+    "metric": "coverage",
+    "prompt_hash": "coverage_1758068259355263307",
+    "prompt_excerpt": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE. Data una lista di fi...",
+    "experiments_count": 2,
+    "unique_recommendations": {
+      "count": 0,
+      "items": []
+    },
+    "experiments": [
+      "combined_serendipity_temporal",
+      "coverage_temporal"
+    ]
+  },
+  {
+    "metric": "coverage",
+    "prompt_hash": "coverage_3458678231301025308",
+    "prompt_excerpt": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE con BILANCIAMENTO DEI GENERI. D...",
+    "experiments_count": 1,
+    "unique_recommendations": {
+      "count": 0,
+      "items": []
+    },
+    "experiments": [
+      "coverage_genre_balance"
+    ]
+  },
+  {
+    "metric": "precision_at_k",
+    "prompt_hash": "precision_at_k_-2624355987052660128",
+    "prompt_excerpt": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla RECENCY. Dat...",
+    "experiments_count": 1,
+    "unique_recommendations": {
+      "count": 0,
+      "items": []
+    },
+    "experiments": [
+      "precision_at_k_recency"
+    ]
+  }
+]

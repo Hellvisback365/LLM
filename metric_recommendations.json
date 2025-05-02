@@ -3,40 +3,40 @@
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
-        1172,
-        1307,
-        3616
+        1408,
+        1613,
+        3971
       ],
-      "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici. 'Cinema Paradiso' (1172) è un film drammatico e romantico che ha vinto numerosi premi e ha una narrazione emotiva che potrebbe risuonare con l'utente. 'When Harry Met Sally...' (1307) è una commedia romantica classica che potrebbe piacere all'utente data la sua preferenza per i film romantici. 'Loser' (3616) è una commedia romantica più recente che si allinea con il gusto dell'utente per i film drammatici e romantici."
+      "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici, spesso con elementi epici o storici. 'The Last of the Mohicans' (1408) è un film d'azione romantico ambientato in un contesto storico, che si allinea perfettamente con le preferenze dell'utente. 'Star Maps' (1613) è un dramma che esplora temi profondi e complessi, simile a film come 'The English Patient' (1183) che l'utente ha apprezzato. Infine, 'The Contender' (3971) è un dramma politico che combina elementi di tensione e dramma personale, temi che sono presenti in molti dei film preferiti dall'utente."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
-        291,
-        337,
-        702
+        171,
+        22,
+        1409
       ],
-      "explanation": "L'utente ha apprezzato film come 'Ben-Hur' (azione, avventura, dramma) e 'Seven' (crime, thriller). Per massimizzare la copertura di diversi generi, raccomando 'The City of Lost Children' (avventura, sci-fi) per esplorare il genere avventura e sci-fi, 'What's Eating Gilbert Grape' (dramma) per approfondire il genere dramma, e 'Faces' (dramma) per un'esperienza più intensa nel dramma. Queste scelte coprono generi diversi ma rimangono rilevanti per i gusti dell'utente."
+      "explanation": "L'utente ha apprezzato una varietà di film tra cui 'Toy Story (1995)' che è un film di animazione, commedia e per bambini. Per coprire una gamma più ampia di generi e mantenere la rilevanza, ho scelto 'Jeffrey (1995)' che è una commedia, 'Copycat (1995)' che è un thriller criminale e drammatico, e 'Michael (1996)' che è una commedia romantica. Questi film coprono generi diversi ma sono allineati con i gusti dell'utente, offrendo una buona copertura del catalogo disponibile."
     }
   },
   "2": {
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
-        47,
-        1183,
-        1609
+        1307,
+        1408,
+        1862
       ],
-      "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e thriller. 'Seven' (1995) è un thriller psicologico che ha ricevuto molte recensioni positive per la sua trama intricata e la tensione costante. 'The English Patient' (1996) è un film drammatico e romantico che ha vinto numerosi premi e ha una trama complessa e coinvolgente. '187' (1997) è un dramma intenso che tratta temi di violenza e redenzione, che potrebbe risuonare con l'interesse dell'utente per film drammatici e impegnativi."
+      "explanation": "L'utente ha mostrato una forte preferenza per i film di genere Drama e Romance, con alcune inclinazioni verso i film d'azione e d'avventura. Tra i film apprezzati ci sono 'When Harry Met Sally...', 'The Last of the Mohicans', e 'Species'. Quindi, i film raccomandati sono 'When Harry Met Sally...' per la sua forte componente romantica e drammatica, 'The Last of the Mohicans' per il suo mix di azione, romance e dramma storico, e 'Species II' per il suo genere horror e sci-fi, che si allinea con i film horror e di sci-fi apprezzati dall'utente."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
-        1,
-        196,
-        3974
+        3022,
+        2797,
+        3283
       ],
-      "explanation": "L'utente ha mostrato interesse per una varietà di generi, inclusi Comedy, Drama, e Thriller. Per massimizzare la copertura di diversi generi e mantenere la rilevanza con le preferenze dell'utente, ho selezionato i seguenti film: 'Toy Story (1995)' per il genere Animation/Children's/Comedy, 'Species (1995)' per Horror/Sci-Fi, e 'Battleship Potemkin, The (Bronenosets Potyomkin) (1925)' per Drama/War. Questi film coprono generi diversi tra loro, ma sono allineati con i gusti dell'utente, esplorando meglio lo spazio dei film disponibili e riducendo il rischio di filter bubble."
+      "explanation": "L'utente ha mostrato un apprezzamento per una varietà di generi, inclusi Comedy, Drama e Romance. Per massimizzare la copertura di diversi generi cinematografici e mantenere la rilevanza con le preferenze dell'utente, ho scelto 'The General (1927)' (ID: 3022), un film Comedy che introduce anche elementi di storia del cinema muto. Inoltre, 'Big (1988)' (ID: 2797) è una commedia con elementi di fantasia che potrebbe piacere all'utente. Infine, 'Minnie and Moskowitz (1971)' (ID: 3283) è un film d'azione che aggiunge diversità al catalogo di genere, fornendo una nuova esperienza all'utente."
     }
   }
 }

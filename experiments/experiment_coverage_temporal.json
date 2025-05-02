@@ -1,0 +1,81 @@
+{
+  "timestamp": "2025-05-02T21:02:26.361989",
+  "experiment_info": {
+    "name": "coverage_temporal",
+    "prompt_variants": {
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diverse epoche. La coverage temporale misura la capacità di raccomandare film di periodi storici diversi. Seleziona film di decenni diversi, possibilmente distanti tra loro. L'obiettivo è rappresentare l'ampiezza storica del catalogo con sole 3 raccomandazioni. NON raccomandare più di 3 film."
+    }
+  },
+  "metric_recommendations": {
+    "1": {
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          151,
+          2906,
+          3510
+        ],
+        "explanation": "L'utente ha mostrato una preferenza per film drammatici e romantici. 'Rob Roy' (movie_id: 151) è un film drammatico e romantico che si allinea con queste preferenze. 'Random Hearts' (movie_id: 2906) è un altro film drammatico e romantico che potrebbe piacere all'utente. Infine, 'Frequency' (movie_id: 3510) è un film drammatico e thriller che potrebbe attrarre l'utente con il suo intreccio drammatico e coinvolgente."
+      },
+      "coverage": {
+        "metric": "coverage",
+        "recommendations": [
+          702,
+          296,
+          2821
+        ],
+        "explanation": "Questa selezione massimizza la copertura temporale con film di epoche diverse. 'Faces' (1968) rappresenta gli anni '60, 'A Pyromaniac's Love Story' (1995) gli anni '90, e 'Male and Female' (1919) gli anni '10. Questa combinazione offre una vasta gamma storica nel catalogo."
+      }
+    },
+    "2": {
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          337,
+          527,
+          1183
+        ],
+        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici. 'What's Eating Gilbert Grape' è un dramma commovente che potrebbe risuonare con le sue preferenze per storie emotive. 'Schindler's List' è un film drammatico e storico che ha ricevuto ampi consensi per la sua profondità emotiva, elementi che l'utente sembra apprezzare. 'The English Patient' è un altro film drammatico e romantico che combina elementi di guerra e amore, temi che l'utente ha valutato positivamente in passato."
+      },
+      "coverage": {
+        "metric": "coverage",
+        "recommendations": [
+          2821,
+          2501,
+          3952
+        ],
+        "explanation": "Le raccomandazioni coprono un ampio spettro temporale: 'Male and Female' (1919) rappresenta gli anni '10, 'October Sky' (1999) rappresenta gli anni '90, e 'The Contender' (2000) rappresenta gli anni 2000. Questa selezione garantisce una varietà di epoche cinematografiche, massimizzando la copertura temporale."
+      }
+    }
+  },
+  "final_evaluation": {
+    "final_recommendations": [
+      337,
+      296,
+      2821
+    ],
+    "justification": "Per questo specifico utente, che ha mostrato una forte preferenza per film drammatici e romantici, ho selezionato 'What's Eating Gilbert Grape' (movie_id: 337) per la sua profondità emotiva e dramma, 'A Pyromaniac's Love Story' (movie_id: 296) per rappresentare gli anni '90 e aggiungere varietà temporale, e 'Male and Female' (movie_id: 2821) per coprire gli anni '10 e offrire una prospettiva storica unica. Questa combinazione bilancia la rilevanza delle preferenze dell'utente con una copertura temporale ampia.",
+    "trade_offs": "Il trade-off principale è stato bilanciare la precisione delle preferenze dell'utente con la copertura temporale. Ho scelto 'What's Eating Gilbert Grape' per la sua alta precisione nelle preferenze dell'utente, sacrificando leggermente la copertura temporale. Tuttavia, ho compensato includendo 'A Pyromaniac's Love Story' e 'Male and Female' per massimizzare la varietà temporale senza compromettere troppo la rilevanza delle preferenze dell'utente."
+  },
+  "metrics": {
+    "precision_at_k": {
+      "precision_score": 0.0,
+      "total_coverage": 0.0,
+      "genre_coverage": 0.0
+    },
+    "coverage": {
+      "precision_score": 0.0,
+      "total_coverage": 0.0,
+      "genre_coverage": 0.0
+    },
+    "final_recommendations": {
+      "precision_score": 0.0,
+      "total_coverage": 0.03,
+      "genre_coverage": 0.0
+    },
+    "system_coverage": {
+      "total_coverage": 0.03,
+      "genre_coverage": 0.0
+    }
+  }
+}

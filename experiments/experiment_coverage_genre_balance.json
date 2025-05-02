@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-05-02T18:51:37.512450",
+  "timestamp": "2025-05-02T21:01:58.848313",
   "experiment_info": {
     "name": "coverage_genre_balance",
     "prompt_variants": {
@@ -11,51 +11,51 @@
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          1183,
-          24,
-          1962
+          1393,
+          1028,
+          1029
         ],
-        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici, con un focus su temi profondi e storie coinvolgenti. 'The English Patient' (1183) è un film drammatico e romantico che ha vinto numerosi premi e che probabilmente risuonerà con le preferenze dell'utente per storie emotivamente intense. 'Powder' (24) è un film drammatico con elementi di fantascienza che esplora temi di accettazione e differenza, simile a molti dei film che l'utente ha apprezzato. Infine, 'Forrest Gump' (1962) è un film drammatico che racconta una storia di vita toccante e ricca di emozioni, elementi che l'utente ha chiaramente apprezzato in altri film."
+        "explanation": "L'utente ha dimostrato una forte preferenza per film drammatici e romantici. 'Jerry Maguire' (1393) è un film drammatico e romantico che probabilmente rispecchia i gusti dell'utente. Inoltre, 'Big' (1028) e 'Say Anything...' (1029) sono film che combinano elementi di commedia, dramma e romanticismo, generi che l'utente ha frequentemente apprezzato. Questi film non solo corrispondono ai generi preferiti, ma evitano anche gli elementi presenti nei film che l'utente ha valutato negativamente."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          196,
-          1609,
-          2571
+          295,
+          47,
+          1371
         ],
-        "explanation": "I film raccomandati coprono una vasta gamma di generi cinematografici per massimizzare la copertura. 'Species' (Horror|Sci-Fi) offre una combinazione unica di horror e fantascienza. '187' (Drama) rappresenta il genere drammatico. 'The Matrix' (Action|Sci-Fi|Thriller) copre l'azione, la fantascienza e il thriller, garantendo una copertura ampia e bilanciata dei generi."
+        "explanation": "Le raccomandazioni sono state ottimizzate per massimizzare la copertura dei generi cinematografici. 'A Pyromaniac's Love Story' (Comedy|Romance) copre i generi Comedy e Romance. 'Seven (Se7en)' (Crime|Thriller) copre i generi Crime e Thriller. 'Star Trek: The Motion Picture' (Action|Adventure|Sci-Fi) copre i generi Action, Adventure e Sci-Fi. Questa selezione garantisce una vasta copertura di generi diversi, evitando sovrapposizioni e rappresentando l'ampiezza del catalogo."
       }
     },
     "2": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          1183,
-          527,
-          1186
+          25,
+          1834,
+          1393
         ],
-        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici con temi storici e sentimentali. 'The English Patient' (1183) è un film drammatico e romantico ambientato durante la Seconda Guerra Mondiale, che corrisponde ai gusti dell'utente per i film storici e sentimentali. 'Schindler's List' (527) è un altro film drammatico e storico che ha ricevuto grande apprezzamento per la sua profondità emotiva e narrativa, elementi che l'utente sembra apprezzare. 'Sex, Lies, and Videotape' (1186) è un film drammatico che esplora temi di relazioni e segreti, il che si allinea con la preferenza dell'utente per film che approfondiscono le dinamiche umane e le emozioni."
+        "explanation": "L'utente ha mostrato una forte preferenza per i film drammatici e romantici. 'Leaving Las Vegas' (movie_id: 25) è un film drammatico e romantico che ha ottenuto grande apprezzamento per le sue performance intense e la sua storia commovente. 'October Sky' (movie_id: 2501) è un altro film drammatico con una forte componente emotiva, che potrebbe piacere all'utente. 'Jerry Maguire' (movie_id: 1393) combina dramma e romance con una storia avvincente e personaggi memorabili, elementi che l'utente ha apprezzato in altri film."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
           1,
-          196,
-          28
+          29,
+          196
         ],
-        "explanation": "La raccomandazione comprende film di generi completamente diversi per massimizzare la copertura del catalogo. 'Toy Story' rappresenta il genere Animation|Children's|Comedy, 'Species' rappresenta il genere Horror|Sci-Fi, e 'The Matrix' rappresenta il genere Action|Sci-Fi|Thriller. Questi film coprono un'ampia gamma di generi cinematografici, garantendo una vasta copertura del catalogo."
+        "explanation": "Questi film sono stati selezionati per massimizzare la copertura di diversi generi cinematografici. 'Toy Story (1995)' rappresenta i generi Animation, Children's e Comedy. 'The City of Lost Children, The (1995)' copre Adventure e Sci-Fi. 'Species (1995)' include Horror e Sci-Fi. Questa selezione garantisce una vasta gamma di generi, evitando sovrapposizioni e offrendo una panoramica ampia del catalogo."
       }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      1183,
-      527,
-      1609
+      1393,
+      25,
+      295
     ],
-    "justification": "Ho scelto 'The English Patient' (1183) perché è stato raccomandato da entrambi i sistemi di precision_at_k, indicando una forte rilevanza per le preferenze dell'utente per film drammatici e romantici con temi profondi e storie coinvolgenti. 'Schindler's List' (527) è stato selezionato per la sua profondità emotiva e narrativa, elementi che l'utente sembra apprezzare, e perché è stato raccomandato dal sistema di precision_at_k che si concentra su film drammatici e storici. Infine, '187' (1609) è stato scelto per massimizzare la copertura del catalogo, rappresentando il genere drammatico e offrendo una varietà che potrebbe interessare l'utente.",
-    "trade_offs": "Il trade-off principale considerato è stato bilanciare la precisione delle raccomandazioni con la copertura del catalogo. 'The English Patient' e 'Schindler's List' sono stati scelti per la loro alta precisione, mentre '187' è stato incluso per garantire una copertura ampia e bilanciata dei generi. Questo approccio mira a soddisfare sia le preferenze specifiche dell'utente che la necessità di esplorare nuovi generi."
+    "justification": "Ho scelto 'Jerry Maguire' (1393) perché è stato raccomandato da entrambi i sistemi e rispecchia le preferenze dell'utente per film drammatici e romantici. 'Leaving Las Vegas' (25) è stato selezionato per la sua forte componente drammatica e romantica, che è stata apprezzata dall'utente. 'A Pyromaniac's Love Story' (295) è stato incluso per massimizzare la copertura dei generi Comedy e Romance, garantendo una varietà di esperienze cinematografiche.",
+    "trade_offs": "Il trade-off principale è stato bilanciare la precisione delle raccomandazioni basate sulle preferenze dell'utente con la copertura dei generi. Selezionando 'Jerry Maguire' (1393) e 'Leaving Las Vegas' (25), ho prioritizzato la precisione, mentre 'A Pyromaniac's Love Story' (295) ha permesso di includere generi diversi, migliorando la copertura senza sacrificare troppo la rilevanza per l'utente."
   },
   "metrics": {
     "precision_at_k": {
@@ -69,13 +69,13 @@
       "genre_coverage": 0.0
     },
     "final_recommendations": {
-      "precision_score": 0.3333333333333333,
+      "precision_score": 0.0,
       "total_coverage": 0.03,
-      "genre_coverage": 0.0625
+      "genre_coverage": 0.0
     },
     "system_coverage": {
       "total_coverage": 0.03,
-      "genre_coverage": 0.0625
+      "genre_coverage": 0.0
     }
   }
 }
