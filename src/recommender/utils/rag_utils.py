@@ -35,7 +35,6 @@ class MovieRAG:
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         if self.openai_api_key is None:
             print("[WARN] Variabile d'ambiente OPENAI_API_KEY non trovata. Le embeddings potrebbero fallire.")
-        self.metrics_definitions = self._load_or_generate_metrics_definitions()
         self.movies_df = None
         # NEW: structures for real retrieval
         self.vector_store = None  # FAISS vector store
@@ -119,32 +118,6 @@ class MovieRAG:
         if not os.path.exists(catalog_path) or force_recreate:
             with open(catalog_path, 'w', encoding='utf-8') as f:
                 json.dump(movies, f, ensure_ascii=False, indent=2)
-    
-    def _extract_all_genres(self) -> List[str]:
-        """
-        Estrae automaticamente tutti i generi presenti nel dataset
-        
-        Returns:
-            Lista di tutti i generi unici presenti nel dataset
-        """
-        if self.movies_df is None:
-            catalog_path = os.path.join(RAG_DIR, 'movies_catalog.json')
-            if os.path.exists(catalog_path):
-                with open(catalog_path, 'r', encoding='utf-8') as f:
-                    movies = json.load(f)
-                self.initialize_data(movies)
-            else:
-                return []
-        
-        # Estrai tutti i generi unici dal dataset
-        all_genres = set()
-        for _, movie in self.movies_df.iterrows():
-            genres = str(movie['genres']).split('|')
-            for genre in genres:
-                if genre and genre.strip():  # Ignora stringhe vuote
-                    all_genres.add(genre.strip())
-        
-        return list(all_genres)
 
     def _filter_by_genres(self, genres: List[str] = None) -> List[Dict[str, Any]]:
         """
@@ -376,80 +349,6 @@ class MovieRAG:
                 return [mid for mid, _ in scored]
             return movie_ids  # fallback
     
-    def _load_or_generate_metrics_definitions(self) -> Dict[str, str]:
-        """
-        Carica o genera definizioni delle metriche di raccomandazione
-        
-        Returns:
-            Dizionario con definizioni delle metriche
-        """
-        metrics_path = os.path.join(RAG_DIR, 'metrics_definitions.json')
-        
-        # Se il file esiste, caricalo
-        if os.path.exists(metrics_path):
-            with open(metrics_path, 'r') as f:
-                return json.load(f)
-        
-        # Definizioni solo per le due metriche richieste
-        metrics_definitions = {
-            "precision_at_k": (
-                "La metrica Precision@K misura la proporzione di item raccomandati che sono rilevanti. "
-                "Nel contesto dei film, rappresenta la frazione di film raccomandati che l'utente valuterebbe "
-                "positivamente. Un sistema con alta precision@k tende a raccomandare film che l'utente apprezzerà "
-                "con alta probabilità. Formula: (numero di film raccomandati rilevanti) / (numero totale di film raccomandati)."
-            ),
-            "coverage": (
-                "La metrica Coverage misura la proporzione dell'intero catalogo di film che il sistema è in grado "
-                "di raccomandare. Rappresenta la diversità del sistema di raccomandazione in termini di ampiezza "
-                "delle raccomandazioni. Un sistema con alta coverage esplora meglio lo spazio dei film disponibili "
-                "e riduce il rischio di filter bubble. Formula: (numero di film unici raccomandati a tutti gli utenti) / "
-                "(numero totale di film nel catalogo)."
-            )
-        }
-        
-        # Salva le definizioni generate
-        with open(metrics_path, 'w') as f:
-            json.dump(metrics_definitions, f, indent=2)
-            
-        return metrics_definitions
-    
-    def generate_metrics_optimized_catalog(self, movies: List[Dict[str, Any]], metric: str) -> List[Dict[str, Any]]:
-        """
-        Genera un catalogo ottimizzato per una specifica metrica
-        
-        Args:
-            movies: Lista di dizionari rappresentanti i film
-            metric: Metrica per cui ottimizzare (precision_at_k o coverage)
-            
-        Returns:
-            Lista di film ottimizzati per la metrica specificata
-        """
-        # Inizializza i dati se non già fatto
-        if self.movies_df is None:
-            self.initialize_data(movies)
-            
-        # Verifica che la metrica sia supportata
-        if metric not in self.metrics_definitions:
-            supported = list(self.metrics_definitions.keys())
-            raise ValueError(f"Metrica {metric} non supportata. Usa una tra: {', '.join(supported)}")
-            
-        if metric == "precision_at_k":
-            # Determina i film rilevanti per precision usando rating medio >=4
-            ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
-            ratings_df = pd.read_csv(ratings_path)
-            avg_ratings = ratings_df.groupby('movie_id')['rating'].mean()
-            relevant_items = avg_ratings[avg_ratings >= 4].index.tolist()
-            return self._filter_by_popularity()
-        
-        elif metric == "coverage":
-            # Per coverage, usa la selezione che massimizza la diversità di generi
-            # Nota: non specifichiamo generi manualmente, usiamo quelli estratti dal dataset
-            return self._filter_by_genres()
-        
-        else:
-            # Default fallback (non dovrebbe mai verificarsi con la validazione sopra)
-            return movies[:100]
-    
     def merge_catalogs(self, precision_catalog: List[Dict[str, Any]], 
                        coverage_catalog: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -511,78 +410,4 @@ class MovieRAG:
         if limit and len(merged_catalog) > limit:
             merged_catalog = merged_catalog[:limit]
         
-        return json.dumps(merged_catalog, ensure_ascii=False)
-
-
-def calculate_precision_at_k(recommended_items: List[int], relevant_items: List[int], k: int = None) -> float:
-    """
-    Calcola la precision@k per un set di raccomandazioni
-    
-    Args:
-        recommended_items: Lista di ID di item raccomandati
-        relevant_items: Lista di ID di item rilevanti
-        k: Numero di item da considerare (default: lunghezza di recommended_items)
-        
-    Returns:
-        Precision@k (0.0 - 1.0)
-    """
-    if not recommended_items or not relevant_items:
-        return 0.0
-    
-    if k is None:
-        k = len(recommended_items)
-    else:
-        k = min(k, len(recommended_items))
-    
-    # Considera solo i primi k item raccomandati
-    recommended_k = recommended_items[:k]
-    
-    # Calcola quanti degli item raccomandati sono rilevanti
-    relevant_count = sum(1 for item in recommended_k if item in relevant_items)
-    
-    # Calcola la precision@k
-    return relevant_count / k if k > 0 else 0.0
-
-
-def calculate_coverage(recommended_items: List[int], movies_df: pd.DataFrame) -> Dict[str, float]:
-    """
-    Calcola metriche di coverage complete per un set di raccomandazioni
-    
-    Args:
-        recommended_items: Lista di ID di film raccomandati
-        movies_df: DataFrame contenente i dati dei film (deve avere colonne 'movie_id' e 'genres')
-        
-    Returns:
-        Dict con due metriche di coverage:
-        - total_coverage: proporzione di film unici raccomandati rispetto al catalogo totale
-        - genre_coverage: proporzione di generi unici coperti rispetto a tutti i generi disponibili
-    """
-    if not recommended_items or movies_df.empty:
-        return {"total_coverage": 0.0, "genre_coverage": 0.0}
-    
-    # Coverage totale
-    total_movies = len(movies_df)
-    unique_recommended = set(recommended_items)
-    total_coverage = len(unique_recommended) / total_movies
-    
-    # Coverage dei generi
-    all_genres = set()
-    recommended_genres = set()
-    
-    # Estrai tutti i generi disponibili
-    for genres in movies_df['genres']:
-        if isinstance(genres, str):
-            all_genres.update(genres.split('|'))
-    
-    # Estrai i generi delle raccomandazioni
-    for movie_id in unique_recommended:
-        movie = movies_df[movies_df['movie_id'] == movie_id]
-        if not movie.empty and isinstance(movie.iloc[0]['genres'], str):
-            recommended_genres.update(movie.iloc[0]['genres'].split('|'))
-    
-    genre_coverage = len(recommended_genres) / len(all_genres) if all_genres else 0.0
-    
-    return {
-        "total_coverage": total_coverage,
-        "genre_coverage": genre_coverage
-    } 
+        return json.dumps(merged_catalog, ensure_ascii=False) 

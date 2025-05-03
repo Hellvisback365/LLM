@@ -1,25 +1,21 @@
-# LangChain e dipendenze
+# LLM and RAG dependencies
 langchain>=0.1.0
 langchain-openai>=0.0.5
 langchain-community>=0.0.17
-
-# Elaborazione dati
-pandas>=2.2.0
-numpy>=1.26.0
-
-# OpenAI (via OpenRouter)
 openai>=1.2.4
 
-# Ambiente e utilità
+# Data processing dependencies
+pandas>=2.2.0
+numpy>=1.26.0
 python-dotenv>=1.0.0
-tenacity>=8.2.3
-tqdm>=4.66.1
-requests>=2.31.0
 
-# Vector store, BM25 e tokenizzazione
+# Retry and utilities
+tenacity>=8.2.3
+
+# Vector search and retrieval
 faiss-cpu>=1.7.4
 rank-bm25>=0.2.2
-tiktoken>=0.5.2
 
-# Sentence Transformers
-sentence-transformers>=2.6.1 
+# Testing dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.1 

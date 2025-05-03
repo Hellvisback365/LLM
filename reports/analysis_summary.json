@@ -1,16 +1,16 @@
 {
-  "timestamp": "2025-05-02T21:02:54.987371",
+  "timestamp": "2025-05-03T19:01:12.134557",
   "total_experiments": 5,
-  "unique_recommendations": 15,
+  "unique_final_recommendations": 13,
   "metrics_analyzed": [
-    "1",
-    "2"
+    "precision_at_k",
+    "coverage"
   ],
-  "prompt_variants": 4,
-  "reports_generated": [
-    "reports\\experiment_report.html",
-    "reports\\experiment_report.md",
-    "reports\\diversity_metrics.json",
-    "reports\\prompt_comparison.json"
-  ]
+  "prompt_variant_groups": 5,
+  "reports_generated_status": {
+    "html": "Report HTML salvato in reports\\experiment_report.html",
+    "markdown": "Report Markdown salvato in reports\\experiment_report.md",
+    "diversity": "reports\\diversity_metrics.json",
+    "prompt_comparison": "reports\\prompt_comparison.json"
+  }
 }

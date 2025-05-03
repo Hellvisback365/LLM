@@ -1,4 +1,0 @@
-{
-  "precision_at_k": "La metrica Precision@K misura la proporzione di item raccomandati che sono rilevanti. Nel contesto dei film, rappresenta la frazione di film raccomandati che l'utente valuterebbe positivamente. Un sistema con alta precision@k tende a raccomandare film che l'utente apprezzer\u00e0 con alta probabilit\u00e0. Formula: (numero di film raccomandati rilevanti) / (numero totale di film raccomandati).",
-  "coverage": "La metrica Coverage misura la proporzione dell'intero catalogo di film che il sistema \u00e8 in grado di raccomandare. Rappresenta la diversit\u00e0 del sistema di raccomandazione in termini di ampiezza delle raccomandazioni. Un sistema con alta coverage esplora meglio lo spazio dei film disponibili e riduce il rischio di filter bubble. Formula: (numero di film unici raccomandati a tutti gli utenti) / (numero totale di film nel catalogo)."
-}

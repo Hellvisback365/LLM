@@ -1,69 +1,69 @@
 {
-  "timestamp": "2025-05-02T21:00:12.139242",
+  "timestamp": "2025-05-03T19:00:25.352440",
   "metric_recommendations": {
     "1": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          1408,
-          1613,
-          3971
+          295,
+          1057,
+          1307
         ],
-        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici, spesso con elementi epici o storici. 'The Last of the Mohicans' (1408) è un film d'azione romantico ambientato in un contesto storico, che si allinea perfettamente con le preferenze dell'utente. 'Star Maps' (1613) è un dramma che esplora temi profondi e complessi, simile a film come 'The English Patient' (1183) che l'utente ha apprezzato. Infine, 'The Contender' (3971) è un dramma politico che combina elementi di tensione e dramma personale, temi che sono presenti in molti dei film preferiti dall'utente."
+        "explanation": "I film 'A Pyromaniac's Love Story' (295), 'Everyone Says I Love You' (1057) e 'When Harry Met Sally...' (1307) sono stati selezionati perché appartengono ai generi Comedy e Romance, che l'utente ha costantemente valutato positivamente. Questi film hanno anche elementi tematici e stilistici che si allineano con i film preferiti dall'utente, evitando caratteristiche presenti nei film non apprezzati."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          171,
-          22,
-          1409
+          17,
+          1393,
+          29
         ],
-        "explanation": "L'utente ha apprezzato una varietà di film tra cui 'Toy Story (1995)' che è un film di animazione, commedia e per bambini. Per coprire una gamma più ampia di generi e mantenere la rilevanza, ho scelto 'Jeffrey (1995)' che è una commedia, 'Copycat (1995)' che è un thriller criminale e drammatico, e 'Michael (1996)' che è una commedia romantica. Questi film coprono generi diversi ma sono allineati con i gusti dell'utente, offrendo una buona copertura del catalogo disponibile."
+        "explanation": "L'utente ha apprezzato film di vari generi, tra cui 'Comedy', 'Drama', 'Romance' e 'Animation'. Per massimizzare la coverage e mantenere la rilevanza, ho raccomandato 'Sense and Sensibility' (Drama|Romance), 'Jerry Maguire' (Drama|Romance) e 'The City of Lost Children' (Adventure|Sci-Fi). Questi film coprono nuovi generi come 'Adventure' e 'Sci-Fi' che l'utente potrebbe non aver esplorato completamente, pur essendo allineati con i suoi gusti per il dramma e la commedia."
       }
     },
     "2": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          1307,
-          1408,
-          1862
+          2542,
+          2571,
+          2336
         ],
-        "explanation": "L'utente ha mostrato una forte preferenza per i film di genere Drama e Romance, con alcune inclinazioni verso i film d'azione e d'avventura. Tra i film apprezzati ci sono 'When Harry Met Sally...', 'The Last of the Mohicans', e 'Species'. Quindi, i film raccomandati sono 'When Harry Met Sally...' per la sua forte componente romantica e drammatica, 'The Last of the Mohicans' per il suo mix di azione, romance e dramma storico, e 'Species II' per il suo genere horror e sci-fi, che si allinea con i film horror e di sci-fi apprezzati dall'utente."
+        "explanation": "Questi film sono stati selezionati per la loro corrispondenza con i generi e i temi preferiti dall'utente. 'Lock, Stock & Two Smoking Barrels' e 'The Matrix' combinano elementi di crime, thriller e azione, generi che l'utente ha costantemente valutato positivamente. 'Elizabeth' aggiunge un elemento drammatico che è stato apprezzato nei film preferiti dell'utente."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          3022,
-          2797,
-          3283
+          1,
+          171,
+          527
         ],
-        "explanation": "L'utente ha mostrato un apprezzamento per una varietà di generi, inclusi Comedy, Drama e Romance. Per massimizzare la copertura di diversi generi cinematografici e mantenere la rilevanza con le preferenze dell'utente, ho scelto 'The General (1927)' (ID: 3022), un film Comedy che introduce anche elementi di storia del cinema muto. Inoltre, 'Big (1988)' (ID: 2797) è una commedia con elementi di fantasia che potrebbe piacere all'utente. Infine, 'Minnie and Moskowitz (1971)' (ID: 3283) è un film d'azione che aggiunge diversità al catalogo di genere, fornendo una nuova esperienza all'utente."
+        "explanation": "Ho selezionato 'Toy Story (1995)', 'Jeffrey (1995)' e 'Schindler's List (1993)' per coprire i generi Animation, Children's, Comedy, Drama e War. Questi film rappresentano una varietà di generi che massimizzano la copertura del catalogo, pur rimanendo rilevanti per le preferenze dell'utente. L'utente ha mostrato apprezzamento per film drammatici e commedie, quindi questi film sono allineati con i suoi gusti ma esplorano anche nuovi generi."
       }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      1408,
-      171,
-      1862
+      295,
+      17,
+      2542
     ],
-    "justification": "Ho scelto 'The Last of the Mohicans' (1408) perché è un film d'azione romantico ambientato in un contesto storico, che si allinea perfettamente con le preferenze dell'utente per film drammatici e romantici. 'Jeffrey' (171) è stato selezionato per coprire una gamma più ampia di generi, come la commedia, che l'utente ha apprezzato in passato, mantenendo la rilevanza e offrendo una buona copertura del catalogo disponibile. Infine, 'Species II' (1862) è stato raccomandato per il suo genere horror e sci-fi, che si allinea con i film horror e di sci-fi apprezzati dall'utente.",
-    "trade_offs": "I trade-off considerati riguardano il bilanciamento tra precisione e copertura. 'The Last of the Mohicans' e 'Species II' sono stati scelti per la loro alta precisione, essendo molto rilevanti per le preferenze dell'utente. 'Jeffrey', invece, è stato selezionato per migliorare la copertura, aggiungendo diversità ai generi raccomandati. Questo approccio garantisce che l'utente riceva raccomandazioni altamente rilevanti ma anche una varietà di generi, mantenendo la personalizzazione e la rilevanza per il suo profilo unico."
+    "justification": "Ho scelto questi tre film perché bilanciano rilevanza e copertura in modo ottimale per un utente medio rappresentato dai dati forniti. Il film 'A Pyromaniac's Love Story' (295) è stato selezionato per la sua alta rilevanza nei generi Comedy e Romance, che sono stati costantemente apprezzati dall'utente. 'Sense and Sensibility' (17) è stato scelto per massimizzare la copertura, introducendo nuovi generi come Drama e Romance, che sono allineati con i gusti dell'utente ma offrono anche una diversità tematica. Infine, 'Lock, Stock & Two Smoking Barrels' (2542) combina elementi di crime, thriller e azione, generi che l'utente ha costantemente valutato positivamente, mantenendo una buona rilevanza.",
+    "trade_offs": "Ho considerato di sacrificare un po' di precisione per ottenere una maggiore copertura. Ad esempio, 'Sense and Sensibility' potrebbe non essere il film più rilevante in termini di precisione, ma introduce nuovi generi che potrebbero interessare l'utente. Inoltre, ho preferito film popolari che hanno una maggiore probabilità di soddisfare un utente medio, piuttosto che film di nicchia che potrebbero non essere altrettanto apprezzati."
   },
   "metrics": {
     "precision_at_k": {
-      "precision_score": 0.2,
-      "genre_coverage": 1.0
+      "precision_score": 0.5,
+      "genre_coverage": 0.4444444444444444
     },
     "coverage": {
-      "precision_score": 0.16666666666666666,
-      "genre_coverage": 0.7
+      "precision_score": 0.6666666666666666,
+      "genre_coverage": 0.4444444444444444
     },
     "final_recommendations": {
-      "precision_score": 0.0,
-      "genre_coverage": 0.6
+      "precision_score": 0.3333333333333333,
+      "genre_coverage": 0.2777777777777778
     },
-    "total_coverage": 0.0028328611898017
+    "total_coverage": 0.003090394025238218
   }
 }

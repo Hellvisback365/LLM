@@ -1,81 +1,76 @@
 {
-  "timestamp": "2025-05-02T21:02:26.361989",
+  "timestamp": "2025-05-03T19:01:11.980605",
   "experiment_info": {
     "name": "coverage_temporal",
     "prompt_variants": {
-      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diverse epoche. La coverage temporale misura la capacità di raccomandare film di periodi storici diversi. Seleziona film di decenni diversi, possibilmente distanti tra loro. L'obiettivo è rappresentare l'ampiezza storica del catalogo con sole 3 raccomandazioni. NON raccomandare più di 3 film."
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE...",
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. Il tuo obiettivo è raccomandare film che l'utente valuterà con un rating 4 o 5 su 5. Analizza attentamente il profilo dell'utente e concentrati sui seguenti elementi:\n1. Generi che l'utente ha costantemente valutato con punteggi elevati\n2. Attributi specifici (attori, registi, temi, epoche) presenti nei film apprezzati\n3. Modelli nelle valutazioni negative per evitare film simili\n\nLa precision@k misura quanti dei film raccomandati saranno effettivamente valutati positivamente. Quando analizzi il catalogo, presta particolare attenzione a:\n- Corrispondenza di genere con i film valutati positivamente\n- Somiglianza tematica e stilistica ai film preferiti\n- Evita film simili a quelli che l'utente non ha apprezzato\n\nNON raccomandare film in base alla popolarità generale o alle tendenze, a meno che queste caratteristiche non si allineino alle preferenze specifiche di questo utente. Fornisci ESATTAMENTE 3 film che l'utente molto probabilmente valuterà positivamente."
     }
   },
   "metric_recommendations": {
     "1": {
-      "precision_at_k": {
-        "metric": "precision_at_k",
-        "recommendations": [
-          151,
-          2906,
-          3510
-        ],
-        "explanation": "L'utente ha mostrato una preferenza per film drammatici e romantici. 'Rob Roy' (movie_id: 151) è un film drammatico e romantico che si allinea con queste preferenze. 'Random Hearts' (movie_id: 2906) è un altro film drammatico e romantico che potrebbe piacere all'utente. Infine, 'Frequency' (movie_id: 3510) è un film drammatico e thriller che potrebbe attrarre l'utente con il suo intreccio drammatico e coinvolgente."
-      },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          702,
-          296,
-          2821
+          171,
+          324,
+          1632
         ],
-        "explanation": "Questa selezione massimizza la copertura temporale con film di epoche diverse. 'Faces' (1968) rappresenta gli anni '60, 'A Pyromaniac's Love Story' (1995) gli anni '90, e 'Male and Female' (1919) gli anni '10. Questa combinazione offre una vasta gamma storica nel catalogo."
+        "explanation": "Queste raccomandazioni sono state ottimizzate per la copertura temporale, includendo film di diversi anni per garantire una varietà di contenuti e mantenere l'interesse dell'utente nel tempo."
+      },
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          29,
+          1172,
+          1188
+        ],
+        "explanation": "L'utente ha mostrato una forte preferenza per film di genere Drama e Comedy, con una predilezione per film romantici e d'avventura. 'The City of Lost Children' (1995) è un film d'avventura e fantascienza che potrebbe piacere per il suo mix di generi. 'Cinema Paradiso' (1988) è un film drammatico e romantico che ha elementi di commedia, in linea con le preferenze dell'utente. 'Strictly Ballroom' (1992) è una commedia romantica che si adatta perfettamente ai gusti dell'utente per film che combinano romanticismo e umorismo."
       }
     },
     "2": {
-      "precision_at_k": {
-        "metric": "precision_at_k",
-        "recommendations": [
-          337,
-          527,
-          1183
-        ],
-        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici. 'What's Eating Gilbert Grape' è un dramma commovente che potrebbe risuonare con le sue preferenze per storie emotive. 'Schindler's List' è un film drammatico e storico che ha ricevuto ampi consensi per la sua profondità emotiva, elementi che l'utente sembra apprezzare. 'The English Patient' è un altro film drammatico e romantico che combina elementi di guerra e amore, temi che l'utente ha valutato positivamente in passato."
-      },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          2821,
-          2501,
-          3952
+          16,
+          17,
+          151
         ],
-        "explanation": "Le raccomandazioni coprono un ampio spettro temporale: 'Male and Female' (1919) rappresenta gli anni '10, 'October Sky' (1999) rappresenta gli anni '90, e 'The Contender' (2000) rappresenta gli anni 2000. Questa selezione garantisce una varietà di epoche cinematografiche, massimizzando la copertura temporale."
+        "explanation": "Questi film sono stati raccomandati per ottimizzare la copertura temporale del catalogo. 'Casino (1995)', 'Sense and Sensibility (1995)' e 'Rob Roy (1995)' coprono vari generi come Drama, Thriller, Romance e War, garantendo una varietà di esperienze cinematografiche che l'utente potrebbe apprezzare."
+      },
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          1183,
+          1440,
+          2205
+        ],
+        "explanation": "L'utente ha mostrato una forte preferenza per i film drammatici e romantici, come 'The English Patient' (1183), che combina elementi di dramma, romanticismo e guerra. Inoltre, 'Amos & Andrew' (1440) e 'Mr. & Mrs. Smith' (2205) sono commedie che si allineano con la tendenza dell'utente a gradire film con una buona dose di umorismo e romanticismo."
       }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      337,
-      296,
-      2821
+      1172,
+      171,
+      151
     ],
-    "justification": "Per questo specifico utente, che ha mostrato una forte preferenza per film drammatici e romantici, ho selezionato 'What's Eating Gilbert Grape' (movie_id: 337) per la sua profondità emotiva e dramma, 'A Pyromaniac's Love Story' (movie_id: 296) per rappresentare gli anni '90 e aggiungere varietà temporale, e 'Male and Female' (movie_id: 2821) per coprire gli anni '10 e offrire una prospettiva storica unica. Questa combinazione bilancia la rilevanza delle preferenze dell'utente con una copertura temporale ampia.",
-    "trade_offs": "Il trade-off principale è stato bilanciare la precisione delle preferenze dell'utente con la copertura temporale. Ho scelto 'What's Eating Gilbert Grape' per la sua alta precisione nelle preferenze dell'utente, sacrificando leggermente la copertura temporale. Tuttavia, ho compensato includendo 'A Pyromaniac's Love Story' e 'Male and Female' per massimizzare la varietà temporale senza compromettere troppo la rilevanza delle preferenze dell'utente."
+    "justification": "Ho selezionato questi 3 film per bilanciare rilevanza e diversità temporale. 'Cinema Paradiso' (1172) è stato scelto per la sua alta rilevanza nei confronti delle preferenze dell'utente per film drammatici e romantici, con un buon mix di commedia. 'Jeffrey' (171) è stato scelto per la sua copertura temporale e per il genere Comedy, che diversifica le raccomandazioni. Infine, 'Rob Roy' (151) è stato scelto per la sua copertura temporale e per il genere Drama, che aggiunge ulteriore varietà e mantiene l'interesse dell'utente nel tempo.",
+    "trade_offs": "Ho considerato un trade-off tra precisione e copertura. 'Cinema Paradiso' (1172) è altamente rilevante ma meno diversificato temporalmente. 'Jeffrey' (171) e 'Rob Roy' (151) sono meno rilevanti rispetto alle preferenze specifiche dell'utente, ma offrono una copertura temporale e di genere che garantisce varietà e mantiene l'interesse dell'utente nel tempo. Questo bilanciamento permette di soddisfare sia la rilevanza che la diversità temporale."
   },
   "metrics": {
     "precision_at_k": {
-      "precision_score": 0.0,
-      "total_coverage": 0.0,
-      "genre_coverage": 0.0
+      "precision_score": 0.3333333333333333,
+      "genre_coverage": 0.3333333333333333
     },
     "coverage": {
-      "precision_score": 0.0,
-      "total_coverage": 0.0,
-      "genre_coverage": 0.0
+      "precision_score": 0.16666666666666666,
+      "genre_coverage": 0.2777777777777778
     },
     "final_recommendations": {
-      "precision_score": 0.0,
-      "total_coverage": 0.03,
-      "genre_coverage": 0.0
+      "precision_score": 0.3333333333333333,
+      "genre_coverage": 0.2222222222222222
     },
-    "system_coverage": {
-      "total_coverage": 0.03,
-      "genre_coverage": 0.0
-    }
+    "total_coverage": 0.003090394025238218
   }
 }

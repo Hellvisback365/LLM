@@ -1,81 +1,76 @@
 {
-  "timestamp": "2025-05-02T21:01:58.848313",
+  "timestamp": "2025-05-03T19:01:02.100133",
   "experiment_info": {
     "name": "coverage_genre_balance",
     "prompt_variants": {
-      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE con BILANCIAMENTO DEI GENERI. Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici. La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. Seleziona film di generi completamente diversi tra loro, evitando sovrapposizioni. L'obiettivo è rappresentare l'ampiezza del catalogo con sole 3 raccomandazioni. NON raccomandare più di 3 film."
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE con BILANCIAMENTO DEI GENERI...",
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. Il tuo obiettivo è raccomandare film che l'utente valuterà con un rating 4 o 5 su 5. Analizza attentamente il profilo dell'utente e concentrati sui seguenti elementi:\n1. Generi che l'utente ha costantemente valutato con punteggi elevati\n2. Attributi specifici (attori, registi, temi, epoche) presenti nei film apprezzati\n3. Modelli nelle valutazioni negative per evitare film simili\n\nLa precision@k misura quanti dei film raccomandati saranno effettivamente valutati positivamente. Quando analizzi il catalogo, presta particolare attenzione a:\n- Corrispondenza di genere con i film valutati positivamente\n- Somiglianza tematica e stilistica ai film preferiti\n- Evita film simili a quelli che l'utente non ha apprezzato\n\nNON raccomandare film in base alla popolarità generale o alle tendenze, a meno che queste caratteristiche non si allineino alle preferenze specifiche di questo utente. Fornisci ESATTAMENTE 3 film che l'utente molto probabilmente valuterà positivamente."
     }
   },
   "metric_recommendations": {
     "1": {
-      "precision_at_k": {
-        "metric": "precision_at_k",
-        "recommendations": [
-          1393,
-          1028,
-          1029
-        ],
-        "explanation": "L'utente ha dimostrato una forte preferenza per film drammatici e romantici. 'Jerry Maguire' (1393) è un film drammatico e romantico che probabilmente rispecchia i gusti dell'utente. Inoltre, 'Big' (1028) e 'Say Anything...' (1029) sono film che combinano elementi di commedia, dramma e romanticismo, generi che l'utente ha frequentemente apprezzato. Questi film non solo corrispondono ai generi preferiti, ma evitano anche gli elementi presenti nei film che l'utente ha valutato negativamente."
-      },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          295,
-          47,
-          1371
+          17,
+          21,
+          22
         ],
-        "explanation": "Le raccomandazioni sono state ottimizzate per massimizzare la copertura dei generi cinematografici. 'A Pyromaniac's Love Story' (Comedy|Romance) copre i generi Comedy e Romance. 'Seven (Se7en)' (Crime|Thriller) copre i generi Crime e Thriller. 'Star Trek: The Motion Picture' (Action|Adventure|Sci-Fi) copre i generi Action, Adventure e Sci-Fi. Questa selezione garantisce una vasta copertura di generi diversi, evitando sovrapposizioni e rappresentando l'ampiezza del catalogo."
+        "explanation": "Queste raccomandazioni sono state ottimizzate per la copertura dei generi, garantendo una varietà di film che coprono diversi generi come Drama, Romance, Action, Comedy, Crime, e Thriller. Questo approccio assicura che l'utente abbia un'esperienza di visione diversificata."
+      },
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          1172,
+          1307,
+          1441
+        ],
+        "explanation": "L'utente ha mostrato una forte preferenza per film di genere Comedy e Romance. 'Cinema Paradiso' (1172) è un film che combina elementi di commedia, dramma e romanticismo, simile a molti film apprezzati dall'utente. 'When Harry Met Sally...' (1307) è una classica commedia romantica che si allinea con il gusto dell'utente per film di questo genere. 'Benny & Joon' (1441) è un'altra commedia romantica che si adatta bene alle preferenze dell'utente, evitando generi e temi che l'utente ha dimostrato di non apprezzare."
       }
     },
     "2": {
-      "precision_at_k": {
-        "metric": "precision_at_k",
-        "recommendations": [
-          25,
-          1834,
-          1393
-        ],
-        "explanation": "L'utente ha mostrato una forte preferenza per i film drammatici e romantici. 'Leaving Las Vegas' (movie_id: 25) è un film drammatico e romantico che ha ottenuto grande apprezzamento per le sue performance intense e la sua storia commovente. 'October Sky' (movie_id: 2501) è un altro film drammatico con una forte componente emotiva, che potrebbe piacere all'utente. 'Jerry Maguire' (movie_id: 1393) combina dramma e romance con una storia avvincente e personaggi memorabili, elementi che l'utente ha apprezzato in altri film."
-      },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          1,
-          29,
-          196
+          1088,
+          1135,
+          2073
         ],
-        "explanation": "Questi film sono stati selezionati per massimizzare la copertura di diversi generi cinematografici. 'Toy Story (1995)' rappresenta i generi Animation, Children's e Comedy. 'The City of Lost Children, The (1995)' copre Adventure e Sci-Fi. 'Species (1995)' include Horror e Sci-Fi. Questa selezione garantisce una vasta gamma di generi, evitando sovrapposizioni e offrendo una panoramica ampia del catalogo."
+        "explanation": "Questi film sono stati selezionati per ottimizzare la copertura dei generi e bilanciare i generi popolari con quelli meno comuni nel catalogo. 'Dirty Dancing' (1088) copre il genere Musical/Romance, 'Private Benjamin' (1135) copre il genere Comedy, e 'Fandango' (2073) copre il genere Comedy, offrendo una varietà di opzioni che l'utente potrebbe non aver ancora esplorato."
+      },
+      "precision_at_k": {
+        "metric": "precision_at_k",
+        "recommendations": [
+          1609,
+          2589,
+          1855
+        ],
+        "explanation": "L'utente ha mostrato una preferenza per i film drammatici e commedie romantiche. '187' (1609) è un dramma intenso che potrebbe risuonare con le preferenze drammatiche dell'utente. 'Friends & Lovers' (2589) è una commedia romantica che combina elementi di dramma, simile a molti dei film apprezzati dall'utente. 'Krippendorf's Tribe' (1855) è una commedia che potrebbe offrire un'esperienza divertente e leggera, in linea con i gusti dell'utente per le commedie."
       }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      1393,
-      25,
-      295
+      1172,
+      1088,
+      1609
     ],
-    "justification": "Ho scelto 'Jerry Maguire' (1393) perché è stato raccomandato da entrambi i sistemi e rispecchia le preferenze dell'utente per film drammatici e romantici. 'Leaving Las Vegas' (25) è stato selezionato per la sua forte componente drammatica e romantica, che è stata apprezzata dall'utente. 'A Pyromaniac's Love Story' (295) è stato incluso per massimizzare la copertura dei generi Comedy e Romance, garantendo una varietà di esperienze cinematografiche.",
-    "trade_offs": "Il trade-off principale è stato bilanciare la precisione delle raccomandazioni basate sulle preferenze dell'utente con la copertura dei generi. Selezionando 'Jerry Maguire' (1393) e 'Leaving Las Vegas' (25), ho prioritizzato la precisione, mentre 'A Pyromaniac's Love Story' (295) ha permesso di includere generi diversi, migliorando la copertura senza sacrificare troppo la rilevanza per l'utente."
+    "justification": "La selezione dei film è stata fatta considerando sia la precisione che la copertura dei generi. 'Cinema Paradiso' (1172) è stato scelto per la sua alta precisione e perché combina elementi di commedia, dramma e romanticismo, che sono generi apprezzati dall'utente. 'Dirty Dancing' (1088) è stato scelto per la sua capacità di coprire il genere Musical/Romance, offrendo una varietà di opzioni che l'utente potrebbe non aver ancora esplorato. Infine, '187' (1609) è stato scelto per la sua rilevanza come dramma intenso, che risuona con le preferenze drammatiche dell'utente.",
+    "trade_offs": "Abbiamo sacrificato un po' di precisione per ottenere una maggiore copertura dei generi, assicurando che l'utente abbia un'esperienza di visione diversificata. Inoltre, abbiamo bilanciato la scelta tra film popolari e di nicchia per garantire che l'utente possa scoprire nuovi generi senza perdere il focus sui suoi gusti principali."
   },
   "metrics": {
     "precision_at_k": {
-      "precision_score": 0.0,
-      "total_coverage": 0.0,
-      "genre_coverage": 0.0
+      "precision_score": 0.3333333333333333,
+      "genre_coverage": 0.16666666666666666
     },
     "coverage": {
-      "precision_score": 0.0,
-      "total_coverage": 0.0,
-      "genre_coverage": 0.0
+      "precision_score": 0.16666666666666666,
+      "genre_coverage": 0.3888888888888889
     },
     "final_recommendations": {
-      "precision_score": 0.0,
-      "total_coverage": 0.03,
-      "genre_coverage": 0.0
+      "precision_score": 0.3333333333333333,
+      "genre_coverage": 0.2222222222222222
     },
-    "system_coverage": {
-      "total_coverage": 0.03,
-      "genre_coverage": 0.0
-    }
+    "total_coverage": 0.003090394025238218
   }
 }

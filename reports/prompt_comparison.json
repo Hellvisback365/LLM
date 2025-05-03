@@ -1,56 +1,57 @@
 [
   {
-    "metric": "precision_at_k",
-    "prompt_hash": "precision_at_k_-3798993108885916390",
-    "prompt_excerpt": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY....",
-    "experiments_count": 2,
-    "unique_recommendations": {
-      "count": 0,
-      "items": []
+    "prompt_variants": {
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY...",
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE..."
     },
-    "experiments": [
-      "combined_serendipity_temporal",
-      "precision_at_k_serendipity"
-    ]
-  },
-  {
-    "metric": "coverage",
-    "prompt_hash": "coverage_1758068259355263307",
-    "prompt_excerpt": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE. Data una lista di fi...",
-    "experiments_count": 2,
-    "unique_recommendations": {
-      "count": 0,
-      "items": []
-    },
-    "experiments": [
-      "combined_serendipity_temporal",
-      "coverage_temporal"
-    ]
-  },
-  {
-    "metric": "coverage",
-    "prompt_hash": "coverage_3458678231301025308",
-    "prompt_excerpt": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE con BILANCIAMENTO DEI GENERI. D...",
     "experiments_count": 1,
-    "unique_recommendations": {
-      "count": 0,
-      "items": []
+    "unique_final_recs_count": 3,
+    "experiments": [
+      "combined_serendipity_temporal"
+    ]
+  },
+  {
+    "prompt_variants": {
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE con BILANCIAMENTO DEI GENERI...",
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. Il tuo obiettivo è raccomandare film che l'utente valuterà con un rating 4 o 5 su 5. Analizza attentamente il profilo dell'utente e concentrati sui seguenti elementi:\n1. Generi che l'utente ha costantemente valutato con punteggi elevati\n2. Attributi specifici (attori, registi, temi, epoche) presenti nei film apprezzati\n3. Modelli nelle valutazioni negative per evitare film simili\n\nLa precision@k misura quanti dei film raccomandati saranno effettivamente valutati positivamente. Quando analizzi il catalogo, presta particolare attenzione a:\n- Corrispondenza di genere con i film valutati positivamente\n- Somiglianza tematica e stilistica ai film preferiti\n- Evita film simili a quelli che l'utente non ha apprezzato\n\nNON raccomandare film in base alla popolarità generale o alle tendenze, a meno che queste caratteristiche non si allineino alle preferenze specifiche di questo utente. Fornisci ESATTAMENTE 3 film che l'utente molto probabilmente valuterà positivamente."
     },
+    "experiments_count": 1,
+    "unique_final_recs_count": 3,
     "experiments": [
       "coverage_genre_balance"
     ]
   },
   {
-    "metric": "precision_at_k",
-    "prompt_hash": "precision_at_k_-2624355987052660128",
-    "prompt_excerpt": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla RECENCY. Dat...",
-    "experiments_count": 1,
-    "unique_recommendations": {
-      "count": 0,
-      "items": []
+    "prompt_variants": {
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE...",
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. Il tuo obiettivo è raccomandare film che l'utente valuterà con un rating 4 o 5 su 5. Analizza attentamente il profilo dell'utente e concentrati sui seguenti elementi:\n1. Generi che l'utente ha costantemente valutato con punteggi elevati\n2. Attributi specifici (attori, registi, temi, epoche) presenti nei film apprezzati\n3. Modelli nelle valutazioni negative per evitare film simili\n\nLa precision@k misura quanti dei film raccomandati saranno effettivamente valutati positivamente. Quando analizzi il catalogo, presta particolare attenzione a:\n- Corrispondenza di genere con i film valutati positivamente\n- Somiglianza tematica e stilistica ai film preferiti\n- Evita film simili a quelli che l'utente non ha apprezzato\n\nNON raccomandare film in base alla popolarità generale o alle tendenze, a meno che queste caratteristiche non si allineino alle preferenze specifiche di questo utente. Fornisci ESATTAMENTE 3 film che l'utente molto probabilmente valuterà positivamente."
     },
+    "experiments_count": 1,
+    "unique_final_recs_count": 3,
+    "experiments": [
+      "coverage_temporal"
+    ]
+  },
+  {
+    "prompt_variants": {
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla RECENCY...",
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici, MA che siano comunque rilevanti per le preferenze specifiche dell'utente di cui stai analizzando il profilo. La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. L'obiettivo è esplorare meglio lo spazio dei film disponibili e ridurre il rischio di filter bubble. Assicurati che le tue raccomandazioni coprano generi diversi tra loro, ma che siano allineati con i gusti dell'utente. IMPORTANTE: Fai riferimento specifico ai film che l'utente ha apprezzato per scoprire generi correlati ma diversi. Ogni utente deve ricevere raccomandazioni personalizzate in base al suo profilo unico. NON raccomandare più di 3 film."
+    },
+    "experiments_count": 1,
+    "unique_final_recs_count": 3,
     "experiments": [
       "precision_at_k_recency"
+    ]
+  },
+  {
+    "prompt_variants": {
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY...",
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici, MA che siano comunque rilevanti per le preferenze specifiche dell'utente di cui stai analizzando il profilo. La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. L'obiettivo è esplorare meglio lo spazio dei film disponibili e ridurre il rischio di filter bubble. Assicurati che le tue raccomandazioni coprano generi diversi tra loro, ma che siano allineati con i gusti dell'utente. IMPORTANTE: Fai riferimento specifico ai film che l'utente ha apprezzato per scoprire generi correlati ma diversi. Ogni utente deve ricevere raccomandazioni personalizzate in base al suo profilo unico. NON raccomandare più di 3 film."
+    },
+    "experiments_count": 1,
+    "unique_final_recs_count": 3,
+    "experiments": [
+      "precision_at_k_serendipity"
     ]
   }
 ]

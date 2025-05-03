@@ -1,9 +1,10 @@
 {
-  "timestamp": "2025-05-02T21:00:51.422412",
+  "timestamp": "2025-05-03T19:00:54.184444",
   "experiment_info": {
     "name": "precision_at_k_serendipity",
     "prompt_variants": {
-      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY. Data una lista di film, consiglia i 3 film più rilevanti che potrebbero sorprendere positivamente l'utente. La precision@k misura la frazione di film raccomandati che l'utente valuterebbe positivamente. La serendipity si riferisce a raccomandazioni inaspettate ma gradite. Cerca di bilanciare film popolari con scoperte inaspettate di alta qualità. NON raccomandare più di 3 film."
+      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY...",
+      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici, MA che siano comunque rilevanti per le preferenze specifiche dell'utente di cui stai analizzando il profilo. La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. L'obiettivo è esplorare meglio lo spazio dei film disponibili e ridurre il rischio di filter bubble. Assicurati che le tue raccomandazioni coprano generi diversi tra loro, ma che siano allineati con i gusti dell'utente. IMPORTANTE: Fai riferimento specifico ai film che l'utente ha apprezzato per scoprire generi correlati ma diversi. Ogni utente deve ricevere raccomandazioni personalizzate in base al suo profilo unico. NON raccomandare più di 3 film."
     }
   },
   "metric_recommendations": {
@@ -11,71 +12,65 @@
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          3156,
-          2961,
-          2988
+          1183,
+          1393,
+          1805
         ],
-        "explanation": "L'utente ha mostrato interesse per una varietà di film, inclusi commedie, drammatici e fantascienza. 'Bicentennial Man' (3156) è una commedia drammatica con elementi di fantascienza, che potrebbe sorprendere positivamente l'utente. 'The Story of Us' (2961) è un film drammatico con elementi di commedia, che bilancia la serendipity con la qualità. 'Melvin and Howard' (2988) è un dramma acclamato dalla critica, che potrebbe offrire una scoperta inaspettata ma gradita."
+        "explanation": "Questi film sono stati selezionati per ottimizzare la PRECISION_AT_K con un focus sulla SERENDIPITY. 'The English Patient' (1183) è un dramma romantico che potrebbe piacere all'utente, data la sua preferenza per film drammatici e romantici. 'Jerry Maguire' (1393) è un altro film drammatico-romantico che aggiunge un elemento di sorpresa. 'Wild Things' (1805) è un thriller che combina elementi di crimine e mistero, offrendo una scelta inaspettata ma potenzialmente gradita."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          29,
-          1226,
-          3481
+          17,
+          22,
+          295
         ],
-        "explanation": "L'utente ha apprezzato una varietà di film che spaziano dall'animazione alla commedia, dal dramma alla fantascienza. Per massimizzare la copertura di diversi generi cinematografici e allinearsi con le preferenze dell'utente, raccomando i seguenti film: 'The City of Lost Children' (29) per il genere avventura e fantascienza, 'The Quiet Man' (1226) per il genere commedia e romance, e 'High Fidelity' (3481) per il genere commedia. Questi film coprono generi diversi ma sono comunque rilevanti per le preferenze dell'utente, esplorando meglio lo spazio dei film disponibili e riducendo il rischio di filter bubble."
+        "explanation": "L'utente ha mostrato interesse per film di vari generi, inclusi Drama, Romance e Comedy. Per massimizzare la coverage e mantenere la rilevanza, ho selezionato 'Sense and Sensibility (1995)' (movie_id: 17) per coprire Drama e Romance, 'Copycat (1995)' (movie_id: 22) per Crime, Drama e Thriller, e 'Pyromaniac's Love Story, A (1995)' (movie_id: 295) per Comedy e Romance. Questi film coprono diversi generi correlati ma distinti, aumentando la varietà delle raccomandazioni."
       }
     },
     "2": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          1,
-          1408,
-          3897
+          17,
+          29,
+          1855
         ],
-        "explanation": "Toy Story (1995) è un film molto popolare e amato da molti, quindi è una scelta sicura. The Last of the Mohicans (1992) è un film d'azione e drammatico che potrebbe sorprendere positivamente l'utente con la sua qualità e intensità. Almost Famous (2000) è una commedia drammatica che offre una narrazione unica e coinvolgente, perfetta per chi cerca qualcosa di diverso ma di alta qualità."
+        "explanation": "Ho scelto questi film perché combinano elementi di dramma e commedia, generi che l'utente ha mostrato di apprezzare, ma con un tocco di serendipità, offrendo titoli che potrebbero sorprendere positivamente l'utente."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          161,
-          2759,
-          3952
+          527,
+          2821,
+          1088
         ],
-        "explanation": "L'utente ha apprezzato una varietà di generi, tra cui commedia, dramma e thriller. Per massimizzare la copertura e mantenere la rilevanza con le preferenze dell'utente, raccomando 'Fandango' (Comedy), 'Dick' (Comedy) e 'The Contender' (Drama|Thriller). Questi film coprono diversi generi, offrendo all'utente un'esperienza varia e riducendo il rischio di filter bubble."
+        "explanation": "L'utente ha apprezzato film di vari generi, inclusi Drama, Comedy e Romance. Per massimizzare la copertura dei generi, ho raccomandato 'Schindler's List' (Drama|War), 'Male and Female' (Adventure|Drama) e 'Dirty Dancing' (Musical|Romance). Questi film coprono generi come Drama, War, Adventure e Musical, offrendo una diversità di esperienze cinematografiche pur rimanendo rilevanti per le preferenze dell'utente."
       }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      1,
-      2988,
-      1226
+      17,
+      1393,
+      295
     ],
-    "justification": "Per questo specifico utente, ho scelto 'Toy Story (1995)' (1) perché è un film molto popolare e amato da molti, garantendo una scelta sicura e di alta qualità. 'Melvin and Howard' (2988) è un dramma acclamato dalla critica che offre una scoperta inaspettata ma gradita, bilanciando serendipity e qualità. 'The Quiet Man' (1226) è stato scelto per il genere commedia e romance, coprendo diverse preferenze dell'utente e massimizzando la copertura di generi cinematografici.",
-    "trade_offs": "Il trade-off principale considerato è stato bilanciare la precisione (precision_at_k) con la copertura (coverage). Ho scelto 'Toy Story' per la sua alta precisione, 'Melvin and Howard' per la sua serendipity e qualità, e 'The Quiet Man' per la sua copertura di generi diversi. Questo approccio garantisce che l'utente riceva raccomandazioni rilevanti e di alta qualità, mantenendo al contempo una varietà di generi per ridurre il rischio di filter bubble."
+    "justification": "Ho scelto questi 3 film specifici come bilanciamento ottimale per l'utente medio rappresentato dai dati forniti. Il film 'Sense and Sensibility' (movie_id: 17) è stato selezionato per la sua capacità di coprire i generi Drama e Romance, che sono di interesse per l'utente. Questo film proviene dalla raccomandazione basata sulla 'coverage', garantendo una buona diversità di generi. 'Jerry Maguire' (movie_id: 1393) è stato scelto per la sua alta precisione, combinando elementi di dramma e commedia con un tocco di serendipità, offrendo titoli che potrebbero sorprendere positivamente l'utente. Infine, 'A Pyromaniac's Love Story' (movie_id: 295) è stato incluso per la sua capacità di coprire i generi Comedy e Romance, contribuendo ulteriormente alla diversità delle raccomandazioni.",
+    "trade_offs": "Nel processo di selezione, ho considerato l'importanza di bilanciare la precisione con la copertura dei generi. Ho sacrificato un po' di precisione per includere film che coprono una gamma più ampia di generi, come 'Sense and Sensibility' e 'A Pyromaniac's Love Story', per garantire una maggiore diversità. Tuttavia, ho mantenuto un film ad alta precisione, 'Jerry Maguire', per assicurare che la lista finale sia ancora rilevante per le preferenze dell'utente."
   },
   "metrics": {
     "precision_at_k": {
-      "precision_score": 0.0,
-      "total_coverage": 0.0,
-      "genre_coverage": 0.0
+      "precision_score": 0.3333333333333333,
+      "genre_coverage": 0.5
     },
     "coverage": {
-      "precision_score": 0.0,
-      "total_coverage": 0.0,
-      "genre_coverage": 0.0
+      "precision_score": 0.3333333333333333,
+      "genre_coverage": 0.4444444444444444
     },
     "final_recommendations": {
       "precision_score": 0.3333333333333333,
-      "total_coverage": 0.03,
-      "genre_coverage": 0.1875
+      "genre_coverage": 0.16666666666666666
     },
-    "system_coverage": {
-      "total_coverage": 0.03,
-      "genre_coverage": 0.1875
-    }
+    "total_coverage": 0.0028328611898017
   }
 }

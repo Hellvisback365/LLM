@@ -1,70 +1,138 @@
-# Sistema di Raccomandazione Multi-Metrica
+# Multi-Metric Recommendation System
 
-Questo progetto implementa un sistema di raccomandazione che utilizza LangChain e modelli LLM per generare raccomandazioni ottimizzate per diverse metriche (accuratezza, diversità, novità) e poi combinarle in un'unica lista ottimale.
+An advanced recommendation system based on **Large Language Models (LLMs)** that optimizes recommendations for **Precision@K** and **Coverage** metrics and combines them into a single optimal ranked list using a **Retrieval Augmented Generation (RAG)** approach.
 
-## Struttura del Progetto
+## Features
+
+- **Multi-Metric Optimization**
+  - **Precision@K**: Recommends items the user is likely to rate positively.
+  - **Coverage**: Maximizes genre diversity to reduce filter bubbles.
+- **Hybrid Retrieval**: Combines vector search (FAISS) and BM25 for efficient candidate retrieval.
+- **RAG-Augmented Generation**: Leverages LLMs with retrieval to generate high-quality, context-aware recommendations.
+- **Automated Evaluation**: Computes quantitative metrics and generates detailed HTML/Markdown reports.
+- **Configurable Experiments**: Easily run experiments with custom prompts and compare metric performance.
+
+## Project Structure
 
 ```
-/project_root
-├── agent.py              # Script principale per il sistema di raccomandazione
-├── data/                 # Directory per i dataset
-│   ├── raw/              # Dataset grezzi in formato .dat (movies.dat, ratings.dat)
-│   └── processed/        # Dataset processati e catalogo ottimizzato
-├── utils/
-│   └── data_processor.py      # Funzioni per processare i dataset
-│   └── rag_utils.py           # Funzioni per RAG e metriche
-├── config/
-│   └── settings.py            # Impostazioni globali (opzionale)
-└── .env                       # File per le variabili d'ambiente (API keys)
+project_root/
+├── agent.py                      # Main script to run recommendation pipeline and generate reports
+├── prepare_data.py               # Script to preprocess MovieLens dataset with threshold filtering
+├── data/
+│   ├── raw/                      # Raw MovieLens data files (.dat)
+│   └── processed/                # Processed CSV files and RAG indices
+├── src/
+│   └── recommender/
+│       ├── api/
+│       │   └── llm_service.py    # LLM service wrapper (OpenAI/OpenRouter)
+│       ├── core/
+│       │   ├── recommender.py    # Core recommendation pipeline and agent definitions
+│       │   └── metrics_calculator.py  # Functions to compute and aggregate metrics
+│       └── utils/
+│           ├── data_processor.py # Data loading, filtering, and user-profile creation
+│           └── rag_utils.py      # RAG utilities: FAISS, BM25, prompt templates, embeddings
+├── experiments/                  # Saved experiment outputs (JSON)
+├── reports/                      # Generated HTML/Markdown experiment reports
+├── requirements.txt              # Python dependencies
+├── README.md                     # Project overview and instructions
+└── LICENSE                       # MIT License file
 ```
 
-## Prerequisiti
+## Prerequisites
 
-- Python 3.8+
-- API key per OpenRouter (utilizzata per accedere a Mistral 7B)
-- Dataset MovieLens (files: movies.dat, ratings.dat nella cartella data/raw)
+- **Python** 3.8 or higher
+- **API Keys** (create a `.env` file in project root):
+  ```ini
+  OPENROUTER_API_KEY=your_openrouter_api_key
+  OPENAI_API_KEY=your_openai_api_key  # optional, for embeddings
+  ```
 
-## Installazione
+## Installation
 
-1. Clona il repository
-2. Crea un ambiente virtuale:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/tuonome/multi-metric-recommender.git
+   cd multi-metric-recommender
    ```
+2. Create and activate a virtual environment:
+   ```bash
    python -m venv .venv
-   .venv\Scripts\activate  # Windows
-   source .venv/bin/activate  # Linux/Mac
+   # Windows:
+   .venv\Scripts\activate
+   # macOS/Linux:
+   source .venv/bin/activate
    ```
-3. Installa le dipendenze:
-   ```
+3. Install dependencies:
+   ```bash
    pip install -r requirements.txt
    ```
-4. Crea un file `.env` nella root del progetto con la tua API key:
+
+## Data Preparation
+
+1. Download the MovieLens 1M dataset from https://grouplens.org/datasets/movielens/1m/
+2. Extract `movies.dat` and `ratings.dat` into the `data/raw/` folder.
+3. Run the preparation script:
+   ```bash
+   python prepare_data.py
    ```
-   OPENROUTER_API_KEY=your_api_key_here
-   ```
 
-## Esecuzione
+## Usage
 
-Per eseguire il sistema di raccomandazione:
-
-```
+Run the main recommendation pipeline with default settings:
+```bash
 python agent.py
 ```
+This will execute the following steps:
+1. Load and preprocess data.
+2. Initialize RAG indices (FAISS & BM25).
+3. Generate recommendations for each metric.
+4. Combine, evaluate, and aggregate results.
+5. Save outputs to `metric_recommendations.json` and `recommendation_results.json`.
+6. Generate experiment reports in both HTML and Markdown formats (saved under `reports/`).
 
-Il sistema seguirà questi passaggi:
-1. Carica e processa i dataset
-2. Crea un catalogo ottimizzato usando RAG
-3. Genera raccomandazioni per ogni metrica (accuratezza, diversità, novità)
-4. Combina le raccomandazioni in un'unica lista ottimale
-5. Salva i risultati nei file `metric_recommendations.json` e `recommendation_results.json`
+### Custom Experiments
 
-## Metriche supportate
+You can define and run experiments with custom prompt variants:
+```python
+import asyncio
+from src.recommender.core.recommender import RecommenderSystem
 
-- **Accuratezza**: Ottimizza per film popolari e con alta probabilità di piacere all'utente
-- **Diversità**: Ottimizza per film di generi diversi, massimizzando la copertura di categorie
-- **Novità**: Ottimizza per film originali o meno mainstream
+recommender = RecommenderSystem()
 
-## Note
+# Define custom prompts
+custom_prompts = {
+    "precision_at_k": "Ottimizza per film che l'utente valuterà positivamente...",
+    "coverage": "Massimizza la varietà di generi nelle raccomandazioni..."
+}
 
-- Il sistema utilizza un approccio RAG (Retrieval Augmented Generation) per ottimizzare il catalogo di film
-- Le metriche vengono bilanciate nell'output finale per offrire raccomandazioni ottimali
-- I risultati intermedi e finali vengono salvati in formato JSON per successive analisi 
+metrics, report_file = asyncio.run(
+    recommender.generate_recommendations_with_custom_prompt(
+        custom_prompts,
+        experiment_name="my_experiment"
+    )
+)
+print(f"Experiment report saved to {report_file}")
+```
+
+## Testing
+
+Run unit and integration tests:
+```bash
+pytest
+```
+
+## Reporting
+
+To generate detailed HTML/Markdown reports for past experiments:
+```bash
+python agent.py --analyze-experiments
+```
+Reports are saved to the `reports/` directory.
+
+## Contributing
+
+Contributions are welcome! Please open an issue to discuss major changes before submitting a pull request. Follow the [MIT License](LICENSE) guidelines.
+
+## License
+
+Distributed under the MIT License. See [LICENSE](LICENSE) for details. 
