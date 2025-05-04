@@ -7,6 +7,7 @@ import json
 import asyncio
 import pandas as pd
 import re
+import sys  # Aggiunto per sys.stdout.flush()
 from datetime import datetime
 from typing import Dict, List, Any, Tuple
 from dotenv import load_dotenv
@@ -490,18 +491,38 @@ class RecommenderSystem:
 
     def save_results(self, metric_results: Dict, final_evaluation: Dict, metrics_calculated: Dict = None):
         """Salva i risultati della pipeline su file."""
+        # Usa un blocco per garantire che il file sia chiuso prima di procedere
         try:
             with open("metric_recommendations.json", "w", encoding="utf-8") as f:
                 json.dump(metric_results, f, ensure_ascii=False, indent=2)
+                # Flush esplicito per garantire che il file sia scritto completamente
+                f.flush()
+                os.fsync(f.fileno())
             print("\nRisultati intermedi salvati: metric_recommendations.json")
-        except Exception as e: print(f"Errore salvataggio metric_recommendations.json: {e}")
-        result_data = {"timestamp": datetime.now().isoformat(),"metric_recommendations": metric_results,"final_evaluation": final_evaluation}
-        if metrics_calculated: result_data["metrics"] = metrics_calculated
+            sys.stdout.flush()  # Flush dello stdout
+        except Exception as e: 
+            print(f"Errore salvataggio metric_recommendations.json: {e}")
+            sys.stdout.flush()
+        
+        result_data = {
+            "timestamp": datetime.now().isoformat(),
+            "metric_recommendations": metric_results,
+            "final_evaluation": final_evaluation
+        }
+        if metrics_calculated: 
+            result_data["metrics"] = metrics_calculated
+        
         try:
             with open("recommendation_results.json", "w", encoding="utf-8") as f:
                 json.dump(result_data, f, ensure_ascii=False, indent=2)
+                # Flush esplicito per garantire che il file sia scritto completamente
+                f.flush()
+                os.fsync(f.fileno())
             print("Risultati finali salvati: recommendation_results.json")
-        except Exception as e: print(f"Errore salvataggio recommendation_results.json: {e}")
+            sys.stdout.flush()  # Flush dello stdout
+        except Exception as e: 
+            print(f"Errore salvataggio recommendation_results.json: {e}")
+            sys.stdout.flush()
 
     def calculate_and_display_metrics(self, metric_results: Dict, final_evaluation: Dict) -> Dict:
         """Calcola e visualizza le metriche."""
@@ -615,4 +636,13 @@ class RecommenderSystem:
         metric_results, final_evaluation = await self.run_recommendation_pipeline()
         metrics = self.calculate_and_display_metrics(metric_results, final_evaluation)
         self.save_results(metric_results, final_evaluation, metrics_calculated=metrics)
+        
+        # Dà tempo all'event loop di stabilizzarsi prima di stampare i messaggi finali
+        await asyncio.sleep(0.1)
+        sys.stdout.flush()
+        
+        print("\n=== Standard Recommendation Process Complete ===")
+        print(f"Final recommendations: {final_evaluation.get('final_recommendations', [])}")
+        sys.stdout.flush()
+        
         return {"timestamp": datetime.now().isoformat(), "metric_recommendations": metric_results, "final_evaluation": final_evaluation, "metrics": metrics} 

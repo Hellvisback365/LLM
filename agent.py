@@ -457,7 +457,6 @@ async def main():
         print("\n=== Standard Recommendation Process Complete ===")
         if result and isinstance(result, dict) and result.get('final_evaluation'):
              print(f"Final recommendations: {result['final_evaluation'].get('final_recommendations', 'N/A')}")
-             print("\nResults saved to: metric_recommendations.json, recommendation_results.json")
         else:
              print("Processo completato ma senza risultati finali validi.")
              print(f"Output ricevuto: {result}")

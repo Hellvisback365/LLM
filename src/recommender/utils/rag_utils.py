@@ -12,6 +12,7 @@ from langchain.schema import Document
 from dotenv import load_dotenv
 import random
 from rank_bm25 import BM25Okapi
+from sentence_transformers import CrossEncoder  # Nuovo import per cross-encoder
 
 # Carica variabili d'ambiente
 load_dotenv()
@@ -41,6 +42,7 @@ class MovieRAG:
         self.bm25 = None          # BM25 index for hybrid / lexical retrieval
         self.corpus_tokens = []
         self.embedding_model = None
+        self.cross_encoder = None  # Nuovo: cross-encoder per il reranking avanzato
         
     def initialize_data(self, movies: List[Dict[str, Any]]):
         """Inizializza i dati dei film"""
@@ -54,7 +56,20 @@ class MovieRAG:
             self._build_embeddings(movies)
         if self.bm25 is None:
             self._build_bm25(movies)
+        # Inizializza cross-encoder se non è già stato fatto
+        if self.cross_encoder is None:
+            self._initialize_cross_encoder()
         
+    def _initialize_cross_encoder(self):
+        """Inizializza il cross-encoder per il reranking"""
+        try:
+            # Utilizziamo un modello pre-addestrato per il ranking di passaggi informativi
+            self.cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+            print("[RAG] Cross-encoder inizializzato con successo")
+        except Exception as e:
+            print(f"[WARN] Errore nell'inizializzazione del cross-encoder: {e}. Il reranking avanzato non sarà disponibile.")
+            self.cross_encoder = None
+
     def _build_embeddings(self, movies: List[Dict[str, Any]], force: bool = False):
         """Costruisce o carica un vector store FAISS con embeddings."""
         if self.vector_store is not None and not force:
@@ -276,30 +291,39 @@ class MovieRAG:
                     break
         
         # 4) Rerank secondo la metrica (precision vs coverage) - Ora passiamo user_id
-        reranked_ids = self._rerank_by_metric(merged_ids, metric_focus, user_id)
+        reranked_ids = self._rerank_by_metric(merged_ids, metric_focus, user_id, query)
 
         return self._get_movies_by_ids(reranked_ids[:k])
 
-    def _rerank_by_metric(self, movie_ids: List[int], metric_focus: str, user_id: int = None) -> List[int]:
-        """Reranker avanzato: se coverage ordina per generi unici, se precision per rilevanza per utente specifico."""
+    def _rerank_by_metric(self, movie_ids: List[int], metric_focus: str, user_id: int = None, query: str = None) -> List[int]:
+        """
+        Reranker avanzato che integra un sistema di punteggio composito tra i reranker tradizionali
+        e un cross-encoder per una comprensione semantica più profonda.
+        """
+        # Ottieni i film candidati dalla lista di ID
+        movie_candidates = self._get_movies_by_ids(movie_ids)
+        
+        # Imposta il peso per bilanciare cross-encoder e ranking tradizionale
+        # Un valore più alto dà più importanza al cross-encoder
+        alpha = 0.7  
+        
+        # Applicazione del reranking tradizionale basato su regole (come sistema di fallback)
+        traditional_ranks = {}
+        
         if metric_focus == "coverage":
-            # preferisci film che introducono nuovi generi
+            # Calcolo basato su diversità di generi (come nell'implementazione originale)
             genre_seen = set()
-            scored = []
-            for mid in movie_ids:
+            for i, mid in enumerate(movie_ids):
                 movie = self.movies_df[self.movies_df["movie_id"] == mid]
                 if movie.empty:
                     continue
                 genres = movie.iloc[0]["genres"].split('|')
                 new_genres = len([g for g in genres if g not in genre_seen])
                 score = new_genres
-                scored.append((mid, score))
+                traditional_ranks[mid] = score
                 genre_seen.update(genres)
-            # sort desc by new_genres
-            scored.sort(key=lambda x: x[1], reverse=True)
-            return [mid for mid, _ in scored]
         else:  # precision@k
-            # Se user_id è fornito, usa similarità basata sui contenuti personalizzata per l'utente
+            # Calcolo basato su preferenze utente (come nell'implementazione originale)
             if user_id is not None:
                 ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
                 if os.path.exists(ratings_path):
@@ -319,7 +343,6 @@ class MovieRAG:
                                 liked_genres.update(movie.iloc[0]['genres'].split('|'))
                         
                         # Calcola punteggi per i film candidati in base alla sovrapposizione di generi
-                        scored = []
                         for mid in movie_ids:
                             movie = self.movies_df[self.movies_df['movie_id'] == mid]
                             if movie.empty:
@@ -332,22 +355,73 @@ class MovieRAG:
                             # Calcola popolarità (fattore secondario)
                             popularity = len(user_ratings[user_ratings['movie_id'] == mid])
                             
-                            # Punteggio combinato: primario è overlap, secondario è popolarità
-                            score = (overlap, popularity)
-                            scored.append((mid, score))
-                        
-                        # Ordina per sovrapposizione (decrescente), poi per popolarità (decrescente)
-                        scored.sort(key=lambda x: (x[1][0], x[1][1]), reverse=True)
-                        return [mid for mid, _ in scored]
+                            # Punteggio combinato primario
+                            traditional_ranks[mid] = overlap + (0.1 * popularity)
             
             # Fallback al ranking basato sulla popolarità generale (comportamento originale)
-            ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
-            if os.path.exists(ratings_path):
-                rating_counts = pd.read_csv(ratings_path)['movie_id'].value_counts()
-                scored = [(mid, rating_counts.get(mid, 0)) for mid in movie_ids]
-                scored.sort(key=lambda x: x[1], reverse=True)
-                return [mid for mid, _ in scored]
-            return movie_ids  # fallback
+            if not traditional_ranks:
+                ratings_path = os.path.join(DATA_PROCESSED_DIR, 'filtered_ratings_specific.csv')
+                if os.path.exists(ratings_path):
+                    rating_counts = pd.read_csv(ratings_path)['movie_id'].value_counts()
+                    for mid in movie_ids:
+                        traditional_ranks[mid] = rating_counts.get(mid, 0)
+                else:
+                    # Se non ci sono dati, assegna punteggi semplificati
+                    for i, mid in enumerate(movie_ids):
+                        traditional_ranks[mid] = len(movie_ids) - i
+        
+        # Normalizzazione dei punteggi tradizionali (0-1)
+        max_trad = max(traditional_ranks.values()) if traditional_ranks else 1
+        normalized_traditional = {k: v/max_trad for k, v in traditional_ranks.items()}
+        
+        # Se il cross-encoder è disponibile e abbiamo una query, usiamo il punteggio composito
+        if self.cross_encoder is not None and query is not None:
+            try:
+                # Preparazione delle coppie (query, descrizione_film)
+                pairs = []
+                id_to_index = {}  # Mappa da movie_id all'indice nella lista pairs
+                
+                for i, movie in enumerate(movie_candidates):
+                    movie_desc = f"{movie['title']}. Generi: {movie['genres'].replace('|', ', ')}"
+                    pairs.append((query, movie_desc))
+                    id_to_index[movie['movie_id']] = i
+                
+                # Calcolo dei punteggi semantici con cross-encoder
+                ce_scores = self.cross_encoder.predict(pairs)
+                
+                # Normalizzazione dei punteggi cross-encoder (0-1)
+                min_ce = min(ce_scores)
+                max_ce = max(ce_scores)
+                range_ce = max_ce - min_ce
+                normalized_ce = [(s - min_ce) / range_ce if range_ce > 0 else 0.5 for s in ce_scores]
+                
+                # Punteggio composito finale
+                final_scores = []
+                for mid in movie_ids:
+                    trad_score = normalized_traditional.get(mid, 0)
+                    ce_idx = id_to_index.get(mid)
+                    
+                    if ce_idx is not None:
+                        ce_score = normalized_ce[ce_idx]
+                        # Punteggio composito: alpha * cross_encoder + (1-alpha) * traditional
+                        composite_score = (alpha * ce_score) + ((1-alpha) * trad_score)
+                    else:
+                        # Se il film non è stato valutato dal cross-encoder, usa solo il punteggio tradizionale
+                        composite_score = trad_score
+                    
+                    final_scores.append((mid, composite_score))
+                
+                # Ordinamento per punteggio composito (decrescente)
+                final_scores.sort(key=lambda x: x[1], reverse=True)
+                return [mid for mid, _ in final_scores]
+            
+            except Exception as e:
+                print(f"[WARN] Errore nel reranking con cross-encoder: {e}. Ricaduta al ranking tradizionale.")
+        
+        # Ricaduta al ranking tradizionale se il cross-encoder non è disponibile o fallisce
+        final_traditional = [(mid, normalized_traditional.get(mid, 0)) for mid in movie_ids]
+        final_traditional.sort(key=lambda x: x[1], reverse=True)
+        return [mid for mid, _ in final_traditional]
     
     def merge_catalogs(self, precision_catalog: List[Dict[str, Any]], 
                        coverage_catalog: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
