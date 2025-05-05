@@ -46,7 +46,7 @@ COMMON_LLM_PARAMS = {
     "openai_api_base": "https://openrouter.ai/api/v1",
     "openai_api_key": OPENROUTER_API_KEY,
     "temperature": 0.7,
-    "max_tokens": 512, # Potrebbe essere necessario aumentarlo per l'evaluator
+    "max_tokens": 1536, # AUMENTATO da 512 per permettere output più lunghi (50 recs + spiegazione)
 }
 LLM_MODEL_ID = "mistralai/mistral-large-2411"
 
@@ -70,45 +70,50 @@ async def llm_arun_with_retry(prompt_str: str) -> str:
 # ----------------------------
 class RecommendationOutput(BaseModel):
     """Schema per l'output dei tool di raccomandazione per metrica."""
-    recommendations: List[int] = Field(..., description="Lista di esattamente 3 ID numerici di film raccomandati.")
-    explanation: str = Field(..., description="Breve spiegazione testuale del motivo per cui questi film sono stati scelti in base alla metrica richiesta.")
+    recommendations: List[int] = Field(..., description="Lista ORDINATA di fino a 50 ID numerici di film raccomandati. Il primo ID è il più raccomandato, l'ultimo il meno.")
+    explanation: str = Field(..., description="Breve spiegazione testuale del motivo per cui questi film sono stati scelti e ordinati in base alla metrica richiesta.")
 
 class EvaluationOutput(BaseModel):
     """Schema per l'output del tool di valutazione finale."""
-    final_recommendations: List[int] = Field(..., description="Lista finale OTTIMALE e UNICA di 3 ID numerici di film, bilanciando le metriche.")
-    justification: str = Field(..., description="Spiegazione dettagliata della logica di selezione e bilanciamento per la lista finale aggregata.")
-    trade_offs: str = Field(..., description="Descrizione dei trade-off considerati tra le diverse metriche (es. precisione vs copertura).")
+    final_recommendations: List[int] = Field(..., description="Lista finale OTTIMALE e ORDINATA di fino a 50 ID numerici di film, bilanciando le metriche. Il primo ID è il più raccomandato.")
+    justification: str = Field(..., description="Spiegazione dettagliata della logica di selezione, bilanciamento e ORDINAMENTO per la lista finale aggregata.")
+    trade_offs: str = Field(..., description="Descrizione dei trade-off considerati tra le diverse metriche (es. precisione vs copertura) nell'ordinamento finale.")
 
 # ----------------------------
 # Definizioni Prompt e Parser (MODIFICATO)
 # ----------------------------
+NUM_RECOMMENDATIONS = 50 # NUOVA costante per il numero di raccomandazioni
+
 PROMPT_VARIANTS = {
     "precision_at_k": (
-        "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. "
-        "Il tuo obiettivo è raccomandare film che l'utente valuterà con un rating 4 o 5 su 5. "
-        "Analizza attentamente il profilo dell'utente e concentrati sui seguenti elementi:\n"
-        "1. Generi che l'utente ha costantemente valutato con punteggi elevati\n"
-        "2. Attributi specifici (attori, registi, temi, epoche) presenti nei film apprezzati\n"
-        "3. Modelli nelle valutazioni negative per evitare film simili\n\n"
-        "La precision@k misura quanti dei film raccomandati saranno effettivamente valutati positivamente. "
-        "Quando analizzi il catalogo, presta particolare attenzione a:\n"
-        "- Corrispondenza di genere con i film valutati positivamente\n"
-        "- Somiglianza tematica e stilistica ai film preferiti\n"
-        "- Evita film simili a quelli che l'utente non ha apprezzato\n\n"
-        "NON raccomandare film in base alla popolarità generale o alle tendenze, a meno che queste "
-        "caratteristiche non si allineino alle preferenze specifiche di questo utente. "
-        "Fornisci ESATTAMENTE 3 film che l'utente molto probabilmente valuterà positivamente."
+        f"You are an expert recommendation system that optimizes for PRECISION@K. "
+        f"Your goal is to recommend movies that the user will rate 4 or 5 out of 5. "
+        f"Carefully analyze the user's profile and focus on the following elements:\n"
+        f"1. Genres that the user has consistently rated highly\n"
+        f"2. Specific attributes (actors, directors, themes, time periods) present in appreciated movies\n"
+        f"3. Patterns in negative ratings to avoid similar movies\n\n"
+        f"Precision@k measures how many of the recommended movies will actually be rated positively. "
+        f"When analyzing the catalog, pay particular attention to:\n"
+        f"- Genre matching with positively rated movies\n"
+        f"- Thematic and stylistic similarity to favorite movies\n"
+        f"- Avoid movies similar to those the user did not appreciate\n\n"
+        f"DO NOT recommend movies based on general popularity or trends, unless these "
+        f"characteristics align with this specific user's preferences. "
+        f"Provide an ORDERED list of {NUM_RECOMMENDATIONS} movie IDs. The first movie should be the one you recommend the most, "
+        f"the last one the one you recommend the least, based on the probability that the user will rate them positively."
     ),
     "coverage": (
-        "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE. "
-        "Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici, "
-        "MA che siano comunque rilevanti per le preferenze specifiche dell'utente di cui stai analizzando il profilo. "
-        "La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. "
-        "L'obiettivo è esplorare meglio lo spazio dei film disponibili e ridurre il rischio di filter bubble. "
-        "Assicurati che le tue raccomandazioni coprano generi diversi tra loro, ma che siano allineati con i gusti dell'utente. "
-        "IMPORTANTE: Fai riferimento specifico ai film che l'utente ha apprezzato per scoprire generi correlati ma diversi. "
-        "Ogni utente deve ricevere raccomandazioni personalizzate in base al suo profilo unico. "
-        "NON raccomandare più di 3 film."
+        f"You are an expert recommendation system that optimizes for COVERAGE. "
+        f"Given a list of movies, recommend an ORDERED list of {NUM_RECOMMENDATIONS} movies that maximize coverage of different film genres, "
+        f"BUT that are still relevant to the specific preferences of the user whose profile you are analyzing. "
+        f"Coverage measures the proportion of the entire catalog that the system is able to recommend. "
+        f"The goal is to better explore the available movie space and reduce the risk of filter bubbles. "
+        f"Make sure your recommendations cover different genres, but are aligned with the user's tastes. "
+        f"Order the list by putting first the movies that represent a good compromise between genre diversity and user preferences, "
+        f"and last those that prioritize pure diversity more at the expense of immediate relevance. "
+        f"IMPORTANT: Make specific reference to movies the user has enjoyed to discover related but different genres. "
+        f"Each user should receive personalized recommendations based on their unique profile. "
+        f"DO NOT recommend more than {NUM_RECOMMENDATIONS} movies."
     )
 }
 
@@ -117,14 +122,14 @@ def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTem
     return PromptTemplate(
         input_variables=["catalog", "user_profile"],
         template=(
-            f"# Compito: Raccomandatore di film ottimizzato per {metric_name.upper()}\n\n"
+            f"# Task: Movie recommender optimized for {metric_name.upper()}\n\n"
             f"{metric_description}\n\n"
-            "# Profilo utente:\n"
+            "# User profile:\n"
             "{user_profile}\n\n"
-            "# Catalogo film:\n"
+            "# Movie catalog:\n"
             "{catalog}\n\n"
-            "# Output Richiesto:\n"
-            "Fornisci le raccomandazioni e la spiegazione richieste." # Semplificato, rimossi dettagli formato JSON
+            "# Required Output:\n"
+            "Provide the recommendations and explanation requested." # Semplificato, rimossi dettagli formato JSON
         )
     )
 
@@ -254,20 +259,20 @@ class RecommenderSystem:
         eval_prompt = PromptTemplate(
             input_variables=["all_recommendations", "catalog"],
              template=(
-                 "# Compito: Valutazione e combinazione di raccomandazioni multi-metrica\n\n"
-                 "Sei un sistema avanzato che deve combinare raccomandazioni di film generate da diversi sistemi specializzati.\n"
-                 "Ogni sistema si è concentrato su una metrica diversa (es. precision@k, coverage).\n\n"
-                 "# Raccomandazioni Ricevute per Utente (JSON string):\n"
+                 "# Task: Evaluation and combination of multi-metric recommendations\n\n"
+                 "You are an advanced system that must combine movie recommendations generated by different specialized systems.\n"
+                 "Each system has focused on a different metric (e.g., precision@k, coverage).\n\n"
+                 "# Recommendations Received per User (JSON string):\n"
                  "{all_recommendations}\n\n"
-                 "# Catalogo Film (JSON string):\n"
+                 "# Movie Catalog (JSON string):\n"
                  "{catalog}\n\n"
-                 "# Istruzioni:\n"
-                 "1. Analizza attentamente le raccomandazioni per ogni metrica e per ogni utente.\n"
-                 "2. Considera i punti di forza di ciascuna metrica (precision@k = rilevanza, coverage = diversità).\n"
-                 "3. Crea una lista finale OTTIMALE e UNICA di 3 film che bilanci le diverse metriche in modo sensato per un ipotetico utente medio rappresentato dai dati forniti.\n"
-                 "4. Spiega DETTAGLIATAMENTE la tua logica di selezione e i trade-off considerati per arrivare alla lista finale aggregata.\n\n"
-                 "# Output Richiesto:\n"
-                 "Fornisci le raccomandazioni finali, la giustificazione e i trade-off." # Semplificato, rimossi dettagli formato JSON
+                 "# Instructions:\n"
+                 "1. Carefully analyze the recommendations for each metric and for each user.\n"
+                 "2. Consider the strengths of each metric (precision@k = relevance, coverage = diversity).\n"
+                 f"3. Create a final OPTIMAL and ORDERED list of {NUM_RECOMMENDATIONS} movies that sensibly balances the different metrics for a hypothetical average user represented by the provided data. Order the list from the most recommended movie to the least recommended.\n"
+                 "4. THOROUGHLY explain your selection logic, the trade-offs considered, and how you determined the ORDERING to arrive at the final aggregated list.\n\n"
+                 "# Required Output:\n"
+                 "Provide the ordered final recommendations, justification, and trade-offs." # Semplificato, rimossi dettagli formato JSON
              )
         )
         
@@ -405,26 +410,61 @@ class RecommenderSystem:
 
             print(f"\n--- Raccomandazioni per utente {user_id} --- (Profilo con {len(profile_liked)} liked, {len(disliked)} disliked. Held-out: {len(held_out)} items)") # Log aggiornato
             
-            # Fix Linter Indentation Error
-            catalog_json = "[]"
-            try:
-                 if self.rag:
-                     cat_p = self.rag.similarity_search(profile_summary, k=100, metric_focus="precision_at_k", user_id=int(user_id))
-                     cat_c = self.rag.similarity_search("diversi generi " + profile_summary, k=100, metric_focus="coverage", user_id=int(user_id))
-                     merged = self.rag.merge_catalogs(cat_p, cat_c)
-                     catalog_json = json.dumps(merged[:100], ensure_ascii=False)
-                 else: catalog_json = self.get_optimized_catalog(limit=100)
-            except Exception as e: print(f"Errore RAG user {user_id}: {e}. Uso catalogo generico."); catalog_json = self.get_optimized_catalog(limit=100)
-            
+            # NUOVO: Genera cataloghi specifici per metrica
+            metric_specific_catalogs = {}
+            catalog_json_fallback = self.get_optimized_catalog(limit=300) # Catalogo di fallback generico
+
+            if self.rag:
+                try:
+                    # Catalogo per Precision@k
+                    print(f"RAG: Tentativo chiamata similarity_search per precision_at_k per utente {user_id}...") # LOG AGGIUNTO
+                    cat_p = self.rag.similarity_search(profile_summary, k=300, metric_focus="precision_at_k", user_id=int(user_id))
+                    metric_specific_catalogs["precision_at_k"] = json.dumps(cat_p[:300], ensure_ascii=False)
+                    print(f"RAG: Generato catalogo specifico per precision_at_k (size: {len(cat_p)}) (Successo)") # Log modificato per chiarezza
+                except Exception as e:
+                    print(f"Errore RAG (precision_at_k) user {user_id}: {e}. Uso catalogo fallback.")
+                    metric_specific_catalogs["precision_at_k"] = catalog_json_fallback
+
+                try:
+                    # Catalogo per Coverage
+                    # Usiamo una query diversa per coverage per enfatizzare la diversità
+                    coverage_query = "diversi generi film non ancora visti dall'utente" + profile_summary 
+                    print(f"RAG: Tentativo chiamata similarity_search per coverage per utente {user_id}...") # LOG AGGIUNTO
+                    cat_c = self.rag.similarity_search(coverage_query, k=300, metric_focus="coverage", user_id=int(user_id))
+                    metric_specific_catalogs["coverage"] = json.dumps(cat_c[:300], ensure_ascii=False)
+                    print(f"RAG: Generato catalogo specifico per coverage (size: {len(cat_c)}) (Successo)") # Log modificato per chiarezza
+                except Exception as e:
+                    print(f"Errore RAG (coverage) user {user_id}: {e}. Uso catalogo fallback.")
+                    metric_specific_catalogs["coverage"] = catalog_json_fallback
+            else:
+                # Se RAG non è disponibile, usa il fallback per tutte le metriche
+                print("RAG non disponibile. Uso catalogo fallback per tutte le metriche.")
+                # Potremmo popolare metric_specific_catalogs qui per metriche note
+                # se volessimo che il fallback fosse comunque specifico per metrica
+                # Ma per ora, lasceremo che il get successivo usi catalog_json_fallback
+                pass # Il fallback verrà gestito nel loop sottostante
+
             # Esegui i tool delle metriche direttamente
             results_for_user = {}
-            tasks = [tool.coroutine(catalog=catalog_json, user_profile=profile_summary) for tool in current_metric_tools if tool.coroutine]
-            tool_names = [tool.name.replace("recommender_", "") for tool in current_metric_tools if tool.coroutine]
+            tasks = []
+            tool_names = [] # Tieni traccia dei nomi per l'associazione dei risultati
             
+            for tool in current_metric_tools:
+                if tool.coroutine:
+                    metric_name = tool.name.replace("recommender_", "")
+                    tool_names.append(metric_name) # Aggiungi il nome alla lista
+
+                    # Seleziona il catalogo specifico per la metrica, altrimenti usa il fallback
+                    current_catalog_json = metric_specific_catalogs.get(metric_name, catalog_json_fallback)
+                    print(f"Invoking tool '{tool.name}' with {'specific' if metric_name in metric_specific_catalogs else 'fallback'} catalog.")
+
+                    # Crea il task per la coroutine del tool
+                    tasks.append(tool.coroutine(catalog=current_catalog_json, user_profile=profile_summary))
+
             if tasks:
                 metric_outputs = await asyncio.gather(*tasks, return_exceptions=True)
                 for i, output in enumerate(metric_outputs):
-                    metric_name = tool_names[i]
+                    metric_name = tool_names[i] # Usa la lista di nomi per associare correttamente
                     if isinstance(output, Exception): results_for_user[metric_name] = {"metric": metric_name, "recommendations": [], "explanation": f"Error: {output}"}
                     elif isinstance(output, dict): results_for_user[metric_name] = output
                     else: results_for_user[metric_name] = {"metric": metric_name, "recommendations": [], "explanation": f"Unexpected type: {type(output)}"}
@@ -436,7 +476,7 @@ class RecommenderSystem:
         if user_metric_results:
             try:
                 all_results_str = json.dumps(user_metric_results, ensure_ascii=False, indent=2)
-                eval_catalog = self.get_optimized_catalog(limit=100)
+                eval_catalog = self.get_optimized_catalog(limit=300)
                 if self.evaluator_tool and self.evaluator_tool.coroutine:
                     final_evaluation = await self.evaluator_tool.coroutine(all_recommendations_str=all_results_str, catalog_str=eval_catalog)
                 else: raise ValueError("Evaluator tool/coroutine non definito.")
@@ -474,7 +514,14 @@ class RecommenderSystem:
             "final_evaluation": final_evaluation
         }
         if metrics_calculated: 
-            result_data["metrics"] = metrics_calculated
+            # Converti np.float64 in float nativo per JSON
+            def convert_np_float(obj):
+                if isinstance(obj, np.float64): return float(obj)
+                if isinstance(obj, dict): return {k: convert_np_float(v) for k, v in obj.items()}
+                if isinstance(obj, list): return [convert_np_float(i) for i in obj]
+                return obj
+            result_data["metrics"] = convert_np_float(metrics_calculated)
+            
         if per_user_held_out_items is not None: # NUOVO: Aggiungi item hold-out per utente al salvataggio
              # Converte le chiavi user_id (int) in stringhe per compatibilità JSON
              result_data["per_user_held_out_items"] = {str(k): v for k, v in per_user_held_out_items.items()}
@@ -507,15 +554,18 @@ class RecommenderSystem:
         
         per_user_metrics = {}
         all_final_recs = final_evaluation.get('final_recommendations', []) # Raccomandazioni finali aggregate
+        k_values = [1, 5, 10, 20, 50] # Valori di K per cui calcolare la precisione
+        
         # Calcola precision@k per le raccomandazioni finali vs *tutti* gli item hold-out aggregati
         # (Manteniamo questa metrica aggregata per le final recs, dato che sono aggregate)
         all_relevant_items_flat = [item for sublist in per_user_relevant_items.values() for item in sublist]
-        final_pak_value_agg = calculate_precision_at_k(all_final_recs, all_relevant_items_flat)
+        final_pak_scores = {k: calculate_precision_at_k(all_final_recs, all_relevant_items_flat, k=k) for k in k_values}
         
         # Metriche per utente
         metric_names = list(self.current_prompt_variants.keys()) # Ottiene nomi metriche (es. precision_at_k, coverage)
-        aggregated_metrics = {name: {'precision_scores': [], 'genre_coverage_scores': []} for name in metric_names}
-        aggregated_metrics['final'] = {'precision_scores': [final_pak_value_agg], 'genre_coverage_scores': []} # Aggiunge metrica finale aggregata
+        # Aggiorna struttura per tenere score per ogni K
+        aggregated_metrics = {name: {'precision_scores': {k: [] for k in k_values}, 'genre_coverage_scores': []} for name in metric_names}
+        aggregated_metrics['final'] = {'precision_scores': final_pak_scores, 'genre_coverage_scores': []} # Precision finale è già calcolata
 
         print("\nMetriche Calcolate (Per Utente):")
         for user_id, u_metrics in metric_results.items():
@@ -531,15 +581,18 @@ class RecommenderSystem:
             for metric_name in metric_names:
                 metric_data = u_metrics.get(metric_name, {})
                 recs = metric_data.get('recommendations', [])
-                pak_value = calculate_precision_at_k(recs, user_relevant)
                 
-                # Genre Coverage (uguale a prima ma calcolata qui)
+                # Calcola Precision@k per diversi k
+                pak_scores = {k: calculate_precision_at_k(recs, user_relevant, k=k) for k in k_values}
+                
+                # Genre Coverage (calcolata sulla lista completa di recs)
                 genres = set() 
                 if self.movies is not None:
                     def get_genres(mid): 
                         m = self.movies[self.movies['movie_id'] == mid]
                         return set(m.iloc[0]['genres'].split('|')) if not m.empty and pd.notna(m.iloc[0]['genres']) else set()
-                    genres = set().union(*[get_genres(mid) for mid in recs])
+                    # Usa tutti i recs generati per calcolare la coverage dei generi
+                    genres = set().union(*[get_genres(mid) for mid in recs]) 
                     all_available_genres = set(g for movie_genres in self.movies['genres'].dropna() for g in movie_genres.split('|'))
                     n_genres = len(all_available_genres)
                     genre_cov = len(genres) / n_genres if n_genres > 0 else 0.0
@@ -547,12 +600,17 @@ class RecommenderSystem:
                     genre_cov = 0.0
 
                 user_metrics_calculated[metric_name] = {
-                    "precision_score": pak_value,
+                    "precision_scores": pak_scores, # Ora è un dizionario
                     "genre_coverage": genre_cov
                 }
-                aggregated_metrics[metric_name]['precision_scores'].append(pak_value)
+                # Aggiungi i punteggi P@k all'aggregazione
+                for k, score in pak_scores.items():
+                    aggregated_metrics[metric_name]['precision_scores'][k].append(score)
+                
                 aggregated_metrics[metric_name]['genre_coverage_scores'].append(genre_cov)
-                print(f"    {metric_name}: Precision@k={pak_value:.4f}, GenreCoverage={genre_cov:.4f}")
+                # Stampa P@k per valori selezionati
+                pak_str = ", ".join([f"P@{k}={score:.4f}" for k, score in pak_scores.items()])
+                print(f"    {metric_name}: {pak_str}, GenreCoverage={genre_cov:.4f}")
 
             per_user_metrics[user_id] = user_metrics_calculated
 
@@ -575,17 +633,23 @@ class RecommenderSystem:
         aggregated_metrics['final']['genre_coverage_scores'].append(final_genre_cov_agg) # Aggiungi per il report finale
 
         for name in metric_names + ['final']: # Include 'final' nel loop
-            avg_pak = np.mean(aggregated_metrics[name]['precision_scores']) if aggregated_metrics[name]['precision_scores'] else 0.0
+            # Calcola Mean Average Precision per ogni k
+            map_at_k_scores = {k: np.mean(aggregated_metrics[name]['precision_scores'][k]) 
+                               if aggregated_metrics[name]['precision_scores'][k] else 0.0 
+                               for k in k_values}
+                               
             avg_gen_cov = np.mean(aggregated_metrics[name]['genre_coverage_scores']) if aggregated_metrics[name]['genre_coverage_scores'] else 0.0
             label = f"Mean {name.capitalize()}" if name != 'final' else "Final Aggregated"
             
-            # Per 'final', usiamo i valori aggregati calcolati (pak vs all, genre cov vs all)
+            map_str = ", ".join([f"MAP@{k}={score:.4f}" for k, score in map_at_k_scores.items()])
+            # Per 'final', usiamo i valori aggregati già calcolati
             if name == 'final':
-                 print(f"  {label}: Precision@k (vs all held-out)={final_pak_value_agg:.4f}, GenreCoverage={final_genre_cov_agg:.4f}")
-                 final_metrics_summary["aggregate_mean"][name] = {"precision_score_agg": final_pak_value_agg, "genre_coverage": final_genre_cov_agg}
+                 final_pak_str = ", ".join([f"P@{k}={score:.4f}" for k, score in final_pak_scores.items()])
+                 print(f"  {label}: {final_pak_str} (vs all held-out), GenreCoverage={final_genre_cov_agg:.4f}")
+                 final_metrics_summary["aggregate_mean"][name] = {"precision_scores_agg": final_pak_scores, "genre_coverage": final_genre_cov_agg}
             else:
-                 print(f"  {label}: MAP@k={avg_pak:.4f}, Mean GenreCoverage={avg_gen_cov:.4f}")
-                 final_metrics_summary["aggregate_mean"][name] = {"map_at_k": avg_pak, "mean_genre_coverage": avg_gen_cov}
+                 print(f"  {label}: {map_str}, Mean GenreCoverage={avg_gen_cov:.4f}")
+                 final_metrics_summary["aggregate_mean"][name] = {"map_at_k": map_at_k_scores, "mean_genre_coverage": avg_gen_cov}
         
         # Calcolo Total Item Coverage (come prima, aggregato)
         all_recs_flat = []
@@ -616,8 +680,16 @@ class RecommenderSystem:
             "metrics": metrics, # Ora contiene la struttura per-utente e aggregata
             "per_user_held_out_items": {str(k): v for k, v in per_user_held_out_items.items()} # Aggiungi dizionario hold-out
         }
+        # Converti np.float64 in float nativo per JSON prima di salvare
+        def convert_np_float_exp(obj):
+            if isinstance(obj, np.float64): return float(obj)
+            if isinstance(obj, dict): return {k: convert_np_float_exp(v) for k, v in obj.items()}
+            if isinstance(obj, list): return [convert_np_float_exp(i) for i in obj]
+            return obj
+        result_to_save = convert_np_float_exp(result)
+        
         try:
-            with open(filename, "w", encoding="utf-8") as f: json.dump(result, f, ensure_ascii=False, indent=2)
+            with open(filename, "w", encoding="utf-8") as f: json.dump(result_to_save, f, ensure_ascii=False, indent=2)
             print(f"Risultati esperimento salvati: {filename}")
         except Exception as e: print(f"Errore salvataggio file esperimento {filename}: {e}")
         return result, filename
@@ -640,4 +712,11 @@ class RecommenderSystem:
         print(f"Final recommendations: {final_evaluation.get('final_recommendations', [])}")
         sys.stdout.flush()
         
-        return {"timestamp": datetime.now().isoformat(), "metric_recommendations": metric_results, "final_evaluation": final_evaluation, "metrics": metrics} # Restituisce nuove metriche 
+        # Converti np.float64 in float nativo prima di restituire
+        def convert_np_float_ret(obj):
+            if isinstance(obj, np.float64): return float(obj)
+            if isinstance(obj, dict): return {k: convert_np_float_ret(v) for k, v in obj.items()}
+            if isinstance(obj, list): return [convert_np_float_ret(i) for i in obj]
+            return obj
+            
+        return convert_np_float_ret({"timestamp": datetime.now().isoformat(), "metric_recommendations": metric_results, "final_evaluation": final_evaluation, "metrics": metrics}) # Restituisce nuove metriche 

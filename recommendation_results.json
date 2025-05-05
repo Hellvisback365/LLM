@@ -1,123 +1,403 @@
 {
-  "timestamp": "2025-05-05T13:55:17.479557",
+  "timestamp": "2025-05-05T21:10:11.323854",
   "metric_recommendations": {
     "1": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          17,
-          295,
-          3161
+          1203,
+          150,
+          362,
+          225,
+          232,
+          296,
+          356,
+          359,
+          382,
+          440,
+          447,
+          471,
+          539,
+          552,
+          614,
+          697,
+          723,
+          733,
+          736,
+          764,
+          836,
+          838,
+          852,
+          866,
+          889,
+          905,
+          908,
+          910,
+          920,
+          924,
+          930,
+          936,
+          953,
+          1057,
+          1060,
+          1088,
+          1089,
+          1172,
+          1183,
+          1188,
+          1226,
+          1230,
+          1260,
+          1276,
+          1287,
+          1367,
+          1377,
+          1390,
+          1393,
+          1409,
+          1410,
+          1441,
+          1476
         ],
-        "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici, come 'Ben-Hur', 'The English Patient' e 'The Big Lebowski'. Questi film raccomandati si allineano a questi generi e temi. 'Sense and Sensibility' e 'Onegin' sono entrambi drammi romantici che dovrebbero risuonare con le preferenze dell'utente. 'A Pyromaniac's Love Story' aggiunge un elemento di commedia romantica, che è un altro genere ben rappresentato tra i film apprezzati dall'utente."
+        "explanation": "The recommendations are based on the user's preference for highly rated genres such as Drama, Romance, and Comedy. The selected movies align thematically and stylistically with the user's favorite movies, ensuring a high probability of positive ratings. Movies that match genres and themes present in the user's positively rated films are prioritized, while avoiding those similar to disliked movies."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          2019,
-          2875,
-          1203
+          968,
+          1360,
+          1368,
+          2693,
+          3089,
+          3119,
+          3485,
+          3522,
+          3569,
+          3655,
+          3657,
+          3660,
+          3697,
+          3733,
+          3737,
+          3739,
+          3763,
+          3764,
+          3772,
+          3777,
+          3783,
+          3787,
+          3789,
+          3790,
+          3823,
+          3826,
+          3832,
+          3835,
+          3841,
+          3848,
+          3849,
+          3852,
+          3854,
+          3856,
+          3864,
+          3867,
+          3865,
+          3871,
+          3872,
+          3874,
+          3880,
+          3881,
+          3886,
+          3888,
+          3893,
+          3894,
+          3895,
+          3896,
+          3897,
+          3898
         ],
-        "explanation": "L'utente ha mostrato interesse per film di vari generi, inclusi Comedy, Drama e Action. Per massimizzare la copertura dei generi e mantenere la rilevanza, raccomandiamo 'Seven Samurai' (Action|Drama) per il suo mix di azione e dramma, 'Sommersby' (Drama|Mystery|Romance) per aggiungere un elemento di mistero e romanticismo, e '12 Angry Men' (Drama) per un'esperienza drammatica intensa. Questi film non solo coprono diversi generi ma sono anche allineati con le preferenze dell'utente, evitando la ripetizione di generi già apprezzati."
+        "explanation": "Based on the user's liked movies, which include a mix of drama, romance, and comedy, the recommendations aim to maximize coverage across different genres while ensuring relevance to the user's preferences. The list starts with movies that balance genre diversity and user preferences, such as 'Night of the Living Dead' (Horror|Sci-Fi) and 'Identification of a Woman' (Drama). It then gradually introduces more diverse genres like documentary, adventure, and thriller, while keeping some alignment with the user's taste for drama and romance. Movies like 'The Bicycle Thief' (Drama) and 'The Official Story' (Drama) are included to maintain relevance, while films like 'The Kentucky Fried Movie' (Comedy) and 'Nekromantik' (Comedy|Horror) add genre diversity. The list ends with movies that prioritize pure diversity, such as 'The Way of the Gun' (Crime|Thriller) and 'Almost Famous' (Comedy|Drama), which might be less immediately relevant but expand the user's movie horizon significantly."
       }
     },
     "2": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          17,
-          25,
-          1183
+          1183,
+          1353,
+          936,
+          1203,
+          1357,
+          1210,
+          1259,
+          1441,
+          1247,
+          1172,
+          1246,
+          912,
+          3755,
+          3741,
+          1276,
+          3030,
+          1293,
+          1060,
+          1287,
+          1230,
+          1410,
+          1381,
+          1409,
+          1658,
+          1499,
+          1821,
+          1912,
+          1953,
+          1954,
+          1955,
+          1957,
+          1962,
+          2002,
+          2248,
+          2253,
+          2262,
+          2366,
+          2424,
+          2431,
+          2447,
+          2571,
+          2572,
+          2586,
+          2589,
+          2597,
+          2600,
+          2697,
+          2863,
+          2906,
+          2912
         ],
-        "explanation": "Gli film raccomandati sono stati selezionati in base alle preferenze dell'utente per film drammatici e romantici. 'Sense and Sensibility' (17) e 'The English Patient' (1183) sono entrambi film drammatici e romantici che hanno ricevuto grande apprezzamento dalla critica e dal pubblico, caratteristiche che l'utente sembra apprezzare nei film che ha valutato positivamente. Inoltre, 'Leaving Las Vegas' (25) è un film drammatico e romantico che esplora temi profondi e complessi, simili a quelli presenti nei film che l'utente ha apprezzato."
+        "explanation": "The recommendations are based on the user's consistent high ratings for dramas and romantic comedies. The list includes classic dramas like 'The English Patient', 'Casablanca', and 'The Quiet Man', as well as romantic comedies such as 'Strictly Ballroom' and 'Twister'. Movies with similar thematic and stylistic elements to the user's favorites, such as 'The Green Mile' and 'The Matrix', are also included. Movies similar to those the user did not appreciate, such as horror and thriller genres, are avoided."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
-          16,
-          1,
-          196
+          1183,
+          1188,
+          1221,
+          1370,
+          1957,
+          1962,
+          2002,
+          2028,
+          2156,
+          2324,
+          2351,
+          2367,
+          2437,
+          2501,
+          2579,
+          2600,
+          2630,
+          2680,
+          2693,
+          2767,
+          2821,
+          2931,
+          2946,
+          3033,
+          3082,
+          3162,
+          3173,
+          3291,
+          3383,
+          3451,
+          3522,
+          3578,
+          3654,
+          3655,
+          3678,
+          3684,
+          3724,
+          3725,
+          3726,
+          3727,
+          3731,
+          3732,
+          3733,
+          3734,
+          3735,
+          3736,
+          3737,
+          3740,
+          3741,
+          3749
         ],
-        "explanation": "Le raccomandazioni sono state scelte per massimizzare la copertura di diversi generi cinematografici, pur rimanendo rilevanti per le preferenze dell'utente. L'utente ha apprezzato film di vari generi, tra cui Drama, Comedy e Thriller. 'Casino (1995)' è un film Drama|Thriller che introduce elementi di tensione e dramma, simili a film come 'Leaving Las Vegas (1995)' che l'utente ha apprezzato. 'Toy Story (1995)' è un film Animation|Children's|Comedy che offre una combinazione di generi che l'utente potrebbe trovare interessante, dato il suo apprezzamento per film come 'Strictly Ballroom (1992)'. 'Species (1995)' è un film Horror|Sci-Fi che espande ulteriormente la copertura dei generi, offrendo un'esperienza diversa ma complementare ai gusti dell'utente, come 'The Matrix (1999)'."
+        "explanation": "The recommended movies are selected to maximize coverage of different film genres while aligning with the user's preferences. The user has enjoyed a mix of genres, including Drama, Comedy, and Romance. Movies like 'The English Patient' (1183) and 'Strictly Ballroom' (1188) are highly recommended as they represent a good balance between genre diversity and user preferences. Films such as 'The Godfather: Part II' (1221) and 'Life Is Beautiful' (2324) offer a mix of Drama and Crime, which the user has shown an interest in. The list also includes Documentaries like 'Trekkies' (2693) and Adventure films like 'King Kong' (2367) to ensure a broad genre coverage. Towards the end of the list, movies like 'Big Trouble in Little China' (3740) and 'Badlands' (3741) prioritize pure diversity, offering genres that the user might not have explored as much but could still enjoy."
       }
     }
   },
   "final_evaluation": {
     "final_recommendations": [
-      17,
-      2019,
-      1203
+      1183,
+      1203,
+      1441,
+      1172,
+      1276,
+      1060,
+      1287,
+      1381,
+      1409,
+      1410,
+      1357,
+      1210,
+      1259,
+      1247,
+      1246,
+      912,
+      1293,
+      1353,
+      936,
+      1188,
+      1230,
+      1658,
+      1499,
+      1821,
+      1912,
+      1953,
+      1954,
+      1955,
+      1957,
+      1962,
+      2002,
+      2248,
+      2253,
+      2262,
+      2366,
+      2424,
+      2431,
+      2447,
+      2571,
+      2572,
+      2586,
+      2589,
+      2597,
+      2600,
+      2697,
+      2863,
+      2906,
+      2912,
+      968,
+      1360
     ],
-    "justification": "La selezione finale dei film è stata fatta bilanciando la precisione e la copertura delle metriche per soddisfare le preferenze di un utente medio rappresentato dai dati forniti. Il film 'Sense and Sensibility' (17) è stato scelto per la sua alta precisione, essendo un dramma romantico che risuona con le preferenze dell'utente per film drammatici e romantici. 'Seven Samurai' (2019) è stato selezionato per la sua copertura, offrendo un mix di azione e dramma che aggiunge diversità ai generi già apprezzati dall'utente. Infine, '12 Angry Men' (1203) è stato incluso per la sua intensa esperienza drammatica, che non solo copre il genere drammatico ma è anche altamente rilevante per le preferenze dell'utente.",
-    "trade_offs": "I trade-off considerati includono la necessità di bilanciare la rilevanza (precisione) con la diversità dei generi (copertura). Selezionare film solo in base alla precisione avrebbe potuto portare a una lista di film molto simili, riducendo la varietà. D'altra parte, concentrarsi solo sulla copertura avrebbe potuto includere film meno rilevanti per le preferenze dell'utente. Pertanto, la lista finale combina film che sono sia rilevanti che diversificati, offrendo un'esperienza equilibrata."
+    "justification": "The final recommendations were created by carefully balancing the strengths of each metric: precision@k for relevance and coverage for diversity. The list starts with movies that are highly relevant to the user's preferences, such as 'Strictly Ballroom' (1183) and 'Cinema Paradiso' (1203), which appear in both precision@k and coverage lists. These movies are followed by those that maximize genre diversity while maintaining relevance, such as 'The English Patient' (1203) and 'The Green Mile' (1441). Towards the end, the list includes movies that prioritize pure diversity, like 'Night of the Living Dead' (968) and 'Identification of a Woman' (1360), to expand the user's movie horizon. The ordering ensures that the most relevant and diverse movies are recommended first, gradually introducing more diverse options.",
+    "trade_offs": "The primary trade-off considered was between precision (relevance) and coverage (diversity). Movies that are highly relevant to the user's preferences were prioritized at the beginning of the list to ensure user satisfaction. However, to introduce the user to new genres and expand their movie horizon, diversity was gradually increased towards the end of the list. This approach balances the need for relevant recommendations with the benefit of exploring new genres, providing a well-rounded movie-watching experience."
   },
   "metrics": {
     "per_user": {
       "1": {
         "precision_at_k": {
-          "precision_score": 0.0,
-          "genre_coverage": 0.16666666666666666
+          "precision_scores": {
+            "1": 0.0,
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.0,
+            "50": 0.02
+          },
+          "genre_coverage": 0.7777777777777778
         },
         "coverage": {
-          "precision_score": 0.0,
-          "genre_coverage": 0.2222222222222222
+          "precision_scores": {
+            "1": 0.0,
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.0,
+            "50": 0.0
+          },
+          "genre_coverage": 0.6111111111111112
         }
       },
       "2": {
         "precision_at_k": {
-          "precision_score": 0.0,
-          "genre_coverage": 0.16666666666666666
+          "precision_scores": {
+            "1": 0.0,
+            "5": 0.0,
+            "10": 0.0,
+            "20": 0.0,
+            "50": 0.0
+          },
+          "genre_coverage": 0.7222222222222222
         },
         "coverage": {
-          "precision_score": 0.0,
-          "genre_coverage": 0.3888888888888889
+          "precision_scores": {
+            "1": 0.0,
+            "5": 0.0,
+            "10": 0.1,
+            "20": 0.05,
+            "50": 0.02
+          },
+          "genre_coverage": 0.7777777777777778
         }
       }
     },
     "aggregate_mean": {
       "precision_at_k": {
-        "map_at_k": 0.0,
-        "mean_genre_coverage": 0.16666666666666666
+        "map_at_k": {
+          "1": 0.0,
+          "5": 0.0,
+          "10": 0.0,
+          "20": 0.0,
+          "50": 0.01
+        },
+        "mean_genre_coverage": 0.75
       },
       "coverage": {
-        "map_at_k": 0.0,
-        "mean_genre_coverage": 0.3055555555555556
+        "map_at_k": {
+          "1": 0.0,
+          "5": 0.0,
+          "10": 0.05,
+          "20": 0.025,
+          "50": 0.01
+        },
+        "mean_genre_coverage": 0.6944444444444444
       },
       "final": {
-        "precision_score_agg": 0.0,
-        "genre_coverage": 0.16666666666666666
+        "precision_scores_agg": {
+          "1": 0.0,
+          "5": 0.0,
+          "10": 0.1,
+          "20": 0.05,
+          "50": 0.02
+        },
+        "genre_coverage": 0.6666666666666666
       },
-      "total_item_coverage": 0.0028328611898017
+      "total_item_coverage": 0.04635591037857327
     }
   },
   "per_user_held_out_items": {
     "1": [
-      1193,
+      1270,
       588,
-      2398,
-      1028,
-      2294,
-      1022,
       2355,
-      3186,
-      1721
+      1566,
+      531,
+      1287,
+      48,
+      1193,
+      2028
     ],
     "2": [
+      2028,
+      368,
+      2067,
+      3471,
+      356,
+      1945,
       3334,
-      3147,
-      3068,
-      1873,
-      2002,
-      1293,
-      1193,
-      2501,
-      1246,
-      1198,
-      349,
-      1784,
-      3105,
-      1259,
-      480
+      589,
+      2858,
+      3255,
+      110,
+      1124,
+      1207,
+      515,
+      3068
     ]
   }
 }

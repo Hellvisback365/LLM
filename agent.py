@@ -469,18 +469,18 @@ async def main():
         print("\n=== Running Prompt Variant Experiments ===\n")
         precision_variants = {
             "precision_at_k_serendipity": (
-                "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY..."
+                "You are an expert recommendation system that optimizes for PRECISION@K with focus on SERENDIPITY..."
             ),
             "precision_at_k_recency": (
-                "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla RECENCY..."
+                "You are an expert recommendation system that optimizes for PRECISION@K with focus on RECENCY..."
             )
         }
         coverage_variants = {
             "coverage_genre_balance": (
-                "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE con BILANCIAMENTO DEI GENERI..."
+                "You are an expert recommendation system that optimizes for COVERAGE with GENRE BALANCE..."
             ),
             "coverage_temporal": (
-                "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE..."
+                "You are an expert recommendation system that optimizes for TEMPORAL COVERAGE..."
             )
         }
         
