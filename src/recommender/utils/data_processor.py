@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
+import math # Aggiunto per ceil
 
 # Costanti per i percorsi file
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -93,41 +94,65 @@ def filter_users_by_specific_users(ratings: pd.DataFrame, user_ids: list = [1, 2
     
     return filtered_ratings
 
-def create_user_profiles(ratings: pd.DataFrame) -> pd.DataFrame:
+def create_user_profiles(ratings: pd.DataFrame, hold_out_percentage: float = 0.2) -> pd.DataFrame:
     """
-    Crea profili utente categorizzando le valutazioni come 'like' (4-5) o 'dislike' (1-3)
+    Crea profili utente separando una percentuale di film piaciuti per la valutazione (hold-out).
     
     Args:
-        ratings: DataFrame con le valutazioni
+        ratings: DataFrame con le valutazioni.
+        hold_out_percentage: Percentuale di film piaciuti da tenere come hold-out (default: 0.2).
         
     Returns:
-        DataFrame con profili utente (film piaciuti e non piaciuti)
+        DataFrame con profili utente:
+        - 'profile_liked_movies': Film piaciuti da usare nel profilo (1 - hold_out_percentage).
+        - 'disliked_movies': Film non piaciuti (tutti).
+        - 'held_out_liked_movies': Film piaciuti nascosti per la valutazione (ground truth).
+        - Conteggi relativi.
     """
-    # Crea una copia per non modificare l'originale
+    if not (0 <= hold_out_percentage < 1):
+        raise ValueError("hold_out_percentage deve essere tra 0 (incluso) e 1 (escluso).")
+        
     df = ratings.copy()
-    
-    # Aggiungi una colonna che indica se il film è piaciuto o meno
     df['preference'] = df['rating'].apply(lambda x: 'like' if x >= 4 else 'dislike')
     
-    # Crea un DataFrame per i profili utente
-    user_profiles = pd.DataFrame(index=df['user_id'].unique())
+    user_profiles_data = []
     
-    # Aggiungi liste di film piaciuti e non piaciuti
-    liked_movies = df[df['preference'] == 'like'].groupby('user_id')['movie_id'].apply(list)
-    disliked_movies = df[df['preference'] == 'dislike'].groupby('user_id')['movie_id'].apply(list)
+    for user_id in df['user_id'].unique():
+        user_data = df[df['user_id'] == user_id]
+        
+        all_liked_movies = user_data[user_data['preference'] == 'like']['movie_id'].tolist()
+        disliked_movies = user_data[user_data['preference'] == 'dislike']['movie_id'].tolist()
+        
+        profile_liked_movies = []
+        held_out_liked_movies = []
+        
+        if all_liked_movies:
+            np.random.shuffle(all_liked_movies) # Mescola per casualità
+            num_hold_out = math.ceil(len(all_liked_movies) * hold_out_percentage)
+            # Assicurati che num_hold_out non sia maggiore del numero di film piaciuti
+            num_hold_out = min(num_hold_out, len(all_liked_movies))
+
+            # Separa gli ID
+            held_out_liked_movies = all_liked_movies[:num_hold_out]
+            profile_liked_movies = all_liked_movies[num_hold_out:]
+            
+        user_profiles_data.append({
+            'user_id': user_id,
+            'profile_liked_movies': profile_liked_movies,
+            'disliked_movies': disliked_movies,
+            'held_out_liked_movies': held_out_liked_movies,
+            'num_profile_liked': len(profile_liked_movies),
+            'num_disliked': len(disliked_movies),
+            'num_held_out': len(held_out_liked_movies),
+            'total_ratings_in_profile': len(profile_liked_movies) + len(disliked_movies)
+        })
+        
+    user_profiles = pd.DataFrame(user_profiles_data)
+    user_profiles = user_profiles.set_index('user_id') # Imposta user_id come indice
     
-    user_profiles['liked_movies'] = liked_movies
-    user_profiles['disliked_movies'] = disliked_movies
-    
-    # Riempi i valori NaN con liste vuote
-    user_profiles['liked_movies'] = user_profiles['liked_movies'].apply(lambda x: x if isinstance(x, list) else [])
-    user_profiles['disliked_movies'] = user_profiles['disliked_movies'].apply(lambda x: x if isinstance(x, list) else [])
-    
-    # Aggiungi conteggi
-    user_profiles['num_liked'] = user_profiles['liked_movies'].apply(len)
-    user_profiles['num_disliked'] = user_profiles['disliked_movies'].apply(len)
-    user_profiles['total_ratings'] = user_profiles['num_liked'] + user_profiles['num_disliked']
-    
+    print(f"Creati profili per {len(user_profiles)} utenti. "
+          f"Hold-out {hold_out_percentage*100:.0f}% dei film piaciuti.")
+          
     return user_profiles
 
 def process_dataset():

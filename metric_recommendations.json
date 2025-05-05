@@ -3,40 +3,40 @@
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
-        2437,
-        2572,
-        3261
+        17,
+        295,
+        3161
       ],
-      "explanation": "Le raccomandazioni si basano sui generi e sugli attributi dei film che l'utente ha valutato positivamente. 'Wilde' (2437) è un dramma che potrebbe risuonare con i film drammatici che l'utente ha apprezzato. '10 Things I Hate About You' (2572) è una commedia romantica che si allinea con il gusto dell'utente per le commedie e i film romantici. 'Singles' (3261) è una commedia drammatica romantica che combina elementi di generi che l'utente ha costantemente valutato positivamente."
+      "explanation": "L'utente ha mostrato una forte preferenza per film drammatici e romantici, come 'Ben-Hur', 'The English Patient' e 'The Big Lebowski'. Questi film raccomandati si allineano a questi generi e temi. 'Sense and Sensibility' e 'Onegin' sono entrambi drammi romantici che dovrebbero risuonare con le preferenze dell'utente. 'A Pyromaniac's Love Story' aggiunge un elemento di commedia romantica, che è un altro genere ben rappresentato tra i film apprezzati dall'utente."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
-        2571,
-        1183,
-        2424
+        2019,
+        2875,
+        1203
       ],
-      "explanation": "Ho scelto 'The Matrix' per l'Action/Sci-Fi, 'The English Patient' per il Drama/Romance/War e 'You've Got Mail' per la Comedy/Romance. Questi film coprono diversi generi e sono allineati con le preferenze dell'utente, che ha apprezzato film come 'Ben-Hur' (Action/Adventure/Drama), 'Toy Story' (Animation/Children's/Comedy) e 'Jerry Maguire' (Drama/Romance)."
+      "explanation": "L'utente ha mostrato interesse per film di vari generi, inclusi Comedy, Drama e Action. Per massimizzare la copertura dei generi e mantenere la rilevanza, raccomandiamo 'Seven Samurai' (Action|Drama) per il suo mix di azione e dramma, 'Sommersby' (Drama|Mystery|Romance) per aggiungere un elemento di mistero e romanticismo, e '12 Angry Men' (Drama) per un'esperienza drammatica intensa. Questi film non solo coprono diversi generi ma sono anche allineati con le preferenze dell'utente, evitando la ripetizione di generi già apprezzati."
     }
   },
   "2": {
     "precision_at_k": {
       "metric": "precision_at_k",
       "recommendations": [
-        1183,
-        2571,
-        1287
+        17,
+        25,
+        1183
       ],
-      "explanation": "L'utente ha mostrato un apprezzamento costante per film drammatici e romantici, come 'Strictly Ballroom' (1188) e 'The English Patient' (1183). Inoltre, l'utente ha valutato positivamente film di fantascienza e azione come 'The Matrix' (2571). 'Ben-Hur' (1287) combina elementi di azione, avventura e dramma, che sono stati ben accolti dall'utente in passato."
+      "explanation": "Gli film raccomandati sono stati selezionati in base alle preferenze dell'utente per film drammatici e romantici. 'Sense and Sensibility' (17) e 'The English Patient' (1183) sono entrambi film drammatici e romantici che hanno ricevuto grande apprezzamento dalla critica e dal pubblico, caratteristiche che l'utente sembra apprezzare nei film che ha valutato positivamente. Inoltre, 'Leaving Las Vegas' (25) è un film drammatico e romantico che esplora temi profondi e complessi, simili a quelli presenti nei film che l'utente ha apprezzato."
     },
     "coverage": {
       "metric": "coverage",
       "recommendations": [
+        16,
         1,
-        3301,
-        2571
+        196
       ],
-      "explanation": "L'utente ha apprezzato vari film di diversi generi, tra cui 'Strictly Ballroom' (Comedy|Romance) e 'Matrix, The' (Action|Sci-Fi|Thriller). Per massimizzare la copertura dei generi, raccomando 'Toy Story' (Animation|Children's|Comedy) per esplorare la categoria Animation e Children's, 'The Whole Nine Yards' (Comedy|Crime) per aggiungere Crime senza allontanarsi troppo dai gusti dell'utente, e 'Matrix, The' (Action|Sci-Fi|Thriller) per rafforzare l'apprezzamento per Action e Sci-Fi, mantenendo la pertinenza con le preferenze dell'utente."
+      "explanation": "Le raccomandazioni sono state scelte per massimizzare la copertura di diversi generi cinematografici, pur rimanendo rilevanti per le preferenze dell'utente. L'utente ha apprezzato film di vari generi, tra cui Drama, Comedy e Thriller. 'Casino (1995)' è un film Drama|Thriller che introduce elementi di tensione e dramma, simili a film come 'Leaving Las Vegas (1995)' che l'utente ha apprezzato. 'Toy Story (1995)' è un film Animation|Children's|Comedy che offre una combinazione di generi che l'utente potrebbe trovare interessante, dato il suo apprezzamento per film come 'Strictly Ballroom (1992)'. 'Species (1995)' è un film Horror|Sci-Fi che espande ulteriormente la copertura dei generi, offrendo un'esperienza diversa ma complementare ai gusti dell'utente, come 'The Matrix (1999)'."
     }
   }
 }

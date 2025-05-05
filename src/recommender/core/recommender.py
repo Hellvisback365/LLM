@@ -6,8 +6,10 @@ import os
 import json
 import asyncio
 import pandas as pd
+import numpy as np # Aggiunto per la media delle metriche
 import re
 import sys  # Aggiunto per sys.stdout.flush()
+import traceback # Aggiunto per debug
 from datetime import datetime
 from typing import Dict, List, Any, Tuple
 from dotenv import load_dotenv
@@ -15,10 +17,12 @@ from dotenv import load_dotenv
 # LangChain imports
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 from langchain.agents import initialize_agent, Tool, AgentType
 from openai import RateLimitError
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+
+# Pydantic import
+from pydantic import BaseModel, Field
 
 # Moduli locali
 from src.recommender.utils.data_processor import (
@@ -62,7 +66,21 @@ async def llm_arun_with_retry(prompt_str: str) -> str:
     return content if content is not None else str(response)
 
 # ----------------------------
-# Definizioni Prompt e Parser
+# Definizioni Schemi Pydantic (NUOVO)
+# ----------------------------
+class RecommendationOutput(BaseModel):
+    """Schema per l'output dei tool di raccomandazione per metrica."""
+    recommendations: List[int] = Field(..., description="Lista di esattamente 3 ID numerici di film raccomandati.")
+    explanation: str = Field(..., description="Breve spiegazione testuale del motivo per cui questi film sono stati scelti in base alla metrica richiesta.")
+
+class EvaluationOutput(BaseModel):
+    """Schema per l'output del tool di valutazione finale."""
+    final_recommendations: List[int] = Field(..., description="Lista finale OTTIMALE e UNICA di 3 ID numerici di film, bilanciando le metriche.")
+    justification: str = Field(..., description="Spiegazione dettagliata della logica di selezione e bilanciamento per la lista finale aggregata.")
+    trade_offs: str = Field(..., description="Descrizione dei trade-off considerati tra le diverse metriche (es. precisione vs copertura).")
+
+# ----------------------------
+# Definizioni Prompt e Parser (MODIFICATO)
 # ----------------------------
 PROMPT_VARIANTS = {
     "precision_at_k": (
@@ -94,19 +112,8 @@ PROMPT_VARIANTS = {
     )
 }
 
-response_schema = ResponseSchema(
-    name="recommendations",
-    description="Lista di esattamente 3 ID di film raccomandati, in formato JSON. Es: [145, 270, 381]"
-)
-explanation_schema = ResponseSchema(
-    name="explanation",
-    description="Breve spiegazione del motivo per cui hai scelto questi film in base alla metrica richiesta."
-)
-parser = StructuredOutputParser.from_response_schemas([response_schema, explanation_schema])
-FORMAT_INSTRUCTIONS = parser.get_format_instructions()
-
 def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTemplate:
-    """Crea un PromptTemplate per una specifica metrica."""
+    """Crea un PromptTemplate per una specifica metrica (senza istruzioni formato JSON).""" # Modificato Docstring
     return PromptTemplate(
         input_variables=["catalog", "user_profile"],
         template=(
@@ -116,17 +123,8 @@ def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTem
             "{user_profile}\n\n"
             "# Catalogo film:\n"
             "{catalog}\n\n"
-            "# Formato di output richiesto:\n"
-            "La tua risposta deve contenere ESATTAMENTE le chiavi 'recommendations' e 'explanation' in formato JSON.\n"
-            "Esempio di formato JSON corretto:\n"
-            "```json\n"
-            "{{\n"
-            "  \"recommendations\": [145, 270, 381],\n"
-            "  \"explanation\": \"Spiegazione concisa della tua scelta basata sulla metrica specifica...\"\n"
-            "}}\n"
-            "```\n"
-            "Assicurati che 'recommendations' sia una lista di 3 ID numerici di film e 'explanation' una stringa.\n"
-            "NON includere nient'altro nella risposta oltre al blocco JSON."
+            "# Output Richiesto:\n"
+            "Fornisci le raccomandazioni e la spiegazione richieste." # Semplificato, rimossi dettagli formato JSON
         )
     )
 
@@ -157,7 +155,7 @@ class RecommenderSystem:
                 processed_dir = os.path.join('data', 'processed')
                 os.makedirs(processed_dir, exist_ok=True)
                 ratings_file = os.path.join(processed_dir, 'filtered_ratings_specific.csv')
-                profiles_file = os.path.join(processed_dir, 'user_profiles_specific.csv')
+                profiles_file = os.path.join(processed_dir, 'user_profiles.csv')
                 movies_file = os.path.join(processed_dir, 'movies.csv')
 
                 if not force_reload and all(os.path.exists(f) for f in [ratings_file, profiles_file, movies_file]):
@@ -184,7 +182,7 @@ class RecommenderSystem:
                 self.datasets_loaded = True
             except Exception as e:
                 print(f"Errore caricamento dataset: {e}")
-                import traceback; traceback.print_exc()
+                traceback.print_exc()
                 raise
         else:
             print("Dataset già caricati.")
@@ -207,51 +205,6 @@ class RecommenderSystem:
             print(f"Catalogo ottimizzato RAG salvato.")
         except Exception as e: print(f"Attenzione: impossibile generare/salvare catalogo ottimizzato RAG: {e}")
 
-    def _parse_tool_response(self, response_content: str, metric_name: str) -> Dict:
-        """Estrae JSON strutturato dalla risposta del tool."""
-        try:
-            # 1. Cerca blocco JSON completo
-            json_match = re.search(r'({[\s\S]*?"recommendations"[\s\S]*?"explanation"[\s\S]*?})', response_content)
-            if json_match:
-                json_str = json_match.group(1)
-                json_str = re.sub(r'[\n\r\t]', ' ', json_str)
-                json_str = re.sub(r'```json|```', '', json_str).strip()
-                try: 
-                    data = json.loads(json_str)
-                    # Validazione minima
-                    if isinstance(data.get('recommendations'), list) and isinstance(data.get('explanation'), str):
-                         return {"metric": metric_name, "recommendations": data['recommendations'], "explanation": data['explanation']}
-                except json.JSONDecodeError: pass # Prova altri metodi
-            
-            # 2. Cerca chiavi separate
-            recs_match = re.search(r'"recommendations":\s*(\[[\s\d,]*\])', response_content)
-            exp_match = re.search(r'"explanation":\s*"([^"]*)"', response_content)
-            if recs_match:
-                try: recs = json.loads(recs_match.group(1))
-                except: recs = []
-                explanation = exp_match.group(1) if exp_match else "Explanation extracted partially"
-                return {"metric": metric_name, "recommendations": recs, "explanation": explanation}
-
-            # 3. Cerca solo lista di ID
-            rec_match_list = re.search(r'(\[\s*\d+\s*(?:,\s*\d+\s*)*\])', response_content) # Regex migliorata
-            if rec_match_list:
-                 try: recs = json.loads(rec_match_list.group(1))
-                 except: recs = []
-                 return {"metric": metric_name, "recommendations": recs, "explanation": f"List extracted: {recs}"}
-
-            # 4. Estrai numeri
-            numbers = re.findall(r'\b\d+\b', response_content)
-            if numbers:
-                unique_nums = list(dict.fromkeys([int(n) for n in numbers]))
-                if len(unique_nums) >= 3:
-                    return {"metric": metric_name, "recommendations": unique_nums[:3], "explanation": f"Numbers extracted: {unique_nums[:3]}"}
-            
-            print(f"Impossibile fare il parsing della risposta per {metric_name}")
-            raise ValueError("Cannot extract recommendations from the response.")
-        except Exception as e:
-            print(f"Errore parsing JSON per {metric_name}: {e}")
-            return {"metric": metric_name, "recommendations": [], "explanation": f"Parsing Error: {e}"}
-
     def _build_metric_tools(self) -> List[Tool]:
         """Costruisce i Tools per ciascuna metrica di raccomandazione."""
         print("Costruzione metric tools...")
@@ -264,11 +217,24 @@ class RecommenderSystem:
             async def run_metric_agent_tool(catalog: str, user_profile: str, _metric=metric_name, _prompt=prompt_template):
                 try:
                     prompt_str = _prompt.format(catalog=catalog, user_profile=user_profile)
-                    response_content = await llm_arun_with_retry(prompt_str)
-                    print(f"Raw response from {_metric} tool: {response_content[:300]}...")
-                    return self._parse_tool_response(response_content, _metric)
+
+                    # Crea un'istanza LLM strutturata al volo per questa chiamata (MODIFICATO)
+                    # Rimuovi method=\"json_mode\" per usare il tool calling (default)
+                    structured_llm = self.llm.with_structured_output(RecommendationOutput)
+                    # Potremmo forzare l'uso del tool se necessario:
+                    # structured_llm = self.llm.with_structured_output(RecommendationOutput).bind(tool_choice=\"RecommendationOutput\")
+
+                    print(f"Invoking structured LLM for metric: {_metric} (using tool calling approach)") # Log aggiornato
+                    parsed_response: RecommendationOutput = await structured_llm.ainvoke(prompt_str)
+                    print(f"Raw structured response from {_metric}: {parsed_response}") # Log
+
+                    # Restituisci il risultato come dizionario
+                    return {"metric": _metric, **parsed_response.dict()}
+
                 except Exception as e:
-                    print(f"Error running {_metric} tool: {e}")
+                    print(f"Error running structured {_metric} tool: {e}")
+                    traceback.print_exc() # Stampa traceback completo
+                    # Fornisci un output di errore strutturato coerente
                     return {"metric": _metric, "recommendations": [], "explanation": f"Execution Error: {e}"}
             
             metric_tools.append(
@@ -300,59 +266,49 @@ class RecommenderSystem:
                  "2. Considera i punti di forza di ciascuna metrica (precision@k = rilevanza, coverage = diversità).\n"
                  "3. Crea una lista finale OTTIMALE e UNICA di 3 film che bilanci le diverse metriche in modo sensato per un ipotetico utente medio rappresentato dai dati forniti.\n"
                  "4. Spiega DETTAGLIATAMENTE la tua logica di selezione e i trade-off considerati per arrivare alla lista finale aggregata.\n\n"
-                 "# Formato di output richiesto (JSON ESATTO):\n"
-                 "```json\n"
-                 "{{\n"
-                 "  \"final_recommendations\": [ID_FILM_1, ID_FILM_2, ID_FILM_3],\n"
-                 "  \"justification\": \"Spiegazione dettagliata del perché hai scelto questi 3 film specifici come bilanciamento ottimale...\",\n"
-                 "  \"trade_offs\": \"Descrizione dei trade-off considerati (es. sacrificato un po' di precisione per più copertura, scelto film popolari vs. nicchia...)\"\n"
-                 "}}\n"
-                 "```\n"
-                 "IMPORTANTE: Rispetta ESATTAMENTE il formato JSON. 'final_recommendations' deve contenere 3 ID numerici. Le spiegazioni devono essere stringhe."
-            )
+                 "# Output Richiesto:\n"
+                 "Fornisci le raccomandazioni finali, la giustificazione e i trade-off." # Semplificato, rimossi dettagli formato JSON
+             )
         )
         
         async def evaluate_recommendations_tool(all_recommendations_str: str, catalog_str: str) -> Dict:
-            max_retries = 3 
-            retry_delay = 2 
+            max_retries = 3
+            retry_delay = 2
+            evaluator_max_tokens = 1536 # NUOVO: Aumenta i token per l'evaluator
+
             for attempt in range(max_retries):
                 try:
-                    print(f"\nAttempt {attempt+1}/{max_retries} to evaluate recommendations...")
+                    print(f"\nAttempt {attempt+1}/{max_retries} to evaluate recommendations using structured output (max_tokens={evaluator_max_tokens})...") # Log aggiornato
                     prompt_str = eval_prompt.format(all_recommendations=all_recommendations_str, catalog=catalog_str)
-                    response_content = await llm_arun_with_retry(prompt_str)
-                    print(f"Raw evaluator response: {response_content[:300]}...")
-                    
-                    # Estrazione JSON robusta per l'evaluator
-                    json_match = re.search(r'({[\s\S]*?"final_recommendations"[\s\S]*?"justification"[\s\S]*?"trade_offs"[\s\S]*?})', response_content)
-                    if json_match:
-                        json_str = json_match.group(1)
-                        json_str = re.sub(r'[\n\r\t]', ' ', json_str).strip()
-                        json_str = re.sub(r'```json|```', '', json_str).strip()
-                        try:
-                            data = json.loads(json_str)
-                            if isinstance(data.get("final_recommendations"), list) and \
-                               len(data.get("final_recommendations")) == 3 and \
-                               isinstance(data.get("justification"), str) and \
-                               isinstance(data.get("trade_offs"), str):
-                                return {
-                                    "final_recommendations": data["final_recommendations"],
-                                    "justification": data["justification"],
-                                    "trade_offs": data["trade_offs"]
-                                }
-                            else: print("Evaluator JSON validation failed.")
-                        except json.JSONDecodeError: print(f"Malformed JSON from evaluator: {json_str[:100]}...")
-                    
-                    print(f"Failed to parse evaluator response on attempt {attempt+1}.")
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(retry_delay); retry_delay *= 2
-                    else:
-                        raise ValueError("Could not parse evaluator response after multiple retries.")
+
+                    # Crea l'istanza LLM strutturata per l'evaluator (MODIFICATO)
+                    # Rimuovi method="json_mode" per usare il tool calling (default)
+                    structured_eval_llm = self.llm.with_structured_output(EvaluationOutput)
+
+                    # Passa max_tokens maggiorato
+                    parsed_evaluation: EvaluationOutput = await structured_eval_llm.ainvoke(
+                        prompt_str,
+                        max_tokens=evaluator_max_tokens
+                    )
+                    print(f"Raw structured evaluator response: {parsed_evaluation}") # Log
+
+                    # L'output è già validato da Pydantic e LangChain. Restituiscilo come dict.
+                    return parsed_evaluation.dict()
+
                 except Exception as inner_e:
-                    print(f"Error during evaluator tool execution attempt {attempt+1}: {inner_e}")
+                    print(f"Error during structured evaluator tool execution attempt {attempt+1}: {inner_e}")
+                    traceback.print_exc() # Stampa traceback completo
+                    if "LengthFinishReasonError" in str(inner_e) and evaluator_max_tokens < 3000: # Aumenta se ancora troppo corto
+                         print("Increasing max_tokens for evaluator retry...")
+                         evaluator_max_tokens *= 1.5 # Aumenta gradualmente
+                         evaluator_max_tokens = int(evaluator_max_tokens)
+
                     if attempt < max_retries - 1:
                          await asyncio.sleep(retry_delay); retry_delay *= 2
                     else:
-                        return {"final_recommendations": [], "justification": f"Evaluation failed: {inner_e}", "trade_offs": "N/A"}
+                        # Restituisci un errore strutturato coerente
+                        return {"final_recommendations": [], "justification": f"Evaluation failed after retries: {inner_e}", "trade_offs": "N/A"}
+            # In caso di uscita imprevista dal loop
             return {"final_recommendations": [], "justification": "Evaluation failed unexpectedly.", "trade_offs": "N/A"}
 
         self.evaluator_tool = Tool(
@@ -379,7 +335,7 @@ class RecommenderSystem:
             print("LangChain Agent inizializzato.")
         except Exception as e:
              print(f"Errore inizializzazione Agent: {e}")
-             import traceback; traceback.print_exc()
+             traceback.print_exc()
              self.agent = None
 
     def initialize_system(self, force_reload_data: bool = False, force_recreate_vector_store: bool = False) -> None:
@@ -405,7 +361,7 @@ class RecommenderSystem:
             else: print("Attenzione: RAG non inizializzato."); return "[]"
         except Exception as e: print(f"Errore get_optimized_catalog: {e}"); return "[]"
              
-    async def run_recommendation_pipeline(self, use_prompt_variants: Dict = None) -> Tuple[Dict, Dict]:
+    async def run_recommendation_pipeline(self, use_prompt_variants: Dict = None) -> Tuple[Dict, Dict, Dict[int, List[int]]]:
         """
         Esegue l'intera pipeline di raccomandazione per tutti gli utenti specificati.
         Invoca i tool delle metriche e poi il tool di valutazione.
@@ -421,6 +377,7 @@ class RecommenderSystem:
         # Nota: l'agent NON viene reinizializzato qui, usa i tool passati al momento della chiamata (se usassimo agent.arun)
 
         user_metric_results = {}
+        per_user_held_out_items = {} # NUOVO: Dizionario per item hold-out per utente
         if self.user_profiles is None: raise RuntimeError("user_profiles non inizializzato.")
 
         for user_id in self.specific_user_ids:
@@ -438,19 +395,25 @@ class RecommenderSystem:
                              try: return [int(x.strip()) for x in item[1:-1].split(',') if x.strip().isdigit()]
                              except: pass
                  return []
-            liked = safe_load_list(profile_series.get("liked_movies"))
+            profile_liked = safe_load_list(profile_series.get("profile_liked_movies")) 
             disliked = safe_load_list(profile_series.get("disliked_movies"))
-            profile_summary = json.dumps({"user_id": int(user_id),"liked_movies": liked,"disliked_movies": disliked}, ensure_ascii=False)
+            profile_summary = json.dumps({"user_id": int(user_id),"liked_movies": profile_liked,"disliked_movies": disliked}, ensure_ascii=False)
 
-            print(f"\n--- Raccomandazioni per utente {user_id} ---")
+            # NUOVO: Colleziona gli item held-out per questo utente
+            held_out = safe_load_list(profile_series.get("held_out_liked_movies"))
+            per_user_held_out_items[user_id] = held_out # Salva nel dizionario
+
+            print(f"\n--- Raccomandazioni per utente {user_id} --- (Profilo con {len(profile_liked)} liked, {len(disliked)} disliked. Held-out: {len(held_out)} items)") # Log aggiornato
+            
+            # Fix Linter Indentation Error
             catalog_json = "[]"
             try:
-                if self.rag:
-                    cat_p = self.rag.similarity_search(profile_summary, k=100, metric_focus="precision_at_k", user_id=int(user_id))
-                    cat_c = self.rag.similarity_search("diversi generi " + profile_summary, k=100, metric_focus="coverage", user_id=int(user_id))
-                    merged = self.rag.merge_catalogs(cat_p, cat_c)
-                    catalog_json = json.dumps(merged[:100], ensure_ascii=False)
-                else: catalog_json = self.get_optimized_catalog(limit=100)
+                 if self.rag:
+                     cat_p = self.rag.similarity_search(profile_summary, k=100, metric_focus="precision_at_k", user_id=int(user_id))
+                     cat_c = self.rag.similarity_search("diversi generi " + profile_summary, k=100, metric_focus="coverage", user_id=int(user_id))
+                     merged = self.rag.merge_catalogs(cat_p, cat_c)
+                     catalog_json = json.dumps(merged[:100], ensure_ascii=False)
+                 else: catalog_json = self.get_optimized_catalog(limit=100)
             except Exception as e: print(f"Errore RAG user {user_id}: {e}. Uso catalogo generico."); catalog_json = self.get_optimized_catalog(limit=100)
             
             # Esegui i tool delle metriche direttamente
@@ -479,7 +442,7 @@ class RecommenderSystem:
                 else: raise ValueError("Evaluator tool/coroutine non definito.")
                 print(f"Final recommendations: {final_evaluation.get('final_recommendations', [])}")
             except Exception as e:
-                 print(f"Errore evaluator tool: {e}"); import traceback; traceback.print_exc()
+                 print(f"Errore evaluator tool: {e}"); traceback.print_exc()
                  final_evaluation = {"final_recommendations": [], "justification": f"Evaluation Error: {e}", "trade_offs": "N/A"}
         else: final_evaluation = {"final_recommendations": [], "justification": "No results to evaluate.", "trade_offs": "N/A"}
 
@@ -487,9 +450,10 @@ class RecommenderSystem:
         self.current_prompt_variants = PROMPT_VARIANTS.copy() 
         self._build_metric_tools() # Ricostruisce i tool con i prompt di default
 
-        return user_metric_results, final_evaluation
+        # Passa per_user_held_out_items alla funzione di calcolo metriche
+        return user_metric_results, final_evaluation, per_user_held_out_items # Restituisce dizionario hold-out
 
-    def save_results(self, metric_results: Dict, final_evaluation: Dict, metrics_calculated: Dict = None):
+    def save_results(self, metric_results: Dict, final_evaluation: Dict, metrics_calculated: Dict = None, per_user_held_out_items: Dict[int, List[int]] = None):
         """Salva i risultati della pipeline su file."""
         # Usa un blocco per garantire che il file sia chiuso prima di procedere
         try:
@@ -511,6 +475,9 @@ class RecommenderSystem:
         }
         if metrics_calculated: 
             result_data["metrics"] = metrics_calculated
+        if per_user_held_out_items is not None: # NUOVO: Aggiungi item hold-out per utente al salvataggio
+             # Converte le chiavi user_id (int) in stringhe per compatibilità JSON
+             result_data["per_user_held_out_items"] = {str(k): v for k, v in per_user_held_out_items.items()}
         
         try:
             with open("recommendation_results.json", "w", encoding="utf-8") as f:
@@ -524,97 +491,121 @@ class RecommenderSystem:
             print(f"Errore salvataggio recommendation_results.json: {e}")
             sys.stdout.flush()
 
-    def calculate_and_display_metrics(self, metric_results: Dict, final_evaluation: Dict) -> Dict:
-        """Calcola e visualizza le metriche."""
-        if not self.datasets_loaded or self.movies is None or self.filtered_ratings is None:
+    def calculate_and_display_metrics(self, metric_results: Dict, final_evaluation: Dict, per_user_relevant_items: Dict[int, List[int]]) -> Dict:
+        """Calcola e visualizza metriche per utente e aggregate.
+        
+        Args:
+            metric_results: Dizionario {user_id: {metric_name: results}}
+            final_evaluation: Dizionario con le raccomandazioni finali aggregate.
+            per_user_relevant_items: Dizionario {user_id: list_of_held_out_ids}
+            
+        Returns:
+            Dizionario con metriche per utente e metriche aggregate (medie).
+        """
+        if not self.datasets_loaded or self.movies is None:
              print("Dataset non caricati, metriche non calcolabili."); return {}
-        try:
-            prec_recs, cov_recs = [], []
-            for uid, u_metrics in metric_results.items():
-                prec_recs.extend(u_metrics.get('precision_at_k', {}).get('recommendations', []))
-                cov_recs.extend(u_metrics.get('coverage', {}).get('recommendations', []))
-            prec_recs, cov_recs = list(dict.fromkeys(prec_recs)), list(dict.fromkeys(cov_recs))
-            final_recs = final_evaluation.get('final_recommendations', [])
-            
-            # 2. Prepara dati per metriche
-            all_movie_ids = self.movies['movie_id'].tolist()
-            
-            # --- Inizio Logica Vecchia/Corretta per relevant_items ---
-            # Determiniamo i film rilevanti come quelli con rating medio >=4 (dal dataset completo)
-            ratings_path = os.path.join('data', 'raw', 'ratings.dat')
-            relevant_items = [] # Inizializza lista vuota
-            try:
-                print("Tentativo di caricare tutti i rating per calcolare la rilevanza globale...")
-                # Carica solo le colonne necessarie dal file completo
-                all_ratings = pd.read_csv(
-                    ratings_path, 
-                    sep='::', 
-                    engine='python', 
-                    header=None, 
-                    names=['user_id','movie_id','rating','timestamp'],
-                    usecols=['movie_id', 'rating'] # Carica solo colonne utili
-                )
-                avg_ratings = all_ratings.groupby('movie_id')['rating'].mean()
-                relevant_items = avg_ratings[avg_ratings >= 4].index.tolist()
-                print(f"Trovati {len(relevant_items)} film rilevanti globalmente (avg_rating >= 4).")
-            except FileNotFoundError:
-                print(f"Attenzione: File {ratings_path} non trovato. Uso fallback basato su dati filtrati.")
-            except Exception as e:
-                print(f"Errore nel caricamento/calcolo dei rating globali: {e}. Uso fallback.")
-            
-            # Fallback: se il caricamento fallisce o non trova item rilevanti, 
-            # usa i film che hanno almeno un rating >=4 nell'insieme filtrato
-            if not relevant_items:
-                 print("Fallback: Calcolo rilevanza basata solo sui dati filtrati (rating >= 4 da utenti specifici).")
-                 if self.filtered_ratings is not None:
-                      relevant_items = self.filtered_ratings[self.filtered_ratings['rating'] >= 4]['movie_id'].unique().tolist()
-                 else:
-                      relevant_items = [] # Nessun dato filtrato disponibile
-                 print(f"Trovati {len(relevant_items)} film rilevanti nel fallback.")
-            # --- Fine Logica Vecchia/Corretta per relevant_items ---
+        
+        per_user_metrics = {}
+        all_final_recs = final_evaluation.get('final_recommendations', []) # Raccomandazioni finali aggregate
+        # Calcola precision@k per le raccomandazioni finali vs *tutti* gli item hold-out aggregati
+        # (Manteniamo questa metrica aggregata per le final recs, dato che sono aggregate)
+        all_relevant_items_flat = [item for sublist in per_user_relevant_items.values() for item in sublist]
+        final_pak_value_agg = calculate_precision_at_k(all_final_recs, all_relevant_items_flat)
+        
+        # Metriche per utente
+        metric_names = list(self.current_prompt_variants.keys()) # Ottiene nomi metriche (es. precision_at_k, coverage)
+        aggregated_metrics = {name: {'precision_scores': [], 'genre_coverage_scores': []} for name in metric_names}
+        aggregated_metrics['final'] = {'precision_scores': [final_pak_value_agg], 'genre_coverage_scores': []} # Aggiunge metrica finale aggregata
 
-            # Rimuovo la vecchia riga che usava solo i dati filtrati:
-            # relevant = self.filtered_ratings[self.filtered_ratings['rating'] >= 4]['movie_id'].unique().tolist()
+        print("\nMetriche Calcolate (Per Utente):")
+        for user_id, u_metrics in metric_results.items():
+            user_relevant = per_user_relevant_items.get(user_id, [])
+            if not user_relevant:
+                print(f"  Utente {user_id}: Attenzione - Nessun item rilevante (held-out) trovato.")
+                # Continua a calcolare le altre metriche, la precisione sarà 0
+                
+            user_metrics_calculated = {}
+            print(f"  Utente {user_id}:")
             
-            if not relevant_items: 
-                 print("Attenzione: nessun film rilevante trovato (rating>=4). Precision@k sarà 0.")
+            # Calcola metriche per i tool (precision_at_k, coverage, ecc.)
+            for metric_name in metric_names:
+                metric_data = u_metrics.get(metric_name, {})
+                recs = metric_data.get('recommendations', [])
+                pak_value = calculate_precision_at_k(recs, user_relevant)
+                
+                # Genre Coverage (uguale a prima ma calcolata qui)
+                genres = set() 
+                if self.movies is not None:
+                    def get_genres(mid): 
+                        m = self.movies[self.movies['movie_id'] == mid]
+                        return set(m.iloc[0]['genres'].split('|')) if not m.empty and pd.notna(m.iloc[0]['genres']) else set()
+                    genres = set().union(*[get_genres(mid) for mid in recs])
+                    all_available_genres = set(g for movie_genres in self.movies['genres'].dropna() for g in movie_genres.split('|'))
+                    n_genres = len(all_available_genres)
+                    genre_cov = len(genres) / n_genres if n_genres > 0 else 0.0
+                else:
+                    genre_cov = 0.0
 
-            # 3. Calcola precision@k
-            # Usa la lista 'relevant_items' calcolata sopra
-            precision_pak_value = calculate_precision_at_k(prec_recs, relevant_items)
-            coverage_pak_value = calculate_precision_at_k(cov_recs, relevant_items)
-            final_pak_value = calculate_precision_at_k(final_recs, relevant_items)
-            
-            all_genres = set(g for genres in self.movies['genres'].dropna() for g in genres.split('|'))
-            n_genres = len(all_genres)
-            genre_cov = {}
-            def get_genres(mid): 
+                user_metrics_calculated[metric_name] = {
+                    "precision_score": pak_value,
+                    "genre_coverage": genre_cov
+                }
+                aggregated_metrics[metric_name]['precision_scores'].append(pak_value)
+                aggregated_metrics[metric_name]['genre_coverage_scores'].append(genre_cov)
+                print(f"    {metric_name}: Precision@k={pak_value:.4f}, GenreCoverage={genre_cov:.4f}")
+
+            per_user_metrics[user_id] = user_metrics_calculated
+
+        # Calcola medie aggregate (MAP@k e Mean Genre Coverage)
+        print("\nMetriche Aggregate (Medie su Utenti):")
+        final_metrics_summary = {"per_user": per_user_metrics, "aggregate_mean": {}}
+        
+        # Calcola Genre Coverage per le raccomandazioni finali aggregate
+        final_genres = set() 
+        if self.movies is not None:
+            def get_genres_final(mid): 
                 m = self.movies[self.movies['movie_id'] == mid]
                 return set(m.iloc[0]['genres'].split('|')) if not m.empty and pd.notna(m.iloc[0]['genres']) else set()
-            for name, recs in [("precision_at_k", prec_recs), ("coverage", cov_recs), ("final", final_recs)]:
-                g = set().union(*[get_genres(mid) for mid in recs])
-                genre_cov[name] = len(g) / n_genres if n_genres > 0 else 0
-            total_cov = len(set(prec_recs + cov_recs + final_recs)) / len(all_movie_ids) if all_movie_ids else 0
-            
-            print("\nMetriche Calcolate:")
-            print(f"  Precision@k (prec): {precision_pak_value:.4f}, (cov): {coverage_pak_value:.4f}, (final): {final_pak_value:.4f}")
-            print(f"  Genre Coverage (prec): {genre_cov.get('precision_at_k', 0):.4f}, (cov): {genre_cov.get('coverage', 0):.4f}, (final): {genre_cov.get('final', 0):.4f}")
-            print(f"  Total Coverage (items): {total_cov:.4f}")
-            
-            metrics = {
-                "precision_at_k": {"precision_score": precision_pak_value, "genre_coverage": genre_cov.get('precision_at_k', 0)},
-                "coverage": {"precision_score": coverage_pak_value, "genre_coverage": genre_cov.get('coverage', 0)},
-                "final_recommendations": {"precision_score": final_pak_value, "genre_coverage": genre_cov.get('final', 0)},
-                "total_coverage": total_cov
-            }
-            return metrics
-        except Exception as e: print(f"Errore calcolo metriche: {e}"); import traceback; traceback.print_exc(); return {"error": str(e)}
+            final_genres = set().union(*[get_genres_final(mid) for mid in all_final_recs])
+            all_available_genres = set(g for movie_genres in self.movies['genres'].dropna() for g in movie_genres.split('|'))
+            n_genres = len(all_available_genres)
+            final_genre_cov_agg = len(final_genres) / n_genres if n_genres > 0 else 0.0
+        else:
+            final_genre_cov_agg = 0.0
+        aggregated_metrics['final']['genre_coverage_scores'].append(final_genre_cov_agg) # Aggiungi per il report finale
 
+        for name in metric_names + ['final']: # Include 'final' nel loop
+            avg_pak = np.mean(aggregated_metrics[name]['precision_scores']) if aggregated_metrics[name]['precision_scores'] else 0.0
+            avg_gen_cov = np.mean(aggregated_metrics[name]['genre_coverage_scores']) if aggregated_metrics[name]['genre_coverage_scores'] else 0.0
+            label = f"Mean {name.capitalize()}" if name != 'final' else "Final Aggregated"
+            
+            # Per 'final', usiamo i valori aggregati calcolati (pak vs all, genre cov vs all)
+            if name == 'final':
+                 print(f"  {label}: Precision@k (vs all held-out)={final_pak_value_agg:.4f}, GenreCoverage={final_genre_cov_agg:.4f}")
+                 final_metrics_summary["aggregate_mean"][name] = {"precision_score_agg": final_pak_value_agg, "genre_coverage": final_genre_cov_agg}
+            else:
+                 print(f"  {label}: MAP@k={avg_pak:.4f}, Mean GenreCoverage={avg_gen_cov:.4f}")
+                 final_metrics_summary["aggregate_mean"][name] = {"map_at_k": avg_pak, "mean_genre_coverage": avg_gen_cov}
+        
+        # Calcolo Total Item Coverage (come prima, aggregato)
+        all_recs_flat = []
+        for uid, u_metrics in metric_results.items():
+             for m_name, m_data in u_metrics.items():
+                  all_recs_flat.extend(m_data.get('recommendations', []))
+        all_recs_flat.extend(all_final_recs)
+        total_item_coverage = len(set(all_recs_flat)) / len(self.movies['movie_id'].unique()) if self.movies is not None and not self.movies.empty else 0.0
+        print(f"  Total Item Coverage (all recs): {total_item_coverage:.4f}")
+        final_metrics_summary["aggregate_mean"]["total_item_coverage"] = total_item_coverage
+
+        return final_metrics_summary
+        
     # ----- Metodi per esperimenti ----- 
     async def generate_recommendations_with_custom_prompt(self, prompt_variants: Dict, experiment_name: str ="custom_experiment") -> Tuple[Dict, str]:
         print(f"\n=== Esecuzione Esperimento: {experiment_name} ===")
-        metric_results, final_evaluation = await self.run_recommendation_pipeline(use_prompt_variants=prompt_variants)
-        metrics = self.calculate_and_display_metrics(metric_results, final_evaluation)
+        # MODIFICA: Recupera per_user_held_out_items
+        metric_results, final_evaluation, per_user_held_out_items = await self.run_recommendation_pipeline(use_prompt_variants=prompt_variants)
+        # MODIFICA: Passa per_user_held_out_items
+        metrics = self.calculate_and_display_metrics(metric_results, final_evaluation, per_user_held_out_items)
         os.makedirs("experiments", exist_ok=True)
         filename = f"experiments/experiment_{experiment_name}.json"
         result = {
@@ -622,7 +613,8 @@ class RecommenderSystem:
             "experiment_info": {"name": experiment_name, "prompt_variants": prompt_variants},
             "metric_recommendations": metric_results,
             "final_evaluation": final_evaluation,
-            "metrics": metrics
+            "metrics": metrics, # Ora contiene la struttura per-utente e aggregata
+            "per_user_held_out_items": {str(k): v for k, v in per_user_held_out_items.items()} # Aggiungi dizionario hold-out
         }
         try:
             with open(filename, "w", encoding="utf-8") as f: json.dump(result, f, ensure_ascii=False, indent=2)
@@ -633,9 +625,12 @@ class RecommenderSystem:
     async def generate_standard_recommendations(self) -> Dict:
         """Genera raccomandazioni standard, calcola metriche e salva."""
         print("\n=== Esecuzione Pipeline Standard ===")
-        metric_results, final_evaluation = await self.run_recommendation_pipeline()
-        metrics = self.calculate_and_display_metrics(metric_results, final_evaluation)
-        self.save_results(metric_results, final_evaluation, metrics_calculated=metrics)
+        # MODIFICA: Recupera per_user_held_out_items
+        metric_results, final_evaluation, per_user_held_out_items = await self.run_recommendation_pipeline()
+        # MODIFICA: Passa per_user_held_out_items
+        metrics = self.calculate_and_display_metrics(metric_results, final_evaluation, per_user_held_out_items)
+        # MODIFICA: Passa per_user_held_out_items
+        self.save_results(metric_results, final_evaluation, metrics_calculated=metrics, per_user_held_out_items=per_user_held_out_items)
         
         # Dà tempo all'event loop di stabilizzarsi prima di stampare i messaggi finali
         await asyncio.sleep(0.1)
@@ -645,4 +640,4 @@ class RecommenderSystem:
         print(f"Final recommendations: {final_evaluation.get('final_recommendations', [])}")
         sys.stdout.flush()
         
-        return {"timestamp": datetime.now().isoformat(), "metric_recommendations": metric_results, "final_evaluation": final_evaluation, "metrics": metrics} 
+        return {"timestamp": datetime.now().isoformat(), "metric_recommendations": metric_results, "final_evaluation": final_evaluation, "metrics": metrics} # Restituisce nuove metriche 
