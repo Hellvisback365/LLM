@@ -23,7 +23,7 @@ from openai import RateLimitError
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 # Pydantic import
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 # Moduli locali
 from src.recommender.utils.data_processor import (
@@ -47,7 +47,7 @@ COMMON_LLM_PARAMS = {
     "openai_api_base": "https://openrouter.ai/api/v1",
     "openai_api_key": OPENROUTER_API_KEY,
     "temperature": 0.4,
-    "max_tokens": 1536, # AUMENTATO da 512 per permettere output più lunghi (50 recs + spiegazione)
+    "max_tokens": 2500, # AUMENTATO da 1536 per permettere output più lunghi (50 recs + spiegazione)
 }
 
 
@@ -69,48 +69,85 @@ async def llm_arun_with_retry(prompt_str: str) -> str:
     return content if content is not None else str(response)
 
 # ----------------------------
-# Definizioni Schemi Pydantic (NUOVO)
+# Definizioni Prompt e Parser
+# ----------------------------
+NUM_RECOMMENDATIONS = 50 # Costante per il numero di raccomandazioni spostata prima delle classi Pydantic
+
+# ----------------------------
+# Definizioni Schemi Pydantic
 # ----------------------------
 class RecommendationOutput(BaseModel):
     """Schema per l'output dei tool di raccomandazione per metrica."""
-    recommendations: List[int] = Field(..., description="Lista ORDINATA di fino a 50 ID numerici di film raccomandati. Il primo ID è il più raccomandato, l'ultimo il meno.")
+    recommendations: List[int] = Field(
+        ..., 
+        description=f"Lista ORDINATA di esattamente {NUM_RECOMMENDATIONS} ID numerici di film raccomandati. Il primo ID è il più raccomandato, l'ultimo il meno.",
+        min_items=NUM_RECOMMENDATIONS,
+        max_items=NUM_RECOMMENDATIONS
+    )
     explanation: str = Field(..., description="Breve spiegazione testuale del motivo per cui questi film sono stati scelti e ordinati in base alla metrica richiesta.")
+    
+    @validator('recommendations')
+    def validate_exactly_50_items(cls, v):
+        """Validatore che garantisce esattamente NUM_RECOMMENDATIONS elementi."""
+        if len(v) != NUM_RECOMMENDATIONS:
+            raise ValueError(f"L'array deve contenere esattamente {NUM_RECOMMENDATIONS} elementi, trovati {len(v)}")
+        return v
+    
+    @validator('recommendations', each_item=True)
+    def validate_ids_are_integers(cls, v):
+        """Validatore che garantisce che ogni elemento sia un ID numerico intero."""
+        if not isinstance(v, int):
+            raise ValueError(f"Ogni ID film deve essere un intero, trovato {type(v)}")
+        return v
 
 class EvaluationOutput(BaseModel):
     """Schema per l'output del tool di valutazione finale."""
-    final_recommendations: List[int] = Field(..., description="Lista finale OTTIMALE e ORDINATA di fino a 50 ID numerici di film, bilanciando le metriche. Il primo ID è il più raccomandato.")
+    final_recommendations: List[int] = Field(
+        ..., 
+        description=f"Lista finale OTTIMALE e ORDINATA di esattamente {NUM_RECOMMENDATIONS} ID numerici di film, bilanciando le metriche. Il primo ID è il più raccomandato.",
+        min_items=NUM_RECOMMENDATIONS,
+        max_items=NUM_RECOMMENDATIONS
+    )
     justification: str = Field(..., description="Spiegazione dettagliata della logica di selezione, bilanciamento e ORDINAMENTO per la lista finale aggregata.")
     trade_offs: str = Field(..., description="Descrizione dei trade-off considerati tra le diverse metriche (es. precisione vs copertura) nell'ordinamento finale.")
+    
+    @validator('final_recommendations')
+    def validate_exactly_50_items(cls, v):
+        """Validatore che garantisce esattamente NUM_RECOMMENDATIONS elementi."""
+        if len(v) != NUM_RECOMMENDATIONS:
+            raise ValueError(f"L'array deve contenere esattamente {NUM_RECOMMENDATIONS} elementi, trovati {len(v)}")
+        return v
 
 # ----------------------------
 # Definizioni Prompt e Parser (MODIFICATO)
 # ----------------------------
-NUM_RECOMMENDATIONS = 50 # NUOVA costante per il numero di raccomandazioni
-
 PROMPT_VARIANTS = {
     "precision_at_k": (
-        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n"
+        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
         "You are a personal movie recommendation consultant optimizing for PRECISION@K for a specific user. "
         "Your goal is to recommend movies that the user will rate 4 or 5 out of 5. "
-        "Carefully analyze the user\'s profile and focus on the following elements:\n"
-        "1. Genres that the user has consistently rated highly.\n"
-        "2. Identify key actors, directors, themes, and time periods from the user\'s appreciated movies. Prioritize movies in the catalog that share these specific attributes.\n"
-        "3. Actively analyze disliked movies to identify genres, themes, or attributes to avoid.\n\n"
+        "Carefully analyze the user\\'s profile and focus on the following elements:\\n"
+        "1. Genres that the user has consistently rated highly.\\n"
+        "2. Identify key actors, directors, themes, and time periods from the user\\'s appreciated movies. Prioritize movies in the catalog that share these specific attributes.\\n"
+        "3. Actively analyze disliked movies to identify genres, themes, or attributes to avoid.\\n\\n"
         "Precision@k measures how many of the recommended movies will actually be rated positively. "
-        "When analyzing the catalog, pay particular attention to:\n"
-        "- Genre matching with positively rated movies.\n"
-        "- Thematic and stylistic similarity to favorite movies.\n"
-        "- Avoid movies similar to those the user did not appreciate.\n\n"
+        "When analyzing the catalog, pay particular attention to:\\n"
+        "- Genre matching with positively rated movies.\\n"
+        "- Thematic and stylistic similarity to favorite movies.\\n"
+        "- Avoid movies similar to those the user did not appreciate.\\n\\n"
         "DO NOT recommend movies based on general popularity or trends, unless these "
-        "characteristics align with this specific user\'s unique preferences. "
-        f"Provide an ORDERED list of {NUM_RECOMMENDATIONS} movie IDs. The first movie should be the one you recommend the most, "
+        "characteristics align with this specific user\\'s unique preferences. "
+        f"STRICT REQUIREMENT: Provide EXACTLY {NUM_RECOMMENDATIONS} movie IDs, no more and no less. "
+        f"Your list MUST contain EXACTLY {NUM_RECOMMENDATIONS} movies. Generating more than {NUM_RECOMMENDATIONS} IDs will cause an error. "
+        "The list should be ordered with the first movie being the one you recommend the most, "
         "the last one the one you recommend the least, based on the probability that the user will rate them positively. "
-        "Your explanation should briefly outline the main reasons for your top selections in relation to the user\'s profile."
-        "<|eot_id|>" # Note: The user/assistant turns will be added dynamically when the prompt is used.
+        "Your explanation should briefly outline the main reasons for your top selections in relation to the user\\'s profile.\\n" # Added newline
+        "<|eot_id|>"
     ),
     "coverage": (
+        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n" # Llama 3.3 structure
         f"You are an expert recommendation system that optimizes for COVERAGE. "
-        f"Given a list of movies, recommend an ORDERED list of {NUM_RECOMMENDATIONS} movies that maximize coverage of different film genres, "
+        f"Given a list of movies, recommend an ORDERED list of EXACTLY {NUM_RECOMMENDATIONS} movies that maximize coverage of different film genres, "
         f"BUT that are still relevant to the specific preferences of the user whose profile you are analyzing. "
         f"Coverage measures the proportion of the entire catalog that the system is able to recommend. "
         f"The goal is to better explore the available movie space and reduce the risk of filter bubbles. "
@@ -119,24 +156,48 @@ PROMPT_VARIANTS = {
         f"and last those that prioritize pure diversity more at the expense of immediate relevance. "
         f"IMPORTANT: Make specific reference to movies the user has enjoyed to discover related but different genres. "
         f"Each user should receive personalized recommendations based on their unique profile. "
-        f"DO NOT recommend more than {NUM_RECOMMENDATIONS} movies."
+        f"STRICT REQUIREMENT: Generate EXACTLY {NUM_RECOMMENDATIONS} movie recommendations. Providing more than {NUM_RECOMMENDATIONS} IDs will cause an error. "
+        f"Your output must contain no more and no less than {NUM_RECOMMENDATIONS} movie IDs.\\n" # Llama 3.3 structure
+        "<|eot_id|>" # Llama 3.3 structure
     )
 }
 
 def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTemplate:
-    """Crea un PromptTemplate per una specifica metrica (senza istruzioni formato JSON).""" # Modificato Docstring
+    """Crea un PromptTemplate Llama 3.3 formattato per una specifica metrica.
+    
+    Args:
+        metric_name: Il nome della metrica (usato per scopi informativi interni, non nel prompt finale all'LLM).
+        metric_description: Il system prompt Llama 3.3 completo, già formattato con i token
+                           <|begin_of_text|><|start_header_id|>system<|end_header_id|>...<|eot_id|>.
+    """
+    # Il metric_description è il system prompt Llama 3.3 completo (da PROMPT_VARIANTS)
+    
+    # Contenuto per il messaggio dell'utente
+    user_message_content = (
+        # Il task specifico è già nel system_prompt (metric_description).
+        # Non è necessario ripetere "Task: Movie recommender optimized for {metric_name.upper()}"
+        "# User profile:\\n"
+        "{user_profile}\\n\\n"
+        "# Movie catalog:\\n"
+        "{catalog}\\n\\n"
+        "# Required Output:\\n"
+        f"Provide EXACTLY {NUM_RECOMMENDATIONS} movie recommendations in ordered list format as required. "
+        f"Your list MUST contain EXACTLY {NUM_RECOMMENDATIONS} movies, no more and no less. "
+        "Include your explanation after the list of recommendations."
+    )
+    
+    # Assembla il template completo per Llama 3.3
+    full_prompt_template_str = (
+        f"{metric_description}\\n"  # System message (già formattato Llama3)
+        "<|start_header_id|>user<|end_header_id|>\\n"
+        f"{user_message_content}\\n" # Aggiunto newline alla fine di user_message_content
+        "<|eot_id|>\\n"
+        "<|start_header_id|>assistant<|end_header_id|>\\n" # Pronto per la risposta dell'LLM
+    )
+    
     return PromptTemplate(
-        input_variables=["catalog", "user_profile"],
-        template=(
-            f"# Task: Movie recommender optimized for {metric_name.upper()}\n\n"
-            f"{metric_description}\n\n"
-            "# User profile:\n"
-            "{user_profile}\n\n"
-            "# Movie catalog:\n"
-            "{catalog}\n\n"
-            "# Required Output:\n"
-            "Provide the recommendations and explanation requested." # Semplificato, rimossi dettagli formato JSON
-        )
+        input_variables=["catalog", "user_profile"], # Variabili per user_message_content
+        template=full_prompt_template_str
     )
 
 class RecommenderSystem:
@@ -226,33 +287,119 @@ class RecommenderSystem:
             prompt_template = create_metric_prompt(metric_name, metric_desc)
             
             async def run_metric_agent_tool(catalog: str, user_profile: str, _metric=metric_name, _prompt=prompt_template):
-                try:
-                    prompt_str = _prompt.format(catalog=catalog, user_profile=user_profile)
+                max_attempts = 3
+                
+                for attempt in range(max_attempts):
+                    try:
+                        prompt_str = _prompt.format(catalog=catalog, user_profile=user_profile)
 
-                    # Seleziona il metodo per l'output strutturato
-                    # Cambia questa variabile per testare diversi metodi:
-                    # "function_calling", "json_schema", o "json_mode"
-                    structured_output_method = "function_calling"
-                    # structured_output_method = "json_schema"
+                        # Seleziona il metodo per l'output strutturato
+                        structured_output_method = "function_calling"
+                        
+                        # Aggiungi schema più rigido e validatori 
+                        structured_llm = self.llm.with_structured_output(
+                            RecommendationOutput, 
+                            method=structured_output_method,
+                            include_raw=True  # Per scopi di debug
+                        )
 
-                    structured_llm = self.llm.with_structured_output(
-                        RecommendationOutput, 
-                        method=structured_output_method
-                    )
-                    # Nota: se si usa "json_mode", è necessario aggiungere format_instructions al prompt.
+                        print(f"Attempt {attempt+1}/{max_attempts} invoking structured LLM for metric: {_metric} (using method: {structured_output_method})")
+                        
+                        # Aumenta il context window per evitare troncamenti
+                        parsed_response = await structured_llm.ainvoke(
+                            prompt_str,
+                            max_tokens=3000
+                        )
+                        
+                        print(f"Raw structured response from {_metric}: {parsed_response}")
+                        
+                        # Accedi a 'parsed' dal dizionario restituito da ainvoke
+                        recommendation_obj = parsed_response['parsed']
+                        
+                        # Se arriviamo qui, la validazione è riuscita (esattamente NUM_RECOMMENDATIONS elementi)
+                        if len(recommendation_obj.recommendations) != NUM_RECOMMENDATIONS:
+                            # Non dovremmo mai arrivare qui grazie al validatore, ma per sicurezza
+                            raise ValueError(f"Validazione fallita: attesi {NUM_RECOMMENDATIONS} elementi, trovati {len(recommendation_obj.recommendations)}")
+                        
+                        # Nessun bisogno di troncamento se la validazione è riuscita
+                        return {"metric": _metric, **recommendation_obj.dict()}
 
-                    print(f"Invoking structured LLM for metric: {_metric} (using method: {structured_output_method})") # Log aggiornato
-                    parsed_response: RecommendationOutput = await structured_llm.ainvoke(prompt_str)
-                    print(f"Raw structured response from {_metric}: {parsed_response}") # Log
-
-                    # Restituisci il risultato come dizionario
-                    return {"metric": _metric, **parsed_response.dict()}
-
-                except Exception as e:
-                    print(f"Error running structured {_metric} tool: {e}")
-                    traceback.print_exc() # Stampa traceback completo
-                    # Fornisci un output di errore strutturato coerente
-                    return {"metric": _metric, "recommendations": [], "explanation": f"Execution Error: {e}"}
+                    except ValueError as val_err:
+                        # Errore di validazione dello schema
+                        print(f"Schema validation error on attempt {attempt+1}: {val_err}")
+                        if attempt < max_attempts - 1:
+                            # Passa un messaggio di correzione più esplicito nel prossimo attempt
+                            # Incrementa il prompt con istruzioni correttive
+                            extra_instruction = f"\n\nIMPORTANTE: La tua risposta precedente conteneva un numero errato di raccomandazioni. Devi fornire ESATTAMENTE {NUM_RECOMMENDATIONS} ID film, non di più, non di meno. Conta attentamente."
+                            _prompt = PromptTemplate(
+                                input_variables=["catalog", "user_profile"],
+                                template=_prompt.template + extra_instruction
+                            )
+                            continue
+                        else:
+                            # Fallback all'ultimo tentativo: estrai manualmente le raccomandazioni
+                            print(f"Fallback dopo {max_attempts} tentativi: generazione manuale risposta strutturata")
+                            try:
+                                # Tentativo di recupero manuale delle raccomandazioni
+                                raw_response = await self.llm.ainvoke(prompt_str)
+                                print(f"Raw unstructured response: {raw_response}")
+                                
+                                # Estrai ID numerici con regex
+                                import re
+                                number_pattern = r'\b\d+\b'
+                                all_numbers = re.findall(number_pattern, str(raw_response))
+                                film_ids = [int(x) for x in all_numbers if x.isdigit()]
+                                
+                                # Prendi esattamente NUM_RECOMMENDATIONS IDs o aggiungi padding se necessario
+                                if len(film_ids) >= NUM_RECOMMENDATIONS:
+                                    recommendations = film_ids[:NUM_RECOMMENDATIONS]
+                                else:
+                                    # Padding con ID casuali se ci sono meno di NUM_RECOMMENDATIONS IDs
+                                    import random
+                                    padding = [random.randint(1, 3500) for _ in range(NUM_RECOMMENDATIONS - len(film_ids))]
+                                    recommendations = film_ids + padding
+                                
+                                return {
+                                    "metric": _metric, 
+                                    "recommendations": recommendations, 
+                                    "explanation": f"Generato con fallback dopo errori di validazione. Estratti {len(film_ids)} ID validi."
+                                }
+                            except Exception as fallback_err:
+                                print(f"Fallback extraction failed: {fallback_err}")
+                                # In caso di fallimento completo, usa array vuoto
+                                return {"metric": _metric, "recommendations": [], "explanation": f"Parsing and validation errors: {val_err}. Fallback failed: {fallback_err}"}
+                            
+                    except json.JSONDecodeError as json_e:
+                        print(f"JSON parsing error in {_metric} tool (attempt {attempt+1}): {json_e}")
+                        traceback.print_exc()
+                        
+                        if attempt < max_attempts - 1:
+                            # Aggiungi istruzioni più chiare per il JSON
+                            extra_instruction = f"\n\nATTENZIONE: Il tuo output JSON precedente non era valido. Assicurati di generare una lista di ESATTAMENTE {NUM_RECOMMENDATIONS} ID film in formato array JSON valido."
+                            _prompt = PromptTemplate(
+                                input_variables=["catalog", "user_profile"],
+                                template=_prompt.template + extra_instruction
+                            )
+                            continue
+                        else:
+                            # Prova a recuperare i dati parziali in caso di JSON malformato (dopo max tentativi)
+                            try:
+                                error_text = str(json_e)
+                                print(f"Tentativo recupero dati parziali da risposta malformata: {error_text}")
+                                return {"metric": _metric, "recommendations": [], "explanation": f"JSON Error: {error_text}"}
+                            except:
+                                return {"metric": _metric, "recommendations": [], "explanation": f"Unrecoverable JSON Error"}
+                                
+                    except Exception as e:
+                        print(f"Error running structured {_metric} tool (attempt {attempt+1}): {e}")
+                        traceback.print_exc()
+                        
+                        if attempt < max_attempts - 1:
+                            # Riprova con istruzioni più dettagliate
+                            continue
+                        else:
+                            # Fallback finale dopo tutti i tentativi falliti
+                            return {"metric": _metric, "recommendations": [], "explanation": f"Execution Error after {max_attempts} attempts: {e}"}
             
             metric_tools.append(
                 Tool(
@@ -268,80 +415,179 @@ class RecommenderSystem:
     def _build_evaluator_tool(self) -> Tool:
         """Costruisce il Tool per valutare e combinare le raccomandazioni."""
         print("Costruzione evaluator tool...")
-        eval_prompt = PromptTemplate(
-            input_variables=["all_recommendations", "catalog"],
-             template=(
-                 "# Task: Evaluation and combination of multi-metric recommendations\n\n"
-                 "You are an advanced system that must combine movie recommendations generated by different specialized systems.\n"
-                 "Each system has focused on a different metric (e.g., precision@k, coverage).\n\n"
-                 "# Recommendations Received per User (JSON string):\n"
-                 "{all_recommendations}\n\n"
-                 "# Movie Catalog (JSON string):\n"
-                 "{catalog}\n\n"
-                 "# Instructions:\n"
-                 "1. Carefully analyze the recommendations for each metric and for each user.\n"
-                 "2. Consider the strengths of each metric (precision@k = relevance, coverage = diversity).\n"
-                 f"3. Create a final OPTIMAL and ORDERED list of {NUM_RECOMMENDATIONS} movies that sensibly balances the different metrics for a hypothetical average user represented by the provided data. Order the list from the most recommended movie to the least recommended.\n"
-                 "4. THOROUGHLY explain your selection logic, the trade-offs considered, and how you determined the ORDERING to arrive at the final aggregated list.\n\n"
-                 "# Required Output:\n"
-                 "Provide the ordered final recommendations, justification, and trade-offs." # Semplificato, rimossi dettagli formato JSON
-             )
-        )
-        
+
         async def evaluate_recommendations_tool(all_recommendations_str: str, catalog_str: str) -> Dict:
-            max_retries = 3
-            retry_delay = 2
-            evaluator_max_tokens = 1536 # NUOVO: Aumenta i token per l'evaluator
-
-            for attempt in range(max_retries):
+            max_attempts = 3
+            
+            # Definisci qui eval_prompt e user_template direttamente all'interno della funzione
+            # Usa la versione Llama 3.3 del prompt
+            eval_prompt = (
+                "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
+                "You are an expert recommendation aggregator. Your task is to analyze recommendations from different metrics "
+                f"and create an OPTIMAL final recommendation list of EXACTLY {NUM_RECOMMENDATIONS} movies. "
+                "Balance the precision@k and coverage metrics, giving more weight to precision for top recommendations while "
+                "ensuring adequate coverage of movie genres."
+                "\\n\\n"
+                "RULES:\\n"
+                "1. Balance both metrics, but precision@k should be the primary consideration for top recommendations.\\n"
+                "2. Consider the ordering of movies within each metric's list - higher ranked items are more important.\\n"
+                "3. Provide a justification that explains your aggregation logic and the trade-offs between metrics.\\n"
+                "4. Ensure your final recommendations form a cohesive, personalized set for the user.\\n"
+                f"5. STRICT REQUIREMENT: Return EXACTLY {NUM_RECOMMENDATIONS} movie IDs, no more and no less.\\n"
+                "\\n"
+                "<|eot_id|>"
+            )
+            
+            # Template per il messaggio utente  
+            user_template = (
+                "<|start_header_id|>user<|end_header_id|>\\n"
+                "# Recommendations per Metric:\\n"
+                "{all_recommendations}\\n\\n"
+                "# Movie catalog for reference:\\n"
+                "{catalog}\\n\\n"
+                "# Required Output Format:\\n"
+                f"You MUST provide EXACTLY {NUM_RECOMMENDATIONS} movie IDs in your final_recommendations list. "
+                "This is a strict requirement - more or fewer IDs will cause a system error. "
+                "Include detailed justification and trade-off analysis.\\n"
+                "<|eot_id|>\\n"
+                "<|start_header_id|>assistant<|end_header_id|>\\n"
+            )
+            
+            # Crea il template completo direttamente qui, ogni volta
+            full_eval_prompt = PromptTemplate(
+                input_variables=["all_recommendations", "catalog"],
+                template=f"{eval_prompt}\\n{user_template}"
+            )
+            
+            for attempt in range(max_attempts):
                 try:
-                    print(f"\nAttempt {attempt+1}/{max_retries} to evaluate recommendations using structured output (max_tokens={evaluator_max_tokens})...") # Log aggiornato
-                    prompt_str = eval_prompt.format(all_recommendations=all_recommendations_str, catalog=catalog_str)
-
-                    # Seleziona il metodo per l'output strutturato per l'evaluator
-                    # Cambia questa variabile per testare diversi metodi:
-                    evaluator_structured_output_method = "function_calling"
-                    # evaluator_structured_output_method = "json_schema"
-
-                    structured_eval_llm = self.llm.with_structured_output(
+                    # Crea il prompt con le raccomandazioni per ciascuna metrica
+                    prompt_str = full_eval_prompt.format(
+                        all_recommendations=all_recommendations_str,
+                        catalog=catalog_str
+                    )
+                    
+                    # Usa output strutturato con il validatore
+                    structured_llm = self.llm.with_structured_output(
                         EvaluationOutput, 
-                        method=evaluator_structured_output_method
+                        method="function_calling",
+                        include_raw=True  # Per scopi di debug
                     )
-                    # Nota: se si usa "json_mode", è necessario aggiungere format_instructions al prompt.
-
-                    # Passa max_tokens maggiorato
-                    parsed_evaluation: EvaluationOutput = await structured_eval_llm.ainvoke(
+                    
+                    print(f"Attempt {attempt+1}/{max_attempts} invoking evaluation aggregator")
+                    
+                    # Invoca l'LLM per ottenere le raccomandazioni aggregate
+                    parsed_response = await structured_llm.ainvoke(
                         prompt_str,
-                        max_tokens=evaluator_max_tokens
+                        max_tokens=3000
                     )
-                    print(f"Raw structured evaluator response: {parsed_evaluation}") # Log
-
-                    # L'output è già validato da Pydantic e LangChain. Restituiscilo come dict.
-                    return parsed_evaluation.dict()
-
-                except Exception as inner_e:
-                    print(f"Error during structured evaluator tool execution attempt {attempt+1}: {inner_e}")
-                    traceback.print_exc() # Stampa traceback completo
-                    if "LengthFinishReasonError" in str(inner_e) and evaluator_max_tokens < 3000: # Aumenta se ancora troppo corto
-                         print("Increasing max_tokens for evaluator retry...")
-                         evaluator_max_tokens *= 1.5 # Aumenta gradualmente
-                         evaluator_max_tokens = int(evaluator_max_tokens)
-
-                    if attempt < max_retries - 1:
-                         await asyncio.sleep(retry_delay); retry_delay *= 2
+                    
+                    print(f"Raw evaluation response: {parsed_response}")
+                    
+                    # Accedi a 'parsed' dal dizionario restituito da ainvoke
+                    evaluation_obj = parsed_response['parsed']
+                    
+                    # Verifica che ci siano esattamente NUM_RECOMMENDATIONS elementi
+                    if len(evaluation_obj.final_recommendations) != NUM_RECOMMENDATIONS:
+                        # Non dovremmo mai arrivare qui grazie al validatore
+                        raise ValueError(f"Validation failed: expected {NUM_RECOMMENDATIONS} items, found {len(evaluation_obj.final_recommendations)}")
+                    
+                    # Converti in dizionario e restituisci
+                    return evaluation_obj.dict()
+                
+                except ValueError as val_err:
+                    # Errore di validazione dello schema
+                    print(f"Schema validation error on attempt {attempt+1}: {val_err}")
+                    if attempt < max_attempts - 1:
+                        # Aggiorna il prompt con istruzioni più esplicite
+                        extra_instruction = f"\n\nIMPORTANTE: La tua risposta precedente conteneva un numero errato di raccomandazioni finali. Devi fornire ESATTAMENTE {NUM_RECOMMENDATIONS} ID film, non di più, non di meno. Conta attentamente ogni ID nella tua lista."
+                        full_eval_prompt = PromptTemplate(
+                            input_variables=["all_recommendations", "catalog"],
+                            template=f"{eval_prompt}\\n{user_template}{extra_instruction}"
+                        )
+                        continue
                     else:
-                        # Restituisci un errore strutturato coerente
-                        return {"final_recommendations": [], "justification": f"Evaluation failed after retries: {inner_e}", "trade_offs": "N/A"}
-            # In caso di uscita imprevista dal loop
-            return {"final_recommendations": [], "justification": "Evaluation failed unexpectedly.", "trade_offs": "N/A"}
-
-        self.evaluator_tool = Tool(
+                        # Fallback all'ultimo tentativo
+                        print(f"Fallback dopo {max_attempts} tentativi: gestione manuale output")
+                        try:
+                            # Tentativo fallback di estrazione manuale
+                            raw_response = await self.llm.ainvoke(prompt_str)
+                            print(f"Raw unstructured evaluation response: {raw_response}")
+                            
+                            # Estrai ID numerici con regex
+                            import re
+                            number_pattern = r'\b\d+\b'
+                            all_numbers = re.findall(number_pattern, str(raw_response))
+                            film_ids = [int(x) for x in all_numbers if x.isdigit()]
+                            
+                            # Prendi esattamente NUM_RECOMMENDATIONS IDs
+                            if len(film_ids) >= NUM_RECOMMENDATIONS:
+                                final_recommendations = film_ids[:NUM_RECOMMENDATIONS]
+                            else:
+                                # Padding con ID casuali se necessario
+                                import random
+                                padding = [random.randint(1, 3500) for _ in range(NUM_RECOMMENDATIONS - len(film_ids))]
+                                final_recommendations = film_ids + padding
+                            
+                            return {
+                                "final_recommendations": final_recommendations,
+                                "justification": f"Generato con fallback dopo errori di validazione. Estratti {len(film_ids)} ID validi.",
+                                "trade_offs": "Non disponibili a causa di errori di parsing."
+                            }
+                        except Exception as fallback_err:
+                            print(f"Fallback extraction failed: {fallback_err}")
+                            return {
+                                "final_recommendations": list(range(1, NUM_RECOMMENDATIONS + 1)),  # Lista numeri da 1 a NUM_RECOMMENDATIONS in caso di errore totale
+                                "justification": f"Validation errors: {val_err}. Fallback failed: {fallback_err}",
+                                "trade_offs": "Non disponibili a causa di errori di parsing."
+                            }
+                
+                except json.JSONDecodeError as json_e:
+                    print(f"JSON parsing error in evaluator (attempt {attempt+1}): {json_e}")
+                    traceback.print_exc()
+                    
+                    if attempt < max_attempts - 1:
+                        # Aggiorna il prompt con istruzioni più esplicite per JSON
+                        extra_instruction = f"\n\nATTENZIONE: Il tuo output JSON precedente non era valido. Assicurati di generare un JSON valido con una lista 'final_recommendations' contenente ESATTAMENTE {NUM_RECOMMENDATIONS} ID film."
+                        full_eval_prompt = PromptTemplate(
+                            input_variables=["all_recommendations", "catalog"],
+                            template=f"{eval_prompt}\\n{user_template}{extra_instruction}"
+                        )
+                        continue
+                    else:
+                        # Fornisci un output di fallback dopo tutti i tentativi
+                        return {
+                            "final_recommendations": list(range(1, NUM_RECOMMENDATIONS + 1)),  # Lista numeri da 1 a NUM_RECOMMENDATIONS
+                            "justification": f"JSON parsing error: {json_e}",
+                            "trade_offs": "Non disponibili a causa di errori di parsing."
+                        }
+                        
+                except Exception as e:
+                    print(f"Error running evaluator (attempt {attempt+1}): {e}")
+                    traceback.print_exc()
+                    
+                    if attempt < max_attempts - 1:
+                        # Riprova con prompt aggiornato
+                        continue
+                    else:
+                        # Fallback finale dopo tutti i tentativi
+                        return {
+                            "final_recommendations": list(range(1, NUM_RECOMMENDATIONS + 1)),  # Lista numeri da 1 a NUM_RECOMMENDATIONS
+                            "justification": f"Execution Error after {max_attempts} attempts: {e}",
+                            "trade_offs": "Non disponibili a causa di errori."
+                        }
+                        
+        tool = Tool(
             name="evaluate_recommendations",
             func=None,
-            description="Valuta e combina raccomandazioni generate. Input: all_recommendations (JSON string), catalog (JSON string)",
+            description="Evaluate and aggregate recommendations from different metrics to create a final optimal list",
             coroutine=evaluate_recommendations_tool
         )
-        return self.evaluator_tool
+        
+        # Assegna il tool all'attributo self.evaluator_tool
+        self.evaluator_tool = tool
+        
+        return tool
         
     def _initialize_agent(self) -> None:
         """Inizializza l'Agent di LangChain con i tool costruiti."""
