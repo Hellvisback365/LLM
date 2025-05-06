@@ -8,6 +8,8 @@ from typing import Dict
 import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
+import langchain
+
 
 # ----------------------------
 # Import dei moduli locali
@@ -446,7 +448,7 @@ class ExperimentReporter:
 # ----------------------------
 async def main():
     print("\n=== Starting Unified Recommender System (via agent.py) ===\n")
-    recommender = RecommenderSystem(specific_user_ids=[1, 2])
+    recommender = RecommenderSystem(specific_user_ids=[4277, 4169, 1680])
     try:
          recommender.initialize_system(force_reload_data=False, force_recreate_vector_store=False)
     except Exception as e:

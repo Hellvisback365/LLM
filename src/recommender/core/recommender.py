@@ -13,6 +13,7 @@ import traceback # Aggiunto per debug
 from datetime import datetime
 from typing import Dict, List, Any, Tuple
 from dotenv import load_dotenv
+import time
 
 # LangChain imports
 from langchain.prompts import PromptTemplate
@@ -45,10 +46,12 @@ if not OPENROUTER_API_KEY:
 COMMON_LLM_PARAMS = {
     "openai_api_base": "https://openrouter.ai/api/v1",
     "openai_api_key": OPENROUTER_API_KEY,
-    "temperature": 0.7,
+    "temperature": 0.4,
     "max_tokens": 1536, # AUMENTATO da 512 per permettere output più lunghi (50 recs + spiegazione)
 }
-LLM_MODEL_ID = "mistralai/mistral-large-2411"
+
+
+LLM_MODEL_ID = "meta-llama/llama-3.3-70b-instruct"
 
 # Setup LLM con retry
 llm = ChatOpenAI(model=LLM_MODEL_ID, **COMMON_LLM_PARAMS)
@@ -86,21 +89,24 @@ NUM_RECOMMENDATIONS = 50 # NUOVA costante per il numero di raccomandazioni
 
 PROMPT_VARIANTS = {
     "precision_at_k": (
-        f"You are an expert recommendation system that optimizes for PRECISION@K. "
-        f"Your goal is to recommend movies that the user will rate 4 or 5 out of 5. "
-        f"Carefully analyze the user's profile and focus on the following elements:\n"
-        f"1. Genres that the user has consistently rated highly\n"
-        f"2. Specific attributes (actors, directors, themes, time periods) present in appreciated movies\n"
-        f"3. Patterns in negative ratings to avoid similar movies\n\n"
-        f"Precision@k measures how many of the recommended movies will actually be rated positively. "
-        f"When analyzing the catalog, pay particular attention to:\n"
-        f"- Genre matching with positively rated movies\n"
-        f"- Thematic and stylistic similarity to favorite movies\n"
-        f"- Avoid movies similar to those the user did not appreciate\n\n"
-        f"DO NOT recommend movies based on general popularity or trends, unless these "
-        f"characteristics align with this specific user's preferences. "
+        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n"
+        "You are a personal movie recommendation consultant optimizing for PRECISION@K for a specific user. "
+        "Your goal is to recommend movies that the user will rate 4 or 5 out of 5. "
+        "Carefully analyze the user\'s profile and focus on the following elements:\n"
+        "1. Genres that the user has consistently rated highly.\n"
+        "2. Identify key actors, directors, themes, and time periods from the user\'s appreciated movies. Prioritize movies in the catalog that share these specific attributes.\n"
+        "3. Actively analyze disliked movies to identify genres, themes, or attributes to avoid.\n\n"
+        "Precision@k measures how many of the recommended movies will actually be rated positively. "
+        "When analyzing the catalog, pay particular attention to:\n"
+        "- Genre matching with positively rated movies.\n"
+        "- Thematic and stylistic similarity to favorite movies.\n"
+        "- Avoid movies similar to those the user did not appreciate.\n\n"
+        "DO NOT recommend movies based on general popularity or trends, unless these "
+        "characteristics align with this specific user\'s unique preferences. "
         f"Provide an ORDERED list of {NUM_RECOMMENDATIONS} movie IDs. The first movie should be the one you recommend the most, "
-        f"the last one the one you recommend the least, based on the probability that the user will rate them positively."
+        "the last one the one you recommend the least, based on the probability that the user will rate them positively. "
+        "Your explanation should briefly outline the main reasons for your top selections in relation to the user\'s profile."
+        "<|eot_id|>" # Note: The user/assistant turns will be added dynamically when the prompt is used.
     ),
     "coverage": (
         f"You are an expert recommendation system that optimizes for COVERAGE. "
@@ -138,7 +144,7 @@ class RecommenderSystem:
     Sistema di raccomandazione unificato basato su Agent e Tool.
     """
     
-    def __init__(self, specific_user_ids: List[int] = [1, 2], model_id: str = LLM_MODEL_ID):
+    def __init__(self, specific_user_ids: List[int] = [4277, 4169, 1680], model_id: str = LLM_MODEL_ID):
         self.specific_user_ids = specific_user_ids
         self.model_id = model_id
         self.llm = llm
@@ -223,13 +229,19 @@ class RecommenderSystem:
                 try:
                     prompt_str = _prompt.format(catalog=catalog, user_profile=user_profile)
 
-                    # Crea un'istanza LLM strutturata al volo per questa chiamata (MODIFICATO)
-                    # Rimuovi method=\"json_mode\" per usare il tool calling (default)
-                    structured_llm = self.llm.with_structured_output(RecommendationOutput)
-                    # Potremmo forzare l'uso del tool se necessario:
-                    # structured_llm = self.llm.with_structured_output(RecommendationOutput).bind(tool_choice=\"RecommendationOutput\")
+                    # Seleziona il metodo per l'output strutturato
+                    # Cambia questa variabile per testare diversi metodi:
+                    # "function_calling", "json_schema", o "json_mode"
+                    structured_output_method = "function_calling"
+                    # structured_output_method = "json_schema"
 
-                    print(f"Invoking structured LLM for metric: {_metric} (using tool calling approach)") # Log aggiornato
+                    structured_llm = self.llm.with_structured_output(
+                        RecommendationOutput, 
+                        method=structured_output_method
+                    )
+                    # Nota: se si usa "json_mode", è necessario aggiungere format_instructions al prompt.
+
+                    print(f"Invoking structured LLM for metric: {_metric} (using method: {structured_output_method})") # Log aggiornato
                     parsed_response: RecommendationOutput = await structured_llm.ainvoke(prompt_str)
                     print(f"Raw structured response from {_metric}: {parsed_response}") # Log
 
@@ -286,9 +298,16 @@ class RecommenderSystem:
                     print(f"\nAttempt {attempt+1}/{max_retries} to evaluate recommendations using structured output (max_tokens={evaluator_max_tokens})...") # Log aggiornato
                     prompt_str = eval_prompt.format(all_recommendations=all_recommendations_str, catalog=catalog_str)
 
-                    # Crea l'istanza LLM strutturata per l'evaluator (MODIFICATO)
-                    # Rimuovi method="json_mode" per usare il tool calling (default)
-                    structured_eval_llm = self.llm.with_structured_output(EvaluationOutput)
+                    # Seleziona il metodo per l'output strutturato per l'evaluator
+                    # Cambia questa variabile per testare diversi metodi:
+                    evaluator_structured_output_method = "function_calling"
+                    # evaluator_structured_output_method = "json_schema"
+
+                    structured_eval_llm = self.llm.with_structured_output(
+                        EvaluationOutput, 
+                        method=evaluator_structured_output_method
+                    )
+                    # Nota: se si usa "json_mode", è necessario aggiungere format_instructions al prompt.
 
                     # Passa max_tokens maggiorato
                     parsed_evaluation: EvaluationOutput = await structured_eval_llm.ainvoke(
@@ -385,7 +404,9 @@ class RecommenderSystem:
         per_user_held_out_items = {} # NUOVO: Dizionario per item hold-out per utente
         if self.user_profiles is None: raise RuntimeError("user_profiles non inizializzato.")
 
+        start_all_users = time.time()
         for user_id in self.specific_user_ids:
+            start_user = time.time()
             if user_id not in self.user_profiles.index:
                 print(f"Attenzione: Utente {user_id} non trovato."); continue
 
@@ -418,7 +439,10 @@ class RecommenderSystem:
                 try:
                     # Catalogo per Precision@k
                     print(f"RAG: Tentativo chiamata similarity_search per precision_at_k per utente {user_id}...") # LOG AGGIUNTO
+                    start_rag_p = time.time()
                     cat_p = self.rag.similarity_search(profile_summary, k=300, metric_focus="precision_at_k", user_id=int(user_id))
+                    end_rag_p = time.time()
+                    print(f"RAG: Tempo impiegato per precision_at_k: {end_rag_p - start_rag_p:.2f} secondi")
                     metric_specific_catalogs["precision_at_k"] = json.dumps(cat_p[:300], ensure_ascii=False)
                     print(f"RAG: Generato catalogo specifico per precision_at_k (size: {len(cat_p)}) (Successo)") # Log modificato per chiarezza
                 except Exception as e:
@@ -430,7 +454,10 @@ class RecommenderSystem:
                     # Usiamo una query diversa per coverage per enfatizzare la diversità
                     coverage_query = "diversi generi film non ancora visti dall'utente" + profile_summary 
                     print(f"RAG: Tentativo chiamata similarity_search per coverage per utente {user_id}...") # LOG AGGIUNTO
+                    start_rag_c = time.time()
                     cat_c = self.rag.similarity_search(coverage_query, k=300, metric_focus="coverage", user_id=int(user_id))
+                    end_rag_c = time.time()
+                    print(f"RAG: Tempo impiegato per coverage: {end_rag_c - start_rag_c:.2f} secondi")
                     metric_specific_catalogs["coverage"] = json.dumps(cat_c[:300], ensure_ascii=False)
                     print(f"RAG: Generato catalogo specifico per coverage (size: {len(cat_c)}) (Successo)") # Log modificato per chiarezza
                 except Exception as e:
@@ -469,17 +496,33 @@ class RecommenderSystem:
                     elif isinstance(output, dict): results_for_user[metric_name] = output
                     else: results_for_user[metric_name] = {"metric": metric_name, "recommendations": [], "explanation": f"Unexpected type: {type(output)}"}
             user_metric_results[user_id] = results_for_user
+            end_user = time.time()
+            print(f"Tempo impiegato per utente {user_id}: {end_user - start_user:.2f} secondi")
+        end_all_users = time.time()
+        print(f"Tempo totale per generazione raccomandazioni di tutti gli utenti: {end_all_users - start_all_users:.2f} secondi")
 
         # Valutazione aggregata
         print("\n--- Valutazione Aggregata ---")
         final_evaluation = {}
         if user_metric_results:
             try:
+                start_json = time.time()
                 all_results_str = json.dumps(user_metric_results, ensure_ascii=False, indent=2)
+                end_json = time.time()
+                print(f"Tempo per serializzazione JSON dei risultati: {end_json - start_json:.2f} secondi")
+
                 eval_catalog = self.get_optimized_catalog(limit=300)
+
+                start_eval = time.time()
                 if self.evaluator_tool and self.evaluator_tool.coroutine:
+                    start_eval = time.time()
                     final_evaluation = await self.evaluator_tool.coroutine(all_recommendations_str=all_results_str, catalog_str=eval_catalog)
+                    end_eval = time.time()
+                    print(f"Tempo impiegato per valutazione aggregata: {end_eval - start_eval:.2f} secondi")
                 else: raise ValueError("Evaluator tool/coroutine non definito.")
+                end_eval = time.time()
+                print(f"Tempo impiegato per valutazione aggregata: {end_eval - start_eval:.2f} secondi")
+                
                 print(f"Final recommendations: {final_evaluation.get('final_recommendations', [])}")
             except Exception as e:
                  print(f"Errore evaluator tool: {e}"); traceback.print_exc()

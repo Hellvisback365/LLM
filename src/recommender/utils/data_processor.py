@@ -75,7 +75,7 @@ def filter_users_by_min_ratings(ratings: pd.DataFrame, min_ratings: int = 100) -
     
     return filtered_ratings
 
-def filter_users_by_specific_users(ratings: pd.DataFrame, user_ids: list = [1, 2]) -> pd.DataFrame:
+def filter_users_by_specific_users(ratings: pd.DataFrame, user_ids: list = [4277, 4169, 1680]) -> pd.DataFrame:
     """
     Filtra solo per includere specifici utenti
     

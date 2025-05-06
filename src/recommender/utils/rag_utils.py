@@ -263,7 +263,7 @@ class MovieRAG:
     # ------------------------------------------------------------------
     # HYBRID SIMILARITY SEARCH + RERANKING
     # ------------------------------------------------------------------
-    def similarity_search(self, query: str, k: int = 20, metric_focus: str = "precision_at_k", user_id: int = None) -> List[Dict[str, Any]]:
+    def similarity_search(self, query: str, k: int = 200, metric_focus: str = "precision_at_k", user_id: int = None) -> List[Dict[str, Any]]:
         """Recupero ibrido (BM25 + FAISS) poi rerank."""
 
         if self.vector_store is None or self.bm25 is None:
