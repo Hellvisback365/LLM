@@ -1,5 +1,23 @@
 """
-Sistema di raccomandazione multi-metrica basato su LangChain Agent.
+Sistema di raccomandazione multi-metrica basato su LangGraph.
+
+Note sulla migrazione da AgentExecutor a LangGraph:
+-------------------------------------------------
+Questa versione del sistema utilizza LangGraph al posto del vecchio AgentExecutor di LangChain.
+I principali cambiamenti sono:
+
+1. Definizione esplicita del flusso di raccomandazione come un grafo di stati
+2. Orchestrazione parallela delle metriche con convergenza controllata
+3. Gestione più robusta dello stato e delle transizioni
+4. Controllo più granulare sul processo decisionale
+
+La logica di base rimane invariata:
+- Ogni utente viene elaborato in sequenza
+- Per ogni utente, le metriche precision_at_k e coverage vengono calcolate in parallelo
+- I risultati per tutti gli utenti sono poi aggregati in una valutazione finale
+
+I metodi per l'interfaccia pubblica (generate_standard_recommendations, 
+generate_recommendations_with_custom_prompt, ecc.) rimangono invariati. 
 """
 
 import os
@@ -11,7 +29,7 @@ import re
 import sys  # Aggiunto per sys.stdout.flush()
 import traceback # Aggiunto per debug
 from datetime import datetime
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, TypedDict, Optional, cast
 from dotenv import load_dotenv
 import time
 
@@ -21,6 +39,10 @@ from langchain_openai import ChatOpenAI
 from langchain.agents import initialize_agent, Tool, AgentType
 from openai import RateLimitError
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+
+# LangGraph imports (NUOVO)
+from langgraph.graph import StateGraph, END
+from langgraph.pregel import Pregel
 
 # Pydantic import
 from pydantic import BaseModel, Field, validator
@@ -46,12 +68,12 @@ if not OPENROUTER_API_KEY:
 COMMON_LLM_PARAMS = {
     "openai_api_base": "https://openrouter.ai/api/v1",
     "openai_api_key": OPENROUTER_API_KEY,
-    "temperature": 0.4,
+    "temperature": 0.2,
     "max_tokens": 2500, # AUMENTATO da 1536 per permettere output più lunghi (50 recs + spiegazione)
 }
 
 
-LLM_MODEL_ID = "meta-llama/llama-3.3-70b-instruct"
+LLM_MODEL_ID = "google/gemini-2.5-flash-preview"
 
 # Setup LLM con retry
 llm = ChatOpenAI(model=LLM_MODEL_ID, **COMMON_LLM_PARAMS)
@@ -72,6 +94,42 @@ async def llm_arun_with_retry(prompt_str: str) -> str:
 # Definizioni Prompt e Parser
 # ----------------------------
 NUM_RECOMMENDATIONS = 50 # Costante per il numero di raccomandazioni spostata prima delle classi Pydantic
+
+# ----------------------------
+# Definizione Stato LangGraph 
+# ----------------------------
+class RecommenderState(TypedDict):
+    """Stato del grafo per il sistema di raccomandazione."""
+    # Informazioni sull'utente corrente
+    user_id: Optional[int]
+    user_profile: Optional[str]
+    
+    # Cataloghi specifici per metrica
+    catalog_precision: Optional[str]
+    catalog_coverage: Optional[str]
+    
+    # Risultati delle metriche (separate keys per evitare concurrent updates)
+    precision_at_k_result: Optional[Dict[str, Any]]
+    coverage_result: Optional[Dict[str, Any]]
+    precision_completed: bool  # Flag per tracking completion
+    coverage_completed: bool   # Flag per tracking completion
+    metric_results: Dict[str, Dict[str, Any]]
+    metric_tasks_completed: int
+    expected_metrics: int
+    
+    # Gestione multi-utente
+    current_user_index: int
+    user_ids: List[int]
+    all_user_results: Dict[int, Dict[str, Dict[str, Any]]]
+    
+    # Output finale
+    final_evaluation: Optional[Dict[str, Any]]
+    
+    # Dati per valutazione
+    held_out_items: Dict[int, List[int]]
+    
+    # Gestione errori
+    error: Optional[str]
 
 # ----------------------------
 # Definizioni Schemi Pydantic
@@ -126,9 +184,9 @@ PROMPT_VARIANTS = {
         "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
         "You are a personal movie recommendation consultant optimizing for PRECISION@K for a specific user. "
         "Your goal is to recommend movies that the user will rate 4 or 5 out of 5. "
-        "Carefully analyze the user\\'s profile and focus on the following elements:\\n"
+        "Carefully analyze the user\\\'s profile and focus on the following elements:\\n"
         "1. Genres that the user has consistently rated highly.\\n"
-        "2. Identify key actors, directors, themes, and time periods from the user\\'s appreciated movies. Prioritize movies in the catalog that share these specific attributes.\\n"
+        "2. Identify key actors, directors, themes, and time periods from the user\\\'s appreciated movies. Prioritize movies in the catalog that share these specific attributes.\\n"
         "3. Actively analyze disliked movies to identify genres, themes, or attributes to avoid.\\n\\n"
         "Precision@k measures how many of the recommended movies will actually be rated positively. "
         "When analyzing the catalog, pay particular attention to:\\n"
@@ -136,29 +194,34 @@ PROMPT_VARIANTS = {
         "- Thematic and stylistic similarity to favorite movies.\\n"
         "- Avoid movies similar to those the user did not appreciate.\\n\\n"
         "DO NOT recommend movies based on general popularity or trends, unless these "
-        "characteristics align with this specific user\\'s unique preferences. "
-        f"STRICT REQUIREMENT: Provide EXACTLY {NUM_RECOMMENDATIONS} movie IDs, no more and no less. "
-        f"Your list MUST contain EXACTLY {NUM_RECOMMENDATIONS} movies. Generating more than {NUM_RECOMMENDATIONS} IDs will cause an error. "
-        "The list should be ordered with the first movie being the one you recommend the most, "
-        "the last one the one you recommend the least, based on the probability that the user will rate them positively. "
-        "Your explanation should briefly outline the main reasons for your top selections in relation to the user\\'s profile.\\n" # Added newline
+        "characteristics align with this specific user\\\'s unique preferences. \\n"
+        "<output_requirements>\\n"
+        f"1. From the # Movie catalog provided by the user in their message, you MUST select and recommend a list containing EXACTLY {NUM_RECOMMENDATIONS} movie IDs. No more, no less than {NUM_RECOMMENDATIONS}.\\n"
+        f"2. The list of {NUM_RECOMMENDATIONS} recommendations MUST be ordered. The first movie ID should be the one you recommend the most (highest probability of positive rating), and the last one the least recommended, based on the user's profile and the provided catalog.\\n"
+        f"3. Generating a list with a number of movie IDs different from EXACTLY {NUM_RECOMMENDATIONS} will cause a system error and is strictly forbidden.\\n"
+        f"4. Your response MUST include an 'explanation' field (string) detailing the main reasons for your top selections in relation to the user\\\'s profile and the provided movie catalog.\\n"
+        "</output_requirements>\\n"
         "<|eot_id|>"
     ),
     "coverage": (
-        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n" # Llama 3.3 structure
+        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
         f"You are an expert recommendation system that optimizes for COVERAGE. "
-        f"Given a list of movies, recommend an ORDERED list of EXACTLY {NUM_RECOMMENDATIONS} movies that maximize coverage of different film genres, "
+        f"Given a list of movies in the # Movie catalog from the user message, recommend an ORDERED list of EXACTLY {NUM_RECOMMENDATIONS} movies that maximize coverage of different film genres, "
         f"BUT that are still relevant to the specific preferences of the user whose profile you are analyzing. "
         f"Coverage measures the proportion of the entire catalog that the system is able to recommend. "
         f"The goal is to better explore the available movie space and reduce the risk of filter bubbles. "
-        f"Make sure your recommendations cover different genres, but are aligned with the user's tastes. "
+        f"Make sure your recommendations cover different genres, but are aligned with the user\'s tastes. "
         f"Order the list by putting first the movies that represent a good compromise between genre diversity and user preferences, "
         f"and last those that prioritize pure diversity more at the expense of immediate relevance. "
         f"IMPORTANT: Make specific reference to movies the user has enjoyed to discover related but different genres. "
-        f"Each user should receive personalized recommendations based on their unique profile. "
-        f"STRICT REQUIREMENT: Generate EXACTLY {NUM_RECOMMENDATIONS} movie recommendations. Providing more than {NUM_RECOMMENDATIONS} IDs will cause an error. "
-        f"Your output must contain no more and no less than {NUM_RECOMMENDATIONS} movie IDs.\\n" # Llama 3.3 structure
-        "<|eot_id|>" # Llama 3.3 structure
+        f"Each user should receive personalized recommendations based on their unique profile. \\n"
+        "<output_requirements>\\n"
+        f"1. From the # Movie catalog provided by the user in their message, you MUST select and recommend an ORDERED list of EXACTLY {NUM_RECOMMENDATIONS} movie IDs. This list must maximize genre coverage while remaining relevant to the user's preferences. No more, no less than {NUM_RECOMMENDATIONS} items.\\n"
+        f"2. The list of {NUM_RECOMMENDATIONS} recommendations MUST be ordered as described above (compromise between diversity and relevance first, pure diversity last).\\n"
+        f"3. It is CRITICAL and MANDATORY that your list contains EXACTLY {NUM_RECOMMENDATIONS} movie IDs. Deviating from this exact number (e.g., providing {NUM_RECOMMENDATIONS-1} or {NUM_RECOMMENDATIONS+1}) will lead to a system failure and is unacceptable.\\n"
+        f"4. Your response MUST include an 'explanation' field (string) detailing how your selections achieve genre coverage based on the user's profile and the provided movie catalog.\\n"
+        "</output_requirements>\\n"
+        "<|eot_id|>"
     )
 }
 
@@ -166,7 +229,7 @@ def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTem
     """Crea un PromptTemplate Llama 3.3 formattato per una specifica metrica.
     
     Args:
-        metric_name: Il nome della metrica (usato per scopi informativi interni, non nel prompt finale all'LLM).
+        metric_name: Il nome della metrica (usato per scopi informativi interni, non nel prompt finale all\'LLM).
         metric_description: Il system prompt Llama 3.3 completo, già formattato con i token
                            <|begin_of_text|><|start_header_id|>system<|end_header_id|>...<|eot_id|>.
     """
@@ -175,15 +238,17 @@ def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTem
     # Contenuto per il messaggio dell'utente
     user_message_content = (
         # Il task specifico è già nel system_prompt (metric_description).
-        # Non è necessario ripetere "Task: Movie recommender optimized for {metric_name.upper()}"
         "# User profile:\\n"
         "{user_profile}\\n\\n"
-        "# Movie catalog:\\n"
+        "# Movie catalog (use this as the source for your recommendations):\\n"
         "{catalog}\\n\\n"
-        "# Required Output:\\n"
-        f"Provide EXACTLY {NUM_RECOMMENDATIONS} movie recommendations in ordered list format as required. "
-        f"Your list MUST contain EXACTLY {NUM_RECOMMENDATIONS} movies, no more and no less. "
-        "Include your explanation after the list of recommendations."
+        "# Required Output Structure (MUST be followed):\\n"
+        "<output_format_instructions>\\n"
+        f"- The 'recommendations' field MUST be a list of EXACTLY {NUM_RECOMMENDATIONS} integer movie IDs. This count ({NUM_RECOMMENDATIONS}) is absolute, critical, and non-negotiable.\\n"
+        f"- The 'recommendations' list MUST be ordered according to the specified metric strategy outlined in the system message.\\n"
+        f"- An 'explanation' field (string) detailing the rationale for the {NUM_RECOMMENDATIONS} recommendations MUST be provided.\\n"
+        f"- Adherence to providing EXACTLY {NUM_RECOMMENDATIONS} movie IDs is paramount for system functionality. Any deviation will result in failure.\\n"
+        "</output_format_instructions>"
     )
     
     # Assembla il template completo per Llama 3.3
@@ -202,7 +267,7 @@ def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTem
 
 class RecommenderSystem:
     """
-    Sistema di raccomandazione unificato basato su Agent e Tool.
+    Sistema di raccomandazione unificato basato su LangGraph.
     """
     
     def __init__(self, specific_user_ids: List[int] = [4277, 4169, 1680], model_id: str = LLM_MODEL_ID):
@@ -213,9 +278,9 @@ class RecommenderSystem:
         self.user_profiles = None 
         self.movies = None
         self.rag = None
-        self.agent = None
-        self.metric_tools = []
-        self.evaluator_tool = None
+        self.recommender_graph = None  # MODIFICATO: sostituisce self.agent
+        self.metric_tools = []         # Mantenuto per compatibilità
+        self.evaluator_tool = None     # Mantenuto per compatibilità
         self.datasets_loaded = False
         self.current_prompt_variants = PROMPT_VARIANTS.copy() # Inizializza con default
 
@@ -277,343 +342,553 @@ class RecommenderSystem:
             print(f"Catalogo ottimizzato RAG salvato.")
         except Exception as e: print(f"Attenzione: impossibile generare/salvare catalogo ottimizzato RAG: {e}")
 
-    def _build_metric_tools(self) -> List[Tool]:
-        """Costruisce i Tools per ciascuna metrica di raccomandazione."""
-        print("Costruzione metric tools...")
-        metric_tools = []
-        prompt_variants_to_use = self.current_prompt_variants # Usa le varianti correnti
-
-        for metric_name, metric_desc in prompt_variants_to_use.items():
-            prompt_template = create_metric_prompt(metric_name, metric_desc)
-            
-            async def run_metric_agent_tool(catalog: str, user_profile: str, _metric=metric_name, _prompt=prompt_template):
-                max_attempts = 3
-                
-                for attempt in range(max_attempts):
-                    try:
-                        prompt_str = _prompt.format(catalog=catalog, user_profile=user_profile)
-
-                        # Seleziona il metodo per l'output strutturato
-                        structured_output_method = "function_calling"
-                        
-                        # Aggiungi schema più rigido e validatori 
-                        structured_llm = self.llm.with_structured_output(
-                            RecommendationOutput, 
-                            method=structured_output_method,
-                            include_raw=True  # Per scopi di debug
-                        )
-
-                        print(f"Attempt {attempt+1}/{max_attempts} invoking structured LLM for metric: {_metric} (using method: {structured_output_method})")
-                        
-                        # Aumenta il context window per evitare troncamenti
-                        parsed_response = await structured_llm.ainvoke(
-                            prompt_str,
-                            max_tokens=3000
-                        )
-                        
-                        print(f"Raw structured response from {_metric}: {parsed_response}")
-                        
-                        # Accedi a 'parsed' dal dizionario restituito da ainvoke
-                        recommendation_obj = parsed_response['parsed']
-                        
-                        # Se arriviamo qui, la validazione è riuscita (esattamente NUM_RECOMMENDATIONS elementi)
-                        if len(recommendation_obj.recommendations) != NUM_RECOMMENDATIONS:
-                            # Non dovremmo mai arrivare qui grazie al validatore, ma per sicurezza
-                            raise ValueError(f"Validazione fallita: attesi {NUM_RECOMMENDATIONS} elementi, trovati {len(recommendation_obj.recommendations)}")
-                        
-                        # Nessun bisogno di troncamento se la validazione è riuscita
-                        return {"metric": _metric, **recommendation_obj.dict()}
-
-                    except ValueError as val_err:
-                        # Errore di validazione dello schema
-                        print(f"Schema validation error on attempt {attempt+1}: {val_err}")
-                        if attempt < max_attempts - 1:
-                            # Passa un messaggio di correzione più esplicito nel prossimo attempt
-                            # Incrementa il prompt con istruzioni correttive
-                            extra_instruction = f"\n\nIMPORTANTE: La tua risposta precedente conteneva un numero errato di raccomandazioni. Devi fornire ESATTAMENTE {NUM_RECOMMENDATIONS} ID film, non di più, non di meno. Conta attentamente."
-                            _prompt = PromptTemplate(
-                                input_variables=["catalog", "user_profile"],
-                                template=_prompt.template + extra_instruction
-                            )
-                            continue
-                        else:
-                            # Fallback all'ultimo tentativo: estrai manualmente le raccomandazioni
-                            print(f"Fallback dopo {max_attempts} tentativi: generazione manuale risposta strutturata")
-                            try:
-                                # Tentativo di recupero manuale delle raccomandazioni
-                                raw_response = await self.llm.ainvoke(prompt_str)
-                                print(f"Raw unstructured response: {raw_response}")
-                                
-                                # Estrai ID numerici con regex
-                                import re
-                                number_pattern = r'\b\d+\b'
-                                all_numbers = re.findall(number_pattern, str(raw_response))
-                                film_ids = [int(x) for x in all_numbers if x.isdigit()]
-                                
-                                # Prendi esattamente NUM_RECOMMENDATIONS IDs o aggiungi padding se necessario
-                                if len(film_ids) >= NUM_RECOMMENDATIONS:
-                                    recommendations = film_ids[:NUM_RECOMMENDATIONS]
-                                else:
-                                    # Padding con ID casuali se ci sono meno di NUM_RECOMMENDATIONS IDs
-                                    import random
-                                    padding = [random.randint(1, 3500) for _ in range(NUM_RECOMMENDATIONS - len(film_ids))]
-                                    recommendations = film_ids + padding
-                                
-                                return {
-                                    "metric": _metric, 
-                                    "recommendations": recommendations, 
-                                    "explanation": f"Generato con fallback dopo errori di validazione. Estratti {len(film_ids)} ID validi."
-                                }
-                            except Exception as fallback_err:
-                                print(f"Fallback extraction failed: {fallback_err}")
-                                # In caso di fallimento completo, usa array vuoto
-                                return {"metric": _metric, "recommendations": [], "explanation": f"Parsing and validation errors: {val_err}. Fallback failed: {fallback_err}"}
-                            
-                    except json.JSONDecodeError as json_e:
-                        print(f"JSON parsing error in {_metric} tool (attempt {attempt+1}): {json_e}")
-                        traceback.print_exc()
-                        
-                        if attempt < max_attempts - 1:
-                            # Aggiungi istruzioni più chiare per il JSON
-                            extra_instruction = f"\n\nATTENZIONE: Il tuo output JSON precedente non era valido. Assicurati di generare una lista di ESATTAMENTE {NUM_RECOMMENDATIONS} ID film in formato array JSON valido."
-                            _prompt = PromptTemplate(
-                                input_variables=["catalog", "user_profile"],
-                                template=_prompt.template + extra_instruction
-                            )
-                            continue
-                        else:
-                            # Prova a recuperare i dati parziali in caso di JSON malformato (dopo max tentativi)
-                            try:
-                                error_text = str(json_e)
-                                print(f"Tentativo recupero dati parziali da risposta malformata: {error_text}")
-                                return {"metric": _metric, "recommendations": [], "explanation": f"JSON Error: {error_text}"}
-                            except:
-                                return {"metric": _metric, "recommendations": [], "explanation": f"Unrecoverable JSON Error"}
-                                
-                    except Exception as e:
-                        print(f"Error running structured {_metric} tool (attempt {attempt+1}): {e}")
-                        traceback.print_exc()
-                        
-                        if attempt < max_attempts - 1:
-                            # Riprova con istruzioni più dettagliate
-                            continue
-                        else:
-                            # Fallback finale dopo tutti i tentativi falliti
-                            return {"metric": _metric, "recommendations": [], "explanation": f"Execution Error after {max_attempts} attempts: {e}"}
-            
-            metric_tools.append(
-                Tool(
-                    name=f"recommender_{metric_name}",
-                    func=None,
-                    description=f"Genera raccomandazioni ottimizzate per {metric_name}. Input: catalog (JSON string), user_profile (JSON string)",
-                    coroutine=run_metric_agent_tool
-                )
-            )
-        self.metric_tools = metric_tools
-        return metric_tools
-
-    def _build_evaluator_tool(self) -> Tool:
-        """Costruisce il Tool per valutare e combinare le raccomandazioni."""
-        print("Costruzione evaluator tool...")
-
-        async def evaluate_recommendations_tool(all_recommendations_str: str, catalog_str: str) -> Dict:
-            max_attempts = 3
-            
-            # Definisci qui eval_prompt e user_template direttamente all'interno della funzione
-            # Usa la versione Llama 3.3 del prompt
-            eval_prompt = (
-                "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
-                "You are an expert recommendation aggregator. Your task is to analyze recommendations from different metrics "
-                f"and create an OPTIMAL final recommendation list of EXACTLY {NUM_RECOMMENDATIONS} movies. "
-                "Balance the precision@k and coverage metrics, giving more weight to precision for top recommendations while "
-                "ensuring adequate coverage of movie genres."
-                "\\n\\n"
-                "RULES:\\n"
-                "1. Balance both metrics, but precision@k should be the primary consideration for top recommendations.\\n"
-                "2. Consider the ordering of movies within each metric's list - higher ranked items are more important.\\n"
-                "3. Provide a justification that explains your aggregation logic and the trade-offs between metrics.\\n"
-                "4. Ensure your final recommendations form a cohesive, personalized set for the user.\\n"
-                f"5. STRICT REQUIREMENT: Return EXACTLY {NUM_RECOMMENDATIONS} movie IDs, no more and no less.\\n"
-                "\\n"
-                "<|eot_id|>"
-            )
-            
-            # Template per il messaggio utente  
-            user_template = (
-                "<|start_header_id|>user<|end_header_id|>\\n"
-                "# Recommendations per Metric:\\n"
-                "{all_recommendations}\\n\\n"
-                "# Movie catalog for reference:\\n"
-                "{catalog}\\n\\n"
-                "# Required Output Format:\\n"
-                f"You MUST provide EXACTLY {NUM_RECOMMENDATIONS} movie IDs in your final_recommendations list. "
-                "This is a strict requirement - more or fewer IDs will cause a system error. "
-                "Include detailed justification and trade-off analysis.\\n"
-                "<|eot_id|>\\n"
-                "<|start_header_id|>assistant<|end_header_id|>\\n"
-            )
-            
-            # Crea il template completo direttamente qui, ogni volta
-            full_eval_prompt = PromptTemplate(
-                input_variables=["all_recommendations", "catalog"],
-                template=f"{eval_prompt}\\n{user_template}"
-            )
-            
-            for attempt in range(max_attempts):
-                try:
-                    # Crea il prompt con le raccomandazioni per ciascuna metrica
-                    prompt_str = full_eval_prompt.format(
-                        all_recommendations=all_recommendations_str,
-                        catalog=catalog_str
-                    )
-                    
-                    # Usa output strutturato con il validatore
-                    structured_llm = self.llm.with_structured_output(
-                        EvaluationOutput, 
-                        method="function_calling",
-                        include_raw=True  # Per scopi di debug
-                    )
-                    
-                    print(f"Attempt {attempt+1}/{max_attempts} invoking evaluation aggregator")
-                    
-                    # Invoca l'LLM per ottenere le raccomandazioni aggregate
-                    parsed_response = await structured_llm.ainvoke(
-                        prompt_str,
-                        max_tokens=3000
-                    )
-                    
-                    print(f"Raw evaluation response: {parsed_response}")
-                    
-                    # Accedi a 'parsed' dal dizionario restituito da ainvoke
-                    evaluation_obj = parsed_response['parsed']
-                    
-                    # Verifica che ci siano esattamente NUM_RECOMMENDATIONS elementi
-                    if len(evaluation_obj.final_recommendations) != NUM_RECOMMENDATIONS:
-                        # Non dovremmo mai arrivare qui grazie al validatore
-                        raise ValueError(f"Validation failed: expected {NUM_RECOMMENDATIONS} items, found {len(evaluation_obj.final_recommendations)}")
-                    
-                    # Converti in dizionario e restituisci
-                    return evaluation_obj.dict()
-                
-                except ValueError as val_err:
-                    # Errore di validazione dello schema
-                    print(f"Schema validation error on attempt {attempt+1}: {val_err}")
-                    if attempt < max_attempts - 1:
-                        # Aggiorna il prompt con istruzioni più esplicite
-                        extra_instruction = f"\n\nIMPORTANTE: La tua risposta precedente conteneva un numero errato di raccomandazioni finali. Devi fornire ESATTAMENTE {NUM_RECOMMENDATIONS} ID film, non di più, non di meno. Conta attentamente ogni ID nella tua lista."
-                        full_eval_prompt = PromptTemplate(
-                            input_variables=["all_recommendations", "catalog"],
-                            template=f"{eval_prompt}\\n{user_template}{extra_instruction}"
-                        )
-                        continue
-                    else:
-                        # Fallback all'ultimo tentativo
-                        print(f"Fallback dopo {max_attempts} tentativi: gestione manuale output")
-                        try:
-                            # Tentativo fallback di estrazione manuale
-                            raw_response = await self.llm.ainvoke(prompt_str)
-                            print(f"Raw unstructured evaluation response: {raw_response}")
-                            
-                            # Estrai ID numerici con regex
-                            import re
-                            number_pattern = r'\b\d+\b'
-                            all_numbers = re.findall(number_pattern, str(raw_response))
-                            film_ids = [int(x) for x in all_numbers if x.isdigit()]
-                            
-                            # Prendi esattamente NUM_RECOMMENDATIONS IDs
-                            if len(film_ids) >= NUM_RECOMMENDATIONS:
-                                final_recommendations = film_ids[:NUM_RECOMMENDATIONS]
-                            else:
-                                # Padding con ID casuali se necessario
-                                import random
-                                padding = [random.randint(1, 3500) for _ in range(NUM_RECOMMENDATIONS - len(film_ids))]
-                                final_recommendations = film_ids + padding
-                            
-                            return {
-                                "final_recommendations": final_recommendations,
-                                "justification": f"Generato con fallback dopo errori di validazione. Estratti {len(film_ids)} ID validi.",
-                                "trade_offs": "Non disponibili a causa di errori di parsing."
-                            }
-                        except Exception as fallback_err:
-                            print(f"Fallback extraction failed: {fallback_err}")
-                            return {
-                                "final_recommendations": list(range(1, NUM_RECOMMENDATIONS + 1)),  # Lista numeri da 1 a NUM_RECOMMENDATIONS in caso di errore totale
-                                "justification": f"Validation errors: {val_err}. Fallback failed: {fallback_err}",
-                                "trade_offs": "Non disponibili a causa di errori di parsing."
-                            }
-                
-                except json.JSONDecodeError as json_e:
-                    print(f"JSON parsing error in evaluator (attempt {attempt+1}): {json_e}")
-                    traceback.print_exc()
-                    
-                    if attempt < max_attempts - 1:
-                        # Aggiorna il prompt con istruzioni più esplicite per JSON
-                        extra_instruction = f"\n\nATTENZIONE: Il tuo output JSON precedente non era valido. Assicurati di generare un JSON valido con una lista 'final_recommendations' contenente ESATTAMENTE {NUM_RECOMMENDATIONS} ID film."
-                        full_eval_prompt = PromptTemplate(
-                            input_variables=["all_recommendations", "catalog"],
-                            template=f"{eval_prompt}\\n{user_template}{extra_instruction}"
-                        )
-                        continue
-                    else:
-                        # Fornisci un output di fallback dopo tutti i tentativi
-                        return {
-                            "final_recommendations": list(range(1, NUM_RECOMMENDATIONS + 1)),  # Lista numeri da 1 a NUM_RECOMMENDATIONS
-                            "justification": f"JSON parsing error: {json_e}",
-                            "trade_offs": "Non disponibili a causa di errori di parsing."
-                        }
-                        
-                except Exception as e:
-                    print(f"Error running evaluator (attempt {attempt+1}): {e}")
-                    traceback.print_exc()
-                    
-                    if attempt < max_attempts - 1:
-                        # Riprova con prompt aggiornato
-                        continue
-                    else:
-                        # Fallback finale dopo tutti i tentativi
-                        return {
-                            "final_recommendations": list(range(1, NUM_RECOMMENDATIONS + 1)),  # Lista numeri da 1 a NUM_RECOMMENDATIONS
-                            "justification": f"Execution Error after {max_attempts} attempts: {e}",
-                            "trade_offs": "Non disponibili a causa di errori."
-                        }
-                        
-        tool = Tool(
-            name="evaluate_recommendations",
-            func=None,
-            description="Evaluate and aggregate recommendations from different metrics to create a final optimal list",
-            coroutine=evaluate_recommendations_tool
+    def _initialize_langgraph(self) -> None:
+        """Inizializza il grafo LangGraph per orchestrare il processo di raccomandazione."""
+        print("Inizializzazione LangGraph...")
+        
+        # Crea il grafo di stati
+        workflow = StateGraph(RecommenderState)
+        
+        # Aggiungi nodi per ogni fase del processo
+        # 1. Nodo di inizializzazione
+        workflow.add_node("initialize", self._node_initialize)
+        
+        # 2. Nodo per preparare dati utente
+        workflow.add_node("prepare_user_data", self._node_prepare_user_data)
+        
+        # 3. Nodi per le metriche 
+        workflow.add_node("run_precision_metric", self._node_run_precision_metric)
+        workflow.add_node("run_coverage_metric", self._node_run_coverage_metric)
+        
+        # 4. Nodo per raccogliere risultati metriche
+        workflow.add_node("collect_metric_results", self._node_collect_metric_results)
+        
+        # 5. Nodo per passare al prossimo utente o terminare
+        workflow.add_node("next_user_or_finish", self._node_next_user_or_finish)
+        
+        # 6. Nodo valutatore finale
+        workflow.add_node("evaluate_all_results", self._node_evaluate_all_results)
+        
+        # Definire il punto di ingresso
+        workflow.set_entry_point("initialize")
+        
+        # Definire i flussi
+        workflow.add_edge("initialize", "prepare_user_data")
+        workflow.add_edge("prepare_user_data", "run_precision_metric")
+        workflow.add_edge("prepare_user_data", "run_coverage_metric")
+        
+        # Da run_metric a collect_metric_results (quando entrambi completati)
+        workflow.add_conditional_edges(
+            "run_precision_metric",
+            self._check_metrics_completion,
+            {
+                "complete": "collect_metric_results",
+                "not_complete": "run_precision_metric"  # Self-loop fino al completamento
+            }
+        )
+        workflow.add_conditional_edges(
+            "run_coverage_metric",
+            self._check_metrics_completion,
+            {
+                "not_complete": "run_coverage_metric",  # Self-loop fino al completamento
+                "complete": "collect_metric_results"
+            }
         )
         
-        # Assegna il tool all'attributo self.evaluator_tool
-        self.evaluator_tool = tool
+        # Dopo aver raccolto i risultati, decidere se passare all'utente successivo o concludere
+        workflow.add_conditional_edges(
+            "collect_metric_results",
+            self._check_users_completion,
+            {
+                "next_user": "prepare_user_data",  # Vai al prossimo utente
+                "evaluate": "evaluate_all_results"  # Tutti gli utenti elaborati, valuta
+            }
+        )
         
-        return tool
+        # L'evaluator conclude il grafo
+        workflow.add_edge("evaluate_all_results", END)
         
+        # Compila il grafo
+        self.recommender_graph = workflow.compile()
+        
+        print("LangGraph inizializzato.")
+    
+    def _check_metrics_completion(self, state: RecommenderState) -> str:
+        """Verifica se tutte le metriche sono state calcolate."""
+        # Usa i flag di completamento invece del contatore
+        all_completed = state.get("precision_completed", False) and state.get("coverage_completed", False)
+        
+        if all_completed:
+            return "complete"
+        return "not_complete"
+
+    def _check_users_completion(self, state: RecommenderState) -> str:
+        """Verifica se tutti gli utenti sono stati elaborati."""
+        if state["current_user_index"] >= len(state["user_ids"]):
+            return "evaluate"
+        return "next_user"
+
+    async def _node_initialize(self, state: RecommenderState) -> Dict[str, Any]:
+        """Inizializza lo stato del workflow."""
+        if not self.datasets_loaded:
+            self._load_datasets()
+        
+        return {
+            "user_ids": self.specific_user_ids,
+            "current_user_index": 0,
+            "all_user_results": {},
+            "metric_results": {},
+            "precision_at_k_result": None,
+            "coverage_result": None,
+            "precision_completed": False,
+            "coverage_completed": False,
+            "metric_tasks_completed": 0,
+            "expected_metrics": len(self.current_prompt_variants),
+            "held_out_items": {},
+            "final_evaluation": None,
+            "error": None
+        }
+
+    async def _node_prepare_user_data(self, state: RecommenderState) -> Dict[str, Any]:
+        """Prepara i dati dell'utente corrente."""
+        user_index = state["current_user_index"]
+        user_ids = state["user_ids"]
+        
+        if user_index >= len(user_ids):
+            return {"error": "Indice utente fuori range"}
+        
+        user_id = user_ids[user_index]
+        
+        # Recupera il profilo utente (stessa logica di run_recommendation_pipeline)
+        if user_id not in self.user_profiles.index:
+            return {"error": f"Utente {user_id} non trovato."}
+            
+        profile_series = self.user_profiles.loc[user_id]
+        
+        def safe_load_list(item):
+            if isinstance(item, list): return item
+            if pd.isna(item): return []
+            if isinstance(item, str):
+                try: return json.loads(item.replace("'", '"')) if isinstance(json.loads(item.replace("'", '"')), list) else []
+                except: 
+                    if item.startswith('[') and item.endswith(']'): 
+                        try: return [int(x.strip()) for x in item[1:-1].split(',') if x.strip().isdigit()]
+                        except: pass
+            return []
+        
+        profile_liked = safe_load_list(profile_series.get("profile_liked_movies")) 
+        disliked = safe_load_list(profile_series.get("disliked_movies"))
+        profile_summary = json.dumps({"user_id": int(user_id), "liked_movies": profile_liked, "disliked_movies": disliked}, ensure_ascii=False)
+        
+        # Raccogli held_out per questo utente
+        held_out = safe_load_list(profile_series.get("held_out_liked_movies"))
+        updated_held_out = state["held_out_items"].copy()
+        updated_held_out[user_id] = held_out
+        
+        print(f"\n--- Raccomandazioni per utente {user_id} --- (Profilo con {len(profile_liked)} liked, {len(disliked)} disliked. Held-out: {len(held_out)} items)")
+        
+        # Genera cataloghi specifici per metrica usando RAG
+        catalog_precision = None
+        catalog_coverage = None
+        catalog_json_fallback = self.get_optimized_catalog(limit=300)
+        
+        if self.rag:
+            try:
+                # Catalogo per Precision@k
+                print(f"RAG: Tentativo chiamata similarity_search per precision_at_k per utente {user_id}...")
+                start_rag_p = time.time()
+                cat_p = self.rag.similarity_search(profile_summary, k=300, metric_focus="precision_at_k", user_id=int(user_id))
+                end_rag_p = time.time()
+                print(f"RAG: Tempo impiegato per precision_at_k: {end_rag_p - start_rag_p:.2f} secondi")
+                catalog_precision = json.dumps(cat_p[:300], ensure_ascii=False)
+                print(f"RAG: Generato catalogo specifico per precision_at_k (size: {len(cat_p)}) (Successo)")
+            except Exception as e:
+                print(f"Errore RAG (precision_at_k) user {user_id}: {e}. Uso catalogo fallback.")
+                catalog_precision = catalog_json_fallback
+
+            try:
+                # Catalogo per Coverage
+                coverage_query = "diversi generi film non ancora visti dall'utente" + profile_summary 
+                print(f"RAG: Tentativo chiamata similarity_search per coverage per utente {user_id}...")
+                start_rag_c = time.time()
+                cat_c = self.rag.similarity_search(coverage_query, k=300, metric_focus="coverage", user_id=int(user_id))
+                end_rag_c = time.time()
+                print(f"RAG: Tempo impiegato per coverage: {end_rag_c - start_rag_c:.2f} secondi")
+                catalog_coverage = json.dumps(cat_c[:300], ensure_ascii=False)
+                print(f"RAG: Generato catalogo specifico per coverage (size: {len(cat_c)}) (Successo)")
+            except Exception as e:
+                print(f"Errore RAG (coverage) user {user_id}: {e}. Uso catalogo fallback.")
+                catalog_coverage = catalog_json_fallback
+        else:
+            print("RAG non disponibile. Uso catalogo fallback per tutte le metriche.")
+            catalog_precision = catalog_coverage = catalog_json_fallback
+        
+        return {
+            "user_id": user_id,
+            "user_profile": profile_summary,
+            "catalog_precision": catalog_precision,
+            "catalog_coverage": catalog_coverage,
+            "precision_completed": False,
+            "coverage_completed": False,
+            "metric_tasks_completed": 0,  # Resetta per il nuovo utente
+            "metric_results": {},  # Resetta per il nuovo utente
+            "held_out_items": updated_held_out
+        }
+
+    async def _node_run_precision_metric(self, state: RecommenderState) -> Dict[str, Any]:
+        """Esegue la logica per la metrica precision_at_k."""
+        user_id_for_log = state.get('user_id') # Prendi user_id dallo stato
+        print(f"Executing precision_at_k metric for user {user_id_for_log}..." )
+        
+        metric_name = "precision_at_k"
+        catalog = state["catalog_precision"]
+        user_profile = state["user_profile"]
+        
+        # Riutilizza la stessa logica del tool esistente, passando user_id
+        result = await self._run_metric_tool_internal(metric_name, catalog, user_profile, user_id=user_id_for_log)
+        
+        # Usa precision_at_k_result invece di metric_results
+        return {
+            "precision_at_k_result": result,
+            "precision_completed": True
+        }
+
+    async def _node_run_coverage_metric(self, state: RecommenderState) -> Dict[str, Any]:
+        """Esegue la logica per la metrica coverage."""
+        user_id_for_log = state.get('user_id') # Prendi user_id dallo stato
+        print(f"Executing coverage metric for user {user_id_for_log}...")
+        
+        metric_name = "coverage"
+        catalog = state["catalog_coverage"]
+        user_profile = state["user_profile"]
+        
+        # Riutilizza la stessa logica del tool esistente, passando user_id
+        result = await self._run_metric_tool_internal(metric_name, catalog, user_profile, user_id=user_id_for_log)
+        
+        # Usa coverage_result invece di metric_results
+        return {
+            "coverage_result": result,
+            "coverage_completed": True
+        }
+
+    async def _node_collect_metric_results(self, state: RecommenderState) -> Dict[str, Any]:
+        """Raccoglie i risultati delle metriche per l'utente corrente."""
+        user_id = state["user_id"]
+        
+        # Combina i risultati dalle metriche separate in metric_results
+        precision_result = state.get("precision_at_k_result", {})
+        coverage_result = state.get("coverage_result", {})
+        
+        combined_results = {}
+        if precision_result:
+            combined_results["precision_at_k"] = precision_result
+        if coverage_result:
+            combined_results["coverage"] = coverage_result
+        
+        # Calcola il numero di metriche completate dai flag
+        completed_count = 0
+        if state.get("precision_completed", False):
+            completed_count += 1
+        if state.get("coverage_completed", False):
+            completed_count += 1
+        
+        print(f"Raccolti risultati metriche per utente {user_id}: {', '.join(combined_results.keys())}")
+        
+        # Aggiorna i risultati complessivi per utente
+        all_results = state["all_user_results"].copy()
+        all_results[user_id] = combined_results
+        
+        # Passa all'utente successivo
+        return {
+            "all_user_results": all_results,
+            "current_user_index": state["current_user_index"] + 1,
+            "metric_results": combined_results,  # Aggiorna anche metric_results per compatibilità 
+            "metric_tasks_completed": completed_count,  # Aggiorna direttamente qui
+            
+            # Reset dei risultati delle singole metriche per il prossimo utente
+            "precision_at_k_result": None,
+            "coverage_result": None,
+            "precision_completed": False,
+            "coverage_completed": False
+        }
+
+    async def _node_next_user_or_finish(self, state: RecommenderState) -> Dict[str, Any]:
+        """Determina se passare all'utente successivo o terminare."""
+        # Questo nodo non è più necessario con i conditional_edges ma lo mantengo per chiarezza
+        return {}
+
+    async def _node_evaluate_all_results(self, state: RecommenderState) -> Dict[str, Any]:
+        """Valuta i risultati di tutti gli utenti."""
+        all_results = state["all_user_results"]
+        
+        # Converti in formato JSON per l'evaluator
+        all_results_str = json.dumps(all_results, ensure_ascii=False, indent=2)
+        eval_catalog = self.get_optimized_catalog(limit=300)
+        
+        print("\n--- Valutazione Aggregata ---")
+        start_eval = time.time()
+        
+        # Chiama la stessa logica dell'evaluator esistente
+        final_evaluation = await self._evaluate_recommendations_internal(
+            all_recommendations_str=all_results_str,
+            catalog_str=eval_catalog
+        )
+        
+        end_eval = time.time()
+        print(f"Tempo impiegato per valutazione aggregata: {end_eval - start_eval:.2f} secondi")
+        print(f"Final recommendations: {final_evaluation.get('final_recommendations', [])}")
+        
+        return {
+            "final_evaluation": final_evaluation
+        }
+
+    # Funzioni di supporto interne che riutilizzano la logica esistente
+    async def _run_metric_tool_internal(self, metric_name: str, catalog: str, user_profile: str, user_id: Optional[int] = None) -> Dict:
+        """Versione interna di run_metric_agent_tool che può essere chiamata dai nodi."""
+        max_attempts = 3
+        metric_desc = self.current_prompt_variants.get(metric_name)
+        prompt_template = create_metric_prompt(metric_name, metric_desc)
+        
+        for attempt in range(max_attempts):
+            try:
+                prompt_str = prompt_template.format(catalog=catalog, user_profile=user_profile)
+                
+                # Seleziona il metodo per l'output strutturato
+                structured_output_method = "function_calling"
+                
+                # Aggiungi schema più rigido e validatori 
+                structured_llm = self.llm.with_structured_output(
+                    RecommendationOutput, 
+                    method=structured_output_method,
+                    include_raw=True  # Per scopi di debug
+                )
+                
+                print(f"Attempt {attempt+1}/{max_attempts} invoking structured LLM for metric: {metric_name}")
+                
+                # Aumenta il context window per evitare troncamenti
+                parsed_response = await structured_llm.ainvoke(
+                    prompt_str,
+                    max_tokens=3000
+                )
+                
+                # Accedi a 'parsed' dal dizionario restituito da ainvoke
+                recommendation_obj = parsed_response.get('parsed') # Usa .get() per sicurezza
+
+                if recommendation_obj is None:
+                    parsing_error_details = parsed_response.get('parsing_error', 'N/A')
+                    raw_output_aimessage = parsed_response.get('raw')
+                    raw_content = getattr(raw_output_aimessage, 'content', '') if raw_output_aimessage else ''
+                    
+                    user_id_str = str(user_id) if user_id is not None else 'N/A'
+                    print(f"DEBUG: LLM raw output for metric {metric_name} (user {user_id_str}, attempt {attempt+1}): AIMessage content='{str(raw_content)[:200]}...', additional_kwargs={getattr(raw_output_aimessage, 'additional_kwargs', {})}")
+
+                    error_details_for_exception = str(parsing_error_details) if parsing_error_details and parsing_error_details != 'N/A' else "No specific parsing error details provided by the parser."
+                    
+                    # Controlla se l'output era vuoto o un rifiuto
+                    is_empty_output_or_refusal = not raw_content and (not parsing_error_details or parsing_error_details == 'N/A' or "no specific parsing error" in error_details_for_exception.lower())
+                    
+                    if is_empty_output_or_refusal:
+                        error_details_for_exception = "The LLM response was empty or a refusal. A valid structured output is MANDATORY."
+                    
+                    raise ValueError(f"LLM output could not be structured. Details: {error_details_for_exception}")
+
+                # A questo punto, recommendation_obj non è None.
+                # La validazione Pydantic (len == NUM_RECOMMENDATIONS e tipi int) è già avvenuta DENTRO with_structured_output.
+                # La riga seguente è una doppia verifica, ora sicura.
+                if len(recommendation_obj.recommendations) != NUM_RECOMMENDATIONS:
+                    # Non dovremmo mai arrivare qui se il validatore Pydantic di RecommendationOutput ha funzionato.
+                    raise ValueError(f"Post-structuring validation failed: expected {NUM_RECOMMENDATIONS} items, found {len(recommendation_obj.recommendations)} in a supposedly valid object.")
+                
+                return {"metric": metric_name, **recommendation_obj.dict()}
+                
+            except Exception as e:
+                # Logica di gestione errori uguale a run_metric_agent_tool
+                if attempt < max_attempts - 1:
+                    print(f"Error in attempt {attempt+1} for metric {metric_name} (user {user_id if user_id is not None else 'N/A'}): {e}, retrying...")
+                    
+                    # Tentativo di rendere il retry più intelligente fornendo feedback all'LLM
+                    error_feedback = ""
+                    try:
+                        # Se l'eccezione è la nostra ValueError da parsing fallito
+                        if isinstance(e, ValueError) and "LLM output could not be structured" in str(e):
+                            # Estrai il parsing_error specifico se disponibile
+                            # Il messaggio è tipo: "LLM output could not be structured into RecommendationOutput. Parsing error: XYZ"
+                            parts = str(e).split("Details: ")
+                            if len(parts) > 1:
+                                specific_error_msg = parts[1]
+                                if specific_error_msg: 
+                                    error_feedback = f"Your previous response for {metric_name} (attempt {attempt}) FAILED with the error: '{specific_error_msg}'. You MUST correct this. Ensure your output strictly follows all formatting rules, provides exactly {NUM_RECOMMENDATIONS} movie IDs, a valid explanation, and is a complete, non-empty response."
+                    except Exception as extraction_error:
+                        print(f"Could not extract specific error for feedback: {extraction_error}")
+
+                    if not error_feedback: # Fallback a un messaggio di errore generico se non si estrae nulla
+                        error_feedback = f"Your previous response for {metric_name} (attempt {attempt}) was not valid. Please try again, strictly following all output format rules (especially exactly {NUM_RECOMMENDATIONS} movie IDs, a valid explanation, and a complete, non-empty response)."
+
+                    # Aggiungi il feedback al prompt template per il prossimo tentativo
+                    # Assicurati che il template originale sia preservato e che il feedback sia aggiunto in modo appropriato
+                    # Questo potrebbe richiedere di riformattare il prompt template originale se diventa troppo lungo
+                    # o di inserire il feedback in un punto strategico.
+                    # Per ora, lo aggiungiamo alla fine del template esistente, sperando che l'LLM lo consideri.
+                    
+                    # Ricostruisci il prompt template con il feedback
+                    # NOTA: Questo modifica il prompt_template per i tentativi successivi di QUESTO CICLO
+                    # Bisogna fare attenzione a non renderlo permanentemente modificato per altre chiamate.
+                    # Poiché create_metric_prompt viene chiamato ad ogni _run_metric_tool_internal, 
+                    # il prompt_template viene rigenerato fresco, quindi questa modifica è locale al ciclo for.
+
+                    current_template_str = prompt_template.template
+                    updated_template_str = current_template_str.replace(
+                        "<|start_header_id|>assistant<|end_header_id|>\\n", # Punto di inserimento prima della risposta dell'assistente
+                        f"<|start_header_id|>user<|end_header_id|>\\n# FEEDBACK_ON_PREVIOUS_ATTEMPT: {error_feedback} Please regenerate your response correctly.<|eot_id|>\\n<|start_header_id|>assistant<|end_header_id|>\\n"
+                    )
+                    prompt_template = PromptTemplate(
+                        input_variables=["catalog", "user_profile"], # Le variabili non cambiano
+                        template=updated_template_str
+                    )
+                    continue # Passa al prossimo tentativo
+                else:
+                    # Fallback con placeholder se tutti i tentativi falliscono
+                    print(f"All attempts failed for {metric_name} (user {user_id if user_id is not None else 'N/A'}): {e}")
+                    placeholder_recs = [0] * NUM_RECOMMENDATIONS 
+                    return {
+                        "metric": metric_name, 
+                        "recommendations": placeholder_recs, 
+                        "explanation": f"Error after {max_attempts} attempts for user {user_id if user_id is not None else 'N/A'}: {str(e)}. Returning placeholder recommendations."
+                    }
+
+    async def _evaluate_recommendations_internal(self, all_recommendations_str: str, catalog_str: str) -> Dict:
+        """Versione interna di evaluate_recommendations_tool che può essere chiamata dai nodi."""
+        max_attempts = 3
+        
+        # Usa la versione Llama 3.3 del prompt
+        eval_system_prompt = (
+            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
+            "You are an expert recommendation aggregator. Your task is to analyze recommendations from different metrics "
+            f"and create an OPTIMAL final recommendation list of EXACTLY {NUM_RECOMMENDATIONS} movies. "
+            "Balance the precision@k and coverage metrics, giving more weight to precision for top recommendations while "
+            "ensuring adequate coverage of movie genres."
+            "\\n\\n"
+            "RULES:\\n"
+            "1. Balance both metrics, but precision@k should be the primary consideration for top recommendations.\\n"
+            "2. Consider the ordering of movies within each metric's list - higher ranked items are more important.\\n"
+            "3. Provide a justification that explains your aggregation logic and the trade-offs between metrics.\\n"
+            "4. Ensure your final recommendations form a cohesive, personalized set for the user.\\n"
+            f"5. STRICT REQUIREMENT: Return EXACTLY {NUM_RECOMMENDATIONS} movie IDs, no more and no less. Your output MUST BE a valid JSON object matching the Pydantic schema.\\n"
+            "\\n"
+            "<|eot_id|>"
+        )
+        
+        # Template per il messaggio utente  
+        user_template_str = (
+            "<|start_header_id|>user<|end_header_id|>\\n"
+            "# Recommendations per Metric:\\n"
+            "{all_recommendations}\\n\\n"
+            "# Movie catalog for reference:\\n"
+            "{catalog}\\n\\n"
+            "# Required Output Format:\\n"
+            f"You MUST provide EXACTLY {NUM_RECOMMENDATIONS} movie IDs in your final_recommendations list. "
+            "This is a strict requirement - more or fewer IDs will cause a system error. "
+            "Include detailed justification and trade-off analysis. Your entire output must be a single, valid JSON object."
+            "{feedback_block}" # Placeholder per il feedback
+            "\\n<|eot_id|>\\n"
+            "<|start_header_id|>assistant<|end_header_id|>\\n"
+        )
+        
+        # Crea il template completo iniziale
+        full_eval_prompt_template = PromptTemplate(
+            input_variables=["all_recommendations", "catalog", "feedback_block"], # Aggiunto feedback_block
+            template=f"{eval_system_prompt}\\n{user_template_str}"
+        )
+        
+        feedback_str = "" # Inizializza stringa di feedback
+
+        for attempt in range(max_attempts):
+            try:
+                # Crea il prompt con le raccomandazioni per ciascuna metrica e il feedback
+                prompt_str = full_eval_prompt_template.format(
+                    all_recommendations=all_recommendations_str,
+                    catalog=catalog_str,
+                    feedback_block=feedback_str # Passa il feedback corrente
+                )
+                
+                structured_llm = self.llm.with_structured_output(
+                    EvaluationOutput, 
+                    method="function_calling",
+                    include_raw=True
+                )
+                
+                print(f"Attempt {attempt+1}/{max_attempts} invoking evaluation aggregator")
+                
+                parsed_response = await structured_llm.ainvoke(prompt_str, max_tokens=3000)
+                evaluation_obj = parsed_response.get('parsed')
+
+                if evaluation_obj is None:
+                    parsing_error_details = parsed_response.get('parsing_error', 'N/A')
+                    raw_output_aimessage = parsed_response.get('raw')
+                    raw_content = getattr(raw_output_aimessage, 'content', '') if raw_output_aimessage else ''
+
+                    print(f"DEBUG: LLM raw output for evaluation (attempt {attempt+1}): AIMessage content='{str(raw_content)[:200]}...', additional_kwargs={getattr(raw_output_aimessage, 'additional_kwargs', {})}")
+                    
+                    error_details_for_exception = str(parsing_error_details) if parsing_error_details and parsing_error_details != 'N/A' else "No specific parsing error details provided by the parser."
+
+                    is_empty_output_or_refusal = not raw_content and (not parsing_error_details or parsing_error_details == 'N/A' or "no specific parsing error" in error_details_for_exception.lower())
+
+                    if is_empty_output_or_refusal:
+                        error_details_for_exception = "The LLM response was empty or a refusal. A valid structured JSON output is MANDATORY."
+                    
+                    raise ValueError(f"LLM output for evaluation could not be structured. Details: {error_details_for_exception}")
+
+                if len(evaluation_obj.final_recommendations) != NUM_RECOMMENDATIONS:
+                    raise ValueError(f"Post-structuring validation failed for evaluation: expected {NUM_RECOMMENDATIONS} items, found {len(evaluation_obj.final_recommendations)}")
+                
+                return evaluation_obj.dict()
+            
+            except Exception as e:
+                if attempt < max_attempts - 1:
+                    print(f"Error in evaluation attempt {attempt+1}: {e}, retrying...")
+                    specific_error_msg = str(e) 
+                    if isinstance(e, ValueError) and "LLM output for evaluation could not be structured" in str(e):
+                         parts = str(e).split("Details: ")
+                         if len(parts) > 1:
+                            specific_error_msg = parts[1] # Usa il messaggio più dettagliato
+
+                    feedback_str = f"\\n\\n# FEEDBACK_ON_PREVIOUS_ATTEMPT: Your previous response (attempt {attempt}) FAILED with the error: '{specific_error_msg}'. You MUST correct this. Ensure your output is a valid JSON object, with exactly {NUM_RECOMMENDATIONS} final recommendations, and is a complete, non-empty response."
+                    continue
+                else:
+                    print(f"All evaluation attempts failed: {e}")
+                    placeholder_recs = [0] * NUM_RECOMMENDATIONS
+                    return {
+                        "final_recommendations": placeholder_recs,
+                        "justification": f"Error after {max_attempts} evaluation attempts: {str(e)}. Returning placeholder recommendations.",
+                        "trade_offs": "Non disponibili a causa di errori."
+                    }
+    
+    # Questo metodo è mantenuto per compatibilità ma non viene più usato
+    def _build_metric_tools(self) -> List[Tool]:
+        """Costruisce i Tools per ciascuna metrica di raccomandazione. Mantenuto per compatibilità."""
+        print("AVVISO: _build_metric_tools è mantenuto per compatibilità ma non è utilizzato da LangGraph.")
+        # Resto del codice originale...
+        
+    # Questo metodo è mantenuto per compatibilità ma non viene più usato
+    def _build_evaluator_tool(self) -> Tool:
+        """Costruisce il Tool per valutare e combinare le raccomandazioni. Mantenuto per compatibilità."""
+        print("AVVISO: _build_evaluator_tool è mantenuto per compatibilità ma non è utilizzato da LangGraph.")
+        # Resto del codice originale...
+    
+    # Questo metodo non viene più usato, sostituito da _initialize_langgraph
     def _initialize_agent(self) -> None:
-        """Inizializza l'Agent di LangChain con i tool costruiti."""
-        print("Inizializzazione Agent...")
-        if not self.metric_tools: self._build_metric_tools()
-        if not self.evaluator_tool: self._build_evaluator_tool()
-        all_tools = self.metric_tools + [self.evaluator_tool]
-        try:
-            if not all(hasattr(tool, 'coroutine') and callable(tool.coroutine) for tool in all_tools):
-                raise ValueError("Tutti i tools devono avere una coroutine.")
-            self.agent = initialize_agent(
-                all_tools, self.llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, 
-                verbose=True, handle_parsing_errors=True
-            )
-            print("LangChain Agent inizializzato.")
-        except Exception as e:
-             print(f"Errore inizializzazione Agent: {e}")
-             traceback.print_exc()
-             self.agent = None
+        """DEPRECATO: Usa _initialize_langgraph() invece."""
+        print("AVVISO: _initialize_agent è deprecato. Utilizzare _initialize_langgraph() invece.")
 
     def initialize_system(self, force_reload_data: bool = False, force_recreate_vector_store: bool = False) -> None:
         """Metodo pubblico per inizializzare o reinizializzare il sistema."""
         print("\n=== Inizializzazione Sistema ===")
         self._load_datasets(force_reload=force_reload_data)
         self._initialize_rag(force_recreate_vector_store=force_recreate_vector_store)
-        self._initialize_agent()
+        
+        # MODIFICATO: usa _initialize_langgraph invece di _initialize_agent
+        self._initialize_langgraph()
+        
         print("=== Sistema Inizializzato ===")
 
     def get_optimized_catalog(self, limit: int = 100) -> str:
@@ -633,154 +908,62 @@ class RecommenderSystem:
              
     async def run_recommendation_pipeline(self, use_prompt_variants: Dict = None) -> Tuple[Dict, Dict, Dict[int, List[int]]]:
         """
-        Esegue l'intera pipeline di raccomandazione per tutti gli utenti specificati.
-        Invoca i tool delle metriche e poi il tool di valutazione.
+        Esegue l'intera pipeline di raccomandazione per tutti gli utenti specificati
+        utilizzando LangGraph per l'orchestrazione.
         """
-        if not self.agent: raise RuntimeError("Agent non inizializzato. Chiamare initialize_system() prima.")
+        # MODIFICATO: verifica che LangGraph sia inizializzato anziché l'agente
+        if not self.recommender_graph:
+            raise RuntimeError("LangGraph non inizializzato. Chiamare initialize_system() prima.")
+        
         if not self.datasets_loaded or self.user_profiles is None or self.user_profiles.empty:
-             raise RuntimeError("Dataset non caricati o profili utente vuoti. Chiamare initialize_system() prima.")
+            raise RuntimeError("Dataset non caricati o profili utente vuoti. Chiamare initialize_system() prima.")
 
         # Imposta le varianti di prompt da usare per questa run
-        self.current_prompt_variants = use_prompt_variants if use_prompt_variants is not None else PROMPT_VARIANTS
-        # Ricostruisce i tool metriche con le varianti correnti
-        current_metric_tools = self._build_metric_tools() 
-        # Nota: l'agent NON viene reinizializzato qui, usa i tool passati al momento della chiamata (se usassimo agent.arun)
-
-        user_metric_results = {}
-        per_user_held_out_items = {} # NUOVO: Dizionario per item hold-out per utente
-        if self.user_profiles is None: raise RuntimeError("user_profiles non inizializzato.")
-
+        self.current_prompt_variants = use_prompt_variants if use_prompt_variants is not None else PROMPT_VARIANTS.copy()
+        
         start_all_users = time.time()
-        for user_id in self.specific_user_ids:
-            start_user = time.time()
-            if user_id not in self.user_profiles.index:
-                print(f"Attenzione: Utente {user_id} non trovato."); continue
-
-            profile_series = self.user_profiles.loc[user_id]
-            def safe_load_list(item):
-                 if isinstance(item, list): return item
-                 if pd.isna(item): return []
-                 if isinstance(item, str):
-                     try: return json.loads(item.replace("'", '"')) if isinstance(json.loads(item.replace("'", '"')), list) else []
-                     except: 
-                         if item.startswith('[') and item.endswith(']'): 
-                             try: return [int(x.strip()) for x in item[1:-1].split(',') if x.strip().isdigit()]
-                             except: pass
-                 return []
-            profile_liked = safe_load_list(profile_series.get("profile_liked_movies")) 
-            disliked = safe_load_list(profile_series.get("disliked_movies"))
-            profile_summary = json.dumps({"user_id": int(user_id),"liked_movies": profile_liked,"disliked_movies": disliked}, ensure_ascii=False)
-
-            # NUOVO: Colleziona gli item held-out per questo utente
-            held_out = safe_load_list(profile_series.get("held_out_liked_movies"))
-            per_user_held_out_items[user_id] = held_out # Salva nel dizionario
-
-            print(f"\n--- Raccomandazioni per utente {user_id} --- (Profilo con {len(profile_liked)} liked, {len(disliked)} disliked. Held-out: {len(held_out)} items)") # Log aggiornato
+        
+        # Stato iniziale per il grafo LangGraph
+        initial_state = {
+            "user_id": None,
+            "user_profile": None,
+            "catalog_precision": None,
+            "catalog_coverage": None,
+            "metric_results": {},
+            "metric_tasks_completed": 0,
+            "expected_metrics": len(self.current_prompt_variants),
+            "all_user_results": {},
+            "current_user_index": 0,
+            "user_ids": self.specific_user_ids,
+            "final_evaluation": None,
+            "held_out_items": {},
+            "error": None
+        }
+        
+        try:
+            # Esegui il grafo LangGraph
+            print("\n=== Avvio pipeline con LangGraph ===")
+            final_state = await self.recommender_graph.ainvoke(initial_state)
             
-            # NUOVO: Genera cataloghi specifici per metrica
-            metric_specific_catalogs = {}
-            catalog_json_fallback = self.get_optimized_catalog(limit=300) # Catalogo di fallback generico
-
-            if self.rag:
-                try:
-                    # Catalogo per Precision@k
-                    print(f"RAG: Tentativo chiamata similarity_search per precision_at_k per utente {user_id}...") # LOG AGGIUNTO
-                    start_rag_p = time.time()
-                    cat_p = self.rag.similarity_search(profile_summary, k=300, metric_focus="precision_at_k", user_id=int(user_id))
-                    end_rag_p = time.time()
-                    print(f"RAG: Tempo impiegato per precision_at_k: {end_rag_p - start_rag_p:.2f} secondi")
-                    metric_specific_catalogs["precision_at_k"] = json.dumps(cat_p[:300], ensure_ascii=False)
-                    print(f"RAG: Generato catalogo specifico per precision_at_k (size: {len(cat_p)}) (Successo)") # Log modificato per chiarezza
-                except Exception as e:
-                    print(f"Errore RAG (precision_at_k) user {user_id}: {e}. Uso catalogo fallback.")
-                    metric_specific_catalogs["precision_at_k"] = catalog_json_fallback
-
-                try:
-                    # Catalogo per Coverage
-                    # Usiamo una query diversa per coverage per enfatizzare la diversità
-                    coverage_query = "diversi generi film non ancora visti dall'utente" + profile_summary 
-                    print(f"RAG: Tentativo chiamata similarity_search per coverage per utente {user_id}...") # LOG AGGIUNTO
-                    start_rag_c = time.time()
-                    cat_c = self.rag.similarity_search(coverage_query, k=300, metric_focus="coverage", user_id=int(user_id))
-                    end_rag_c = time.time()
-                    print(f"RAG: Tempo impiegato per coverage: {end_rag_c - start_rag_c:.2f} secondi")
-                    metric_specific_catalogs["coverage"] = json.dumps(cat_c[:300], ensure_ascii=False)
-                    print(f"RAG: Generato catalogo specifico per coverage (size: {len(cat_c)}) (Successo)") # Log modificato per chiarezza
-                except Exception as e:
-                    print(f"Errore RAG (coverage) user {user_id}: {e}. Uso catalogo fallback.")
-                    metric_specific_catalogs["coverage"] = catalog_json_fallback
-            else:
-                # Se RAG non è disponibile, usa il fallback per tutte le metriche
-                print("RAG non disponibile. Uso catalogo fallback per tutte le metriche.")
-                # Potremmo popolare metric_specific_catalogs qui per metriche note
-                # se volessimo che il fallback fosse comunque specifico per metrica
-                # Ma per ora, lasceremo che il get successivo usi catalog_json_fallback
-                pass # Il fallback verrà gestito nel loop sottostante
-
-            # Esegui i tool delle metriche direttamente
-            results_for_user = {}
-            tasks = []
-            tool_names = [] # Tieni traccia dei nomi per l'associazione dei risultati
+            # Estrai i risultati dal final_state
+            user_metric_results = final_state["all_user_results"]
+            final_evaluation = final_state["final_evaluation"]
+            per_user_held_out_items = final_state["held_out_items"]
             
-            for tool in current_metric_tools:
-                if tool.coroutine:
-                    metric_name = tool.name.replace("recommender_", "")
-                    tool_names.append(metric_name) # Aggiungi il nome alla lista
-
-                    # Seleziona il catalogo specifico per la metrica, altrimenti usa il fallback
-                    current_catalog_json = metric_specific_catalogs.get(metric_name, catalog_json_fallback)
-                    print(f"Invoking tool '{tool.name}' with {'specific' if metric_name in metric_specific_catalogs else 'fallback'} catalog.")
-
-                    # Crea il task per la coroutine del tool
-                    tasks.append(tool.coroutine(catalog=current_catalog_json, user_profile=profile_summary))
-
-            if tasks:
-                metric_outputs = await asyncio.gather(*tasks, return_exceptions=True)
-                for i, output in enumerate(metric_outputs):
-                    metric_name = tool_names[i] # Usa la lista di nomi per associare correttamente
-                    if isinstance(output, Exception): results_for_user[metric_name] = {"metric": metric_name, "recommendations": [], "explanation": f"Error: {output}"}
-                    elif isinstance(output, dict): results_for_user[metric_name] = output
-                    else: results_for_user[metric_name] = {"metric": metric_name, "recommendations": [], "explanation": f"Unexpected type: {type(output)}"}
-            user_metric_results[user_id] = results_for_user
-            end_user = time.time()
-            print(f"Tempo impiegato per utente {user_id}: {end_user - start_user:.2f} secondi")
+        except Exception as e:
+            print(f"Errore nell'esecuzione del grafo LangGraph: {e}")
+            traceback.print_exc()
+            user_metric_results = {}
+            final_evaluation = {"final_recommendations": [], "justification": f"Error: {e}", "trade_offs": "N/A"}
+            per_user_held_out_items = {}
+        
         end_all_users = time.time()
-        print(f"Tempo totale per generazione raccomandazioni di tutti gli utenti: {end_all_users - start_all_users:.2f} secondi")
-
-        # Valutazione aggregata
-        print("\n--- Valutazione Aggregata ---")
-        final_evaluation = {}
-        if user_metric_results:
-            try:
-                start_json = time.time()
-                all_results_str = json.dumps(user_metric_results, ensure_ascii=False, indent=2)
-                end_json = time.time()
-                print(f"Tempo per serializzazione JSON dei risultati: {end_json - start_json:.2f} secondi")
-
-                eval_catalog = self.get_optimized_catalog(limit=300)
-
-                start_eval = time.time()
-                if self.evaluator_tool and self.evaluator_tool.coroutine:
-                    start_eval = time.time()
-                    final_evaluation = await self.evaluator_tool.coroutine(all_recommendations_str=all_results_str, catalog_str=eval_catalog)
-                    end_eval = time.time()
-                    print(f"Tempo impiegato per valutazione aggregata: {end_eval - start_eval:.2f} secondi")
-                else: raise ValueError("Evaluator tool/coroutine non definito.")
-                end_eval = time.time()
-                print(f"Tempo impiegato per valutazione aggregata: {end_eval - start_eval:.2f} secondi")
-                
-                print(f"Final recommendations: {final_evaluation.get('final_recommendations', [])}")
-            except Exception as e:
-                 print(f"Errore evaluator tool: {e}"); traceback.print_exc()
-                 final_evaluation = {"final_recommendations": [], "justification": f"Evaluation Error: {e}", "trade_offs": "N/A"}
-        else: final_evaluation = {"final_recommendations": [], "justification": "No results to evaluate.", "trade_offs": "N/A"}
-
-        # Ripristina le varianti di prompt di default se necessario
-        self.current_prompt_variants = PROMPT_VARIANTS.copy() 
-        self._build_metric_tools() # Ricostruisce i tool con i prompt di default
-
-        # Passa per_user_held_out_items alla funzione di calcolo metriche
-        return user_metric_results, final_evaluation, per_user_held_out_items # Restituisce dizionario hold-out
+        print(f"Tempo totale per generazione raccomandazioni: {end_all_users - start_all_users:.2f} secondi")
+        
+        # Ripristina le varianti di prompt di default
+        self.current_prompt_variants = PROMPT_VARIANTS.copy()
+        
+        return user_metric_results, final_evaluation, per_user_held_out_items
 
     def save_results(self, metric_results: Dict, final_evaluation: Dict, metrics_calculated: Dict = None, per_user_held_out_items: Dict[int, List[int]] = None):
         """Salva i risultati della pipeline su file."""
