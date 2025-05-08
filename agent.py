@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 # ----------------------------
 # Importa il sistema di raccomandazione unificato
 from src.recommender.core.recommender import RecommenderSystem 
-from src.recommender.core.recommender import PROMPT_VARIANTS # Importa le varianti di default per usarle negli esperimenti
+# Modifica l'importazione per prelevare PROMPT_VARIANTS dal nuovo modulo prompt_manager
+from src.recommender.core.prompt_manager import PROMPT_VARIANTS
 from src.reporting.experiment_reporter import ExperimentReporter
 
 
