@@ -1,55 +1,55 @@
 [
   {
     "prompt_variants": {
-      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY...",
-      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE..."
+      "precision_at_k": "You are an expert recommendation system that optimizes for PRECISION@K with focus on SERENDIPITY...",
+      "coverage": "You are an expert recommendation system that optimizes for TEMPORAL COVERAGE..."
     },
     "experiments_count": 1,
-    "unique_final_recs_count": 3,
+    "unique_final_recs_count": 50,
     "experiments": [
       "combined_serendipity_temporal"
     ]
   },
   {
     "prompt_variants": {
-      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE con BILANCIAMENTO DEI GENERI...",
-      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. Il tuo obiettivo è raccomandare film che l'utente valuterà con un rating 4 o 5 su 5. Analizza attentamente il profilo dell'utente e concentrati sui seguenti elementi:\n1. Generi che l'utente ha costantemente valutato con punteggi elevati\n2. Attributi specifici (attori, registi, temi, epoche) presenti nei film apprezzati\n3. Modelli nelle valutazioni negative per evitare film simili\n\nLa precision@k misura quanti dei film raccomandati saranno effettivamente valutati positivamente. Quando analizzi il catalogo, presta particolare attenzione a:\n- Corrispondenza di genere con i film valutati positivamente\n- Somiglianza tematica e stilistica ai film preferiti\n- Evita film simili a quelli che l'utente non ha apprezzato\n\nNON raccomandare film in base alla popolarità generale o alle tendenze, a meno che queste caratteristiche non si allineino alle preferenze specifiche di questo utente. Fornisci ESATTAMENTE 3 film che l'utente molto probabilmente valuterà positivamente."
+      "coverage": "You are an expert recommendation system that optimizes for COVERAGE with GENRE BALANCE...",
+      "precision_at_k": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\nYou are a personal movie recommendation consultant optimizing for PRECISION@K for a specific user. Your goal is to recommend movies that the user will rate 4 or 5 out of 5. Carefully analyze the user\\'s profile and focus on the following elements:\\n1. Genres that the user has consistently rated highly.\\n2. Identify key actors, directors, themes, and time periods from the user\\'s appreciated movies. Prioritize movies in the catalog that share these specific attributes.\\n3. Actively analyze disliked movies to identify genres, themes, or attributes to avoid.\\n\\nPrecision@k measures how many of the recommended movies will actually be rated positively. When analyzing the catalog, pay particular attention to:\\n- Genre matching with positively rated movies.\\n- Thematic and stylistic similarity to favorite movies.\\n- Avoid movies similar to those the user did not appreciate.\\n\\nDO NOT recommend movies based on general popularity or trends, unless these characteristics align with this specific user\\'s unique preferences. \\n<output_requirements>\\n1. From the # Movie catalog provided by the user in their message, you MUST select and recommend a list containing EXACTLY 50 movie IDs. No more, no less than 50.\\n2. The list of 50 recommendations MUST be ordered. The first movie ID should be the one you recommend the most (highest probability of positive rating), and the last one the least recommended, based on the user's profile and the provided catalog.\\n3. Generating a list with a number of movie IDs different from EXACTLY 50 will cause a system error and is strictly forbidden.\\n4. Your response MUST include an 'explanation' field (string) detailing the main reasons for your top selections in relation to the user\\'s profile and the provided movie catalog.\\n</output_requirements>\\n<|eot_id|>"
     },
     "experiments_count": 1,
-    "unique_final_recs_count": 3,
+    "unique_final_recs_count": 50,
     "experiments": [
       "coverage_genre_balance"
     ]
   },
   {
     "prompt_variants": {
-      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE TEMPORALE...",
-      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K. Il tuo obiettivo è raccomandare film che l'utente valuterà con un rating 4 o 5 su 5. Analizza attentamente il profilo dell'utente e concentrati sui seguenti elementi:\n1. Generi che l'utente ha costantemente valutato con punteggi elevati\n2. Attributi specifici (attori, registi, temi, epoche) presenti nei film apprezzati\n3. Modelli nelle valutazioni negative per evitare film simili\n\nLa precision@k misura quanti dei film raccomandati saranno effettivamente valutati positivamente. Quando analizzi il catalogo, presta particolare attenzione a:\n- Corrispondenza di genere con i film valutati positivamente\n- Somiglianza tematica e stilistica ai film preferiti\n- Evita film simili a quelli che l'utente non ha apprezzato\n\nNON raccomandare film in base alla popolarità generale o alle tendenze, a meno che queste caratteristiche non si allineino alle preferenze specifiche di questo utente. Fornisci ESATTAMENTE 3 film che l'utente molto probabilmente valuterà positivamente."
+      "coverage": "You are an expert recommendation system that optimizes for TEMPORAL COVERAGE...",
+      "precision_at_k": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\nYou are a personal movie recommendation consultant optimizing for PRECISION@K for a specific user. Your goal is to recommend movies that the user will rate 4 or 5 out of 5. Carefully analyze the user\\'s profile and focus on the following elements:\\n1. Genres that the user has consistently rated highly.\\n2. Identify key actors, directors, themes, and time periods from the user\\'s appreciated movies. Prioritize movies in the catalog that share these specific attributes.\\n3. Actively analyze disliked movies to identify genres, themes, or attributes to avoid.\\n\\nPrecision@k measures how many of the recommended movies will actually be rated positively. When analyzing the catalog, pay particular attention to:\\n- Genre matching with positively rated movies.\\n- Thematic and stylistic similarity to favorite movies.\\n- Avoid movies similar to those the user did not appreciate.\\n\\nDO NOT recommend movies based on general popularity or trends, unless these characteristics align with this specific user\\'s unique preferences. \\n<output_requirements>\\n1. From the # Movie catalog provided by the user in their message, you MUST select and recommend a list containing EXACTLY 50 movie IDs. No more, no less than 50.\\n2. The list of 50 recommendations MUST be ordered. The first movie ID should be the one you recommend the most (highest probability of positive rating), and the last one the least recommended, based on the user's profile and the provided catalog.\\n3. Generating a list with a number of movie IDs different from EXACTLY 50 will cause a system error and is strictly forbidden.\\n4. Your response MUST include an 'explanation' field (string) detailing the main reasons for your top selections in relation to the user\\'s profile and the provided movie catalog.\\n</output_requirements>\\n<|eot_id|>"
     },
     "experiments_count": 1,
-    "unique_final_recs_count": 3,
+    "unique_final_recs_count": 50,
     "experiments": [
       "coverage_temporal"
     ]
   },
   {
     "prompt_variants": {
-      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla RECENCY...",
-      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici, MA che siano comunque rilevanti per le preferenze specifiche dell'utente di cui stai analizzando il profilo. La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. L'obiettivo è esplorare meglio lo spazio dei film disponibili e ridurre il rischio di filter bubble. Assicurati che le tue raccomandazioni coprano generi diversi tra loro, ma che siano allineati con i gusti dell'utente. IMPORTANTE: Fai riferimento specifico ai film che l'utente ha apprezzato per scoprire generi correlati ma diversi. Ogni utente deve ricevere raccomandazioni personalizzate in base al suo profilo unico. NON raccomandare più di 3 film."
+      "precision_at_k": "You are an expert recommendation system that optimizes for PRECISION@K with focus on RECENCY...",
+      "coverage": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\nYou are an expert recommendation system that optimizes for COVERAGE. Given a list of movies in the # Movie catalog from the user message, recommend an ORDERED list of EXACTLY 50 movies that maximize coverage of different film genres, BUT that are still relevant to the specific preferences of the user whose profile you are analyzing. Coverage measures the proportion of the entire catalog that the system is able to recommend. The goal is to better explore the available movie space and reduce the risk of filter bubbles. Make sure your recommendations cover different genres, but are aligned with the user's tastes. Order the list by putting first the movies that represent a good compromise between genre diversity and user preferences, and last those that prioritize pure diversity more at the expense of immediate relevance. IMPORTANT: Make specific reference to movies the user has enjoyed to discover related but different genres. Each user should receive personalized recommendations based on their unique profile. \\n<output_requirements>\\n1. From the # Movie catalog provided by the user in their message, you MUST select and recommend an ORDERED list of EXACTLY 50 movie IDs. This list must maximize genre coverage while remaining relevant to the user's preferences. No more, no less than 50 items.\\n2. The list of 50 recommendations MUST be ordered as described above (compromise between diversity and relevance first, pure diversity last).\\n3. It is CRITICAL and MANDATORY that your list contains EXACTLY 50 movie IDs. Deviating from this exact number (e.g., providing 49 or 51) will lead to a system failure and is unacceptable.\\n4. Your response MUST include an 'explanation' field (string) detailing how your selections achieve genre coverage based on the user's profile and the provided movie catalog.\\n</output_requirements>\\n<|eot_id|>"
     },
     "experiments_count": 1,
-    "unique_final_recs_count": 3,
+    "unique_final_recs_count": 50,
     "experiments": [
       "precision_at_k_recency"
     ]
   },
   {
     "prompt_variants": {
-      "precision_at_k": "Sei un sistema di raccomandazione esperto che ottimizza per PRECISION@K con focus sulla SERENDIPITY...",
-      "coverage": "Sei un sistema di raccomandazione esperto che ottimizza per COVERAGE. Data una lista di film, consiglia 3 film che massimizzano la copertura di diversi generi cinematografici, MA che siano comunque rilevanti per le preferenze specifiche dell'utente di cui stai analizzando il profilo. La coverage misura la proporzione dell'intero catalogo che il sistema è in grado di raccomandare. L'obiettivo è esplorare meglio lo spazio dei film disponibili e ridurre il rischio di filter bubble. Assicurati che le tue raccomandazioni coprano generi diversi tra loro, ma che siano allineati con i gusti dell'utente. IMPORTANTE: Fai riferimento specifico ai film che l'utente ha apprezzato per scoprire generi correlati ma diversi. Ogni utente deve ricevere raccomandazioni personalizzate in base al suo profilo unico. NON raccomandare più di 3 film."
+      "precision_at_k": "You are an expert recommendation system that optimizes for PRECISION@K with focus on SERENDIPITY...",
+      "coverage": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\nYou are an expert recommendation system that optimizes for COVERAGE. Given a list of movies in the # Movie catalog from the user message, recommend an ORDERED list of EXACTLY 50 movies that maximize coverage of different film genres, BUT that are still relevant to the specific preferences of the user whose profile you are analyzing. Coverage measures the proportion of the entire catalog that the system is able to recommend. The goal is to better explore the available movie space and reduce the risk of filter bubbles. Make sure your recommendations cover different genres, but are aligned with the user's tastes. Order the list by putting first the movies that represent a good compromise between genre diversity and user preferences, and last those that prioritize pure diversity more at the expense of immediate relevance. IMPORTANT: Make specific reference to movies the user has enjoyed to discover related but different genres. Each user should receive personalized recommendations based on their unique profile. \\n<output_requirements>\\n1. From the # Movie catalog provided by the user in their message, you MUST select and recommend an ORDERED list of EXACTLY 50 movie IDs. This list must maximize genre coverage while remaining relevant to the user's preferences. No more, no less than 50 items.\\n2. The list of 50 recommendations MUST be ordered as described above (compromise between diversity and relevance first, pure diversity last).\\n3. It is CRITICAL and MANDATORY that your list contains EXACTLY 50 movie IDs. Deviating from this exact number (e.g., providing 49 or 51) will lead to a system failure and is unacceptable.\\n4. Your response MUST include an 'explanation' field (string) detailing how your selections achieve genre coverage based on the user's profile and the provided movie catalog.\\n</output_requirements>\\n<|eot_id|>"
     },
     "experiments_count": 1,
-    "unique_final_recs_count": 3,
+    "unique_final_recs_count": 50,
     "experiments": [
       "precision_at_k_serendipity"
     ]

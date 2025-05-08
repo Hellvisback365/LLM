@@ -45,7 +45,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.pregel import Pregel
 
 # Pydantic import
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 # Moduli locali
 from src.recommender.utils.data_processor import (
@@ -144,19 +144,20 @@ class RecommendationOutput(BaseModel):
     )
     explanation: str = Field(..., description="Breve spiegazione testuale del motivo per cui questi film sono stati scelti e ordinati in base alla metrica richiesta.")
     
-    @validator('recommendations')
+    @field_validator('recommendations')
     def validate_exactly_50_items(cls, v):
         """Validatore che garantisce esattamente NUM_RECOMMENDATIONS elementi."""
         if len(v) != NUM_RECOMMENDATIONS:
             raise ValueError(f"L'array deve contenere esattamente {NUM_RECOMMENDATIONS} elementi, trovati {len(v)}")
         return v
     
-    @validator('recommendations', each_item=True)
-    def validate_ids_are_integers(cls, v):
-        """Validatore che garantisce che ogni elemento sia un ID numerico intero."""
-        if not isinstance(v, int):
-            raise ValueError(f"Ogni ID film deve essere un intero, trovato {type(v)}")
-        return v
+    @field_validator('recommendations')
+    def validate_ids_are_integers(cls, v_list: List[int]):
+        """Validatore che garantisce che ogni elemento della lista sia un ID numerico intero."""
+        for item in v_list:
+            if not isinstance(item, int):
+                raise ValueError(f"Ogni ID film deve essere un intero, trovato {type(item)}")
+        return v_list
 
 class EvaluationOutput(BaseModel):
     """Schema per l'output del tool di valutazione finale."""
@@ -169,7 +170,7 @@ class EvaluationOutput(BaseModel):
     justification: str = Field(..., description="Spiegazione dettagliata della logica di selezione, bilanciamento e ORDINAMENTO per la lista finale aggregata.")
     trade_offs: str = Field(..., description="Descrizione dei trade-off considerati tra le diverse metriche (es. precisione vs copertura) nell'ordinamento finale.")
     
-    @validator('final_recommendations')
+    @field_validator('final_recommendations')
     def validate_exactly_50_items(cls, v):
         """Validatore che garantisce esattamente NUM_RECOMMENDATIONS elementi."""
         if len(v) != NUM_RECOMMENDATIONS:

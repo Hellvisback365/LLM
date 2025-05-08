@@ -187,6 +187,7 @@ class ExperimentReporter:
             unique_metric = data.get("unique_recommendations", {})
             html += f"<tr><th>Raccomandazioni Uniche ({metric})</th><td>{unique_metric.get('count', 0)}</td></tr></table>"
             themes = data.get("explanation_themes", {})
+            sorted_themes = []
             if themes:
                 html += "<h4>Temi nelle Spiegazioni</h4><table><tr><th>Tema</th><th>Freq.</th></tr>"
                 sorted_themes = sorted(themes.items(), key=lambda x: x[1], reverse=True)
@@ -285,6 +286,7 @@ class ExperimentReporter:
             unique_metric = data.get("unique_recommendations", {})
             md += f"- **Raccomandazioni Uniche ({metric})**: {unique_metric.get('count', 0)}\n"
             themes = data.get("explanation_themes", {})
+            sorted_themes = []
             if themes:
                 md += "#### Temi nelle Spiegazioni\n| Tema | Frequenza |\n|---|---|\n"
                 sorted_themes = sorted(themes.items(), key=lambda x: x[1], reverse=True)
