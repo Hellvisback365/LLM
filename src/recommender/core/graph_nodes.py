@@ -6,6 +6,7 @@ per orchestrare il processo di raccomandazione.
 
 import json
 import time
+import traceback
 from typing import Dict, List, Any, TypedDict, Optional
 
 # Definizione dello stato utilizzato nel grafo
@@ -121,29 +122,31 @@ class RecommenderGraphNodes:
         if self.recommender.rag:
             try:
                 # Catalogo per Precision@k
-                print(f"RAG: Tentativo chiamata similarity_search per precision_at_k per utente {user_id}...")
+                print(f"RAG PRE-CALL: Tentativo chiamata similarity_search per precision_at_k per utente {user_id}...")
                 start_rag_p = time.time()
                 cat_p = self.recommender.rag.similarity_search(profile_summary, k=300, metric_focus="precision_at_k", user_id=int(user_id))
                 end_rag_p = time.time()
-                print(f"RAG: Tempo impiegato per precision_at_k: {end_rag_p - start_rag_p:.2f} secondi")
-                catalog_precision = json.dumps(cat_p[:300], ensure_ascii=False)
-                print(f"RAG: Generato catalogo specifico per precision_at_k (size: {len(cat_p)}) (Successo)")
+                print(f"RAG POST-CALL: Tempo impiegato per precision_at_k: {end_rag_p - start_rag_p:.2f} secondi. Risultati: {len(cat_p) if cat_p is not None else 'None'}")
+                catalog_precision = json.dumps(cat_p[:300], ensure_ascii=False) if cat_p else catalog_json_fallback
+                print(f"RAG: Generato catalogo specifico per precision_at_k (size: {len(cat_p) if cat_p else 'Fallback'}) (Successo)")
             except Exception as e:
-                print(f"Errore RAG (precision_at_k) user {user_id}: {e}. Uso catalogo fallback.")
+                print(f"!!! ERRORE RAG (precision_at_k) user {user_id}: {type(e).__name__} - {e} !!!")
+                traceback.print_exc()
                 catalog_precision = catalog_json_fallback
 
             try:
                 # Catalogo per Coverage
                 coverage_query = "diversi generi film non ancora visti dall'utente" + profile_summary 
-                print(f"RAG: Tentativo chiamata similarity_search per coverage per utente {user_id}...")
+                print(f"RAG PRE-CALL: Tentativo chiamata similarity_search per coverage per utente {user_id}...")
                 start_rag_c = time.time()
                 cat_c = self.recommender.rag.similarity_search(coverage_query, k=300, metric_focus="coverage", user_id=int(user_id))
                 end_rag_c = time.time()
-                print(f"RAG: Tempo impiegato per coverage: {end_rag_c - start_rag_c:.2f} secondi")
-                catalog_coverage = json.dumps(cat_c[:300], ensure_ascii=False)
-                print(f"RAG: Generato catalogo specifico per coverage (size: {len(cat_c)}) (Successo)")
+                print(f"RAG POST-CALL: Tempo impiegato per coverage: {end_rag_c - start_rag_c:.2f} secondi. Risultati: {len(cat_c) if cat_c is not None else 'None'}")
+                catalog_coverage = json.dumps(cat_c[:300], ensure_ascii=False) if cat_c else catalog_json_fallback
+                print(f"RAG: Generato catalogo specifico per coverage (size: {len(cat_c) if cat_c else 'Fallback'}) (Successo)")
             except Exception as e:
-                print(f"Errore RAG (coverage) user {user_id}: {e}. Uso catalogo fallback.")
+                print(f"!!! ERRORE RAG (coverage) user {user_id}: {type(e).__name__} - {e} !!!")
+                traceback.print_exc()
                 catalog_coverage = catalog_json_fallback
         else:
             print("RAG non disponibile. Uso catalogo fallback per tutte le metriche.")

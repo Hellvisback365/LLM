@@ -9,7 +9,8 @@ from langchain.prompts import PromptTemplate
 NUM_RECOMMENDATIONS = 50
 
 # Prompt per diverse metriche
-PROMPT_VARIANTS = {
+# Modificato per usare .format() per NUM_RECOMMENDATIONS successivamente
+PROMPT_VARIANTS_TEMPLATES = {
     "precision_at_k": (
         "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
         "You are a personal movie recommendation consultant optimizing for PRECISION@K for a specific user. "
@@ -26,82 +27,111 @@ PROMPT_VARIANTS = {
         "DO NOT recommend movies based on general popularity or trends, unless these "
         "characteristics align with this specific user\\\'s unique preferences. \\n"
         "<output_requirements>\\n"
-        f"1. From the # Movie catalog provided by the user in their message, you MUST select and recommend a list containing EXACTLY {NUM_RECOMMENDATIONS} movie IDs. No more, no less than {NUM_RECOMMENDATIONS}.\\n"
-        f"2. The list of {NUM_RECOMMENDATIONS} recommendations MUST be ordered. The first movie ID should be the one you recommend the most (highest probability of positive rating), and the last one the least recommended, based on the user's profile and the provided catalog.\\n"
-        f"3. Generating a list with a number of movie IDs different from EXACTLY {NUM_RECOMMENDATIONS} will cause a system error and is strictly forbidden.\\n"
-        f"4. Your response MUST include an 'explanation' field (string) detailing the main reasons for your top selections in relation to the user\\\'s profile and the provided movie catalog.\\n"
+        f"1. From the # Movie catalog provided by the user in their message, you MUST select and recommend a list containing EXACTLY {{NUM_RECOMMENDATIONS}} movie IDs. No more, no less than {{NUM_RECOMMENDATIONS}}.\\n"
+        f"2. The list of {{NUM_RECOMMENDATIONS}} recommendations MUST be ordered. The first movie ID should be the one you recommend the most (highest probability of positive rating), and the last one the least recommended, based on the user's profile and the provided catalog.\\n"
+        f"3. Generating a list with a number of movie IDs different from EXACTLY {{NUM_RECOMMENDATIONS}} will cause a system error and is strictly forbidden. IT IS ABSOLUTELY CRITICAL that the count is precise. Double-check your output count before responding.\\n"
+        "4. Your response MUST include an 'explanation' field (string) detailing the main reasons for your top selections in relation to the user\\\'s profile and the provided movie catalog.\\n"
         "</output_requirements>\\n"
         "<|eot_id|>"
     ),
     "coverage": (
         "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
-        f"You are an expert recommendation system that optimizes for COVERAGE. "
-        f"Given a list of movies in the # Movie catalog from the user message, recommend an ORDERED list of EXACTLY {NUM_RECOMMENDATIONS} movies that maximize coverage of different film genres, "
-        f"BUT that are still relevant to the specific preferences of the user whose profile you are analyzing. "
-        f"Coverage measures the proportion of the entire catalog that the system is able to recommend. "
-        f"The goal is to better explore the available movie space and reduce the risk of filter bubbles. "
-        f"Make sure your recommendations cover different genres, but are aligned with the user\'s tastes. "
-        f"Order the list by putting first the movies that represent a good compromise between genre diversity and user preferences, "
-        f"and last those that prioritize pure diversity more at the expense of immediate relevance. "
-        f"IMPORTANT: Make specific reference to movies the user has enjoyed to discover related but different genres. "
-        f"Each user should receive personalized recommendations based on their unique profile. \\n"
+        "You are an expert recommendation system that optimizes for COVERAGE. "
+        "Given a list of movies in the # Movie catalog from the user message, recommend an ORDERED list of EXACTLY {NUM_RECOMMENDATIONS} movies that maximize coverage of different film genres, "
+        "BUT that are still relevant to the specific preferences of the user whose profile you are analyzing. "
+        "Coverage measures the proportion of the entire catalog that the system is able to recommend. "
+        "The goal is to better explore the available movie space and reduce the risk of filter bubbles. "
+        "Make sure your recommendations cover different genres, but are aligned with the user\\'s tastes. "
+        "Order the list by putting first the movies that represent a good compromise between genre diversity and user preferences, "
+        "and last those that prioritize pure diversity more at the expense of immediate relevance. "
+        "IMPORTANT: Make specific reference to movies the user has enjoyed to discover related but different genres. "
+        "Each user should receive personalized recommendations based on their unique profile. \\n"
         "<output_requirements>\\n"
-        f"1. From the # Movie catalog provided by the user in their message, you MUST select and recommend an ORDERED list of EXACTLY {NUM_RECOMMENDATIONS} movie IDs. This list must maximize genre coverage while remaining relevant to the user's preferences. No more, no less than {NUM_RECOMMENDATIONS} items.\\n"
-        f"2. The list of {NUM_RECOMMENDATIONS} recommendations MUST be ordered as described above (compromise between diversity and relevance first, pure diversity last).\\n"
-        f"3. It is CRITICAL and MANDATORY that your list contains EXACTLY {NUM_RECOMMENDATIONS} movie IDs. Deviating from this exact number (e.g., providing {NUM_RECOMMENDATIONS-1} or {NUM_RECOMMENDATIONS+1}) will lead to a system failure and is unacceptable.\\n"
-        f"4. Your response MUST include an 'explanation' field (string) detailing how your selections achieve genre coverage based on the user's profile and the provided movie catalog.\\n"
+        f"1. From the # Movie catalog provided by the user in their message, you MUST select and recommend an ORDERED list of EXACTLY {{NUM_RECOMMENDATIONS}} movie IDs. This list must maximize genre coverage while remaining relevant to the user's preferences. No more, no less than {{NUM_RECOMMENDATIONS}} items.\\n"
+        f"2. The list of {{NUM_RECOMMENDATIONS}} recommendations MUST be ordered as described above (compromise between diversity and relevance first, pure diversity last).\\n"
+        f"3. It is CRITICAL AND MANDATORY that your list contains EXACTLY {{NUM_RECOMMENDATIONS}} movie IDs. Deviating from this exact number (e.g., providing {{NUM_RECOMMENDATIONS_MINUS_1}} or {{NUM_RECOMMENDATIONS_PLUS_1}}) will lead to a system failure and is unacceptable. THIS IS A NON-NEGOTIABLE REQUIREMENT. Confirm your count is {{NUM_RECOMMENDATIONS}} before responding.\\n" 
+        "4. Your response MUST include an 'explanation' field (string) detailing how your selections achieve genre coverage based on the user's profile and the provided movie catalog.\\n"
         "</output_requirements>\\n"
         "<|eot_id|>"
     )
+}
+
+# Formatta i PROMPT_VARIANTS con NUM_RECOMMENDATIONS
+PROMPT_VARIANTS = {
+    metric_name: template.format(
+        NUM_RECOMMENDATIONS=NUM_RECOMMENDATIONS,
+        NUM_RECOMMENDATIONS_MINUS_1=NUM_RECOMMENDATIONS - 1, # Aggiunto per il prompt coverage
+        NUM_RECOMMENDATIONS_PLUS_1=NUM_RECOMMENDATIONS + 1   # Aggiunto per il prompt coverage
+    )
+    for metric_name, template in PROMPT_VARIANTS_TEMPLATES.items()
 }
 
 def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTemplate:
     """Crea un PromptTemplate Llama 3.3 formattato per una specifica metrica.
     
     Args:
-        metric_name: Il nome della metrica (usato per scopi informativi interni, non nel prompt finale all\'LLM).
+        metric_name: Il nome della metrica (usato per scopi informativi interni, non nel prompt finale all'LLM).
         metric_description: Il system prompt Llama 3.3 completo, già formattato con i token
                            <|begin_of_text|><|start_header_id|>system<|end_header_id|>...<|eot_id|>.
+                           E NUM_RECOMMENDATIONS già inserito.
     """
-    # Il metric_description è il system prompt Llama 3.3 completo (da PROMPT_VARIANTS)
     
-    # Contenuto per il messaggio dell'utente
-    user_message_content = (
-        # Il task specifico è già nel system_prompt (metric_description).
-        "# User profile:\\n"
-        "{user_profile}\\n\\n"
-        "# Movie catalog (use this as the source for your recommendations):\\n"
-        "{catalog}\\n\\n"
-        "# Required Output Structure (MUST be followed):\\n"
-        "<output_format_instructions>\\n"
-        f"- The 'recommendations' field MUST be a list of EXACTLY {NUM_RECOMMENDATIONS} integer movie IDs. This count ({NUM_RECOMMENDATIONS}) is absolute, critical, and non-negotiable.\\n"
-        f"- The 'recommendations' list MUST be ordered according to the specified metric strategy outlined in the system message.\\n"
-        f"- An 'explanation' field (string) detailing the rationale for the {NUM_RECOMMENDATIONS} recommendations MUST be provided.\\n"
-        f"- Adherence to providing EXACTLY {NUM_RECOMMENDATIONS} movie IDs is paramount for system functionality. Any deviation will result in failure.\\n"
-        "</output_format_instructions>"
-    )
+    # user_message_content_template ora usa {NUM_RECOMMENDATIONS_PLACEHOLDER}
+    # che verrà formattato con .format() prima di creare PromptTemplate
+    user_message_content_template = """# User profile:
+{{user_profile}}
+
+# Movie catalog (use this as the source for your recommendations):
+{{catalog}}
+
+# Required Output Structure (MUST be followed):
+<output_format_instructions>
+- The 'recommendations' field MUST be a list of EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} integer movie IDs. This count ({NUM_RECOMMENDATIONS_PLACEHOLDER}) is absolute, critical, and non-negotiable. Any deviation will result in failure. YOU MUST DOUBLE-CHECK THIS COUNT.
+- The 'recommendations' list MUST be ordered according to the specified metric strategy outlined in the system message.
+- An 'explanation' field (string) detailing the rationale for the {NUM_RECOMMENDATIONS_PLACEHOLDER} recommendations MUST be provided.
+- Adherence to providing EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} movie IDs is paramount for system functionality. Any deviation will result in failure.
+- Your entire response MUST be a single JSON object enclosed in triple backticks.
+  The JSON object MUST have a key "recommendations" which is a list of EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} integer movie IDs, and a key "explanation" which is a string.
+  Example of the required JSON structure (ensure EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} items in 'recommendations'):
+  ```json
+  {{{{  // Quadruple braces
+    "recommendations": [
+      movie_id_1, // first recommended movie ID
+      movie_id_2,
+      // ... (additional movie IDs up to {NUM_RECOMMENDATIONS_PLACEHOLDER}) ...
+      movie_id_{NUM_RECOMMENDATIONS_PLACEHOLDER} // last of the {NUM_RECOMMENDATIONS_PLACEHOLDER} movie IDs
+    ],
+    "explanation": "Your detailed explanation for why these specific {NUM_RECOMMENDATIONS_PLACEHOLDER} movies were chosen and ordered."
+  }}}}  // Quadruple braces
+  ```
+- Do not include any other text, preambles, or explanations outside the main triple backtick block.
+</output_format_instructions>"""
+    
+    # Formatta user_message_content_template con il valore effettivo di NUM_RECOMMENDATIONS
+    user_message_content = user_message_content_template.format(NUM_RECOMMENDATIONS_PLACEHOLDER=NUM_RECOMMENDATIONS)
     
     # Assembla il template completo per Llama 3.3
     full_prompt_template_str = (
-        f"{metric_description}\\n"  # System message (già formattato Llama3)
+        f"{metric_description}\\n" # metric_description ha già NUM_RECOMMENDATIONS inserito
         "<|start_header_id|>user<|end_header_id|>\\n"
-        f"{user_message_content}\\n" # Aggiunto newline alla fine di user_message_content
+        f"{user_message_content}\\n" # user_message_content ha già NUM_RECOMMENDATIONS inserito
         "<|eot_id|>\\n"
-        "<|start_header_id|>assistant<|end_header_id|>\\n" # Pronto per la risposta dell'LLM
+        "<|start_header_id|>assistant<|end_header_id|>\\n"
     )
     
     return PromptTemplate(
-        input_variables=["catalog", "user_profile"], # Variabili per user_message_content
+        input_variables=["catalog", "user_profile"], 
         template=full_prompt_template_str
     )
 
 def create_evaluation_prompt() -> PromptTemplate:
     """Crea il prompt per la valutazione finale delle raccomandazioni."""
-    # Prompt per il sistema
-    eval_system_prompt = (
+    
+    # eval_system_prompt_template usa {NUM_RECOMMENDATIONS_PLACEHOLDER}
+    eval_system_prompt_template = (
         "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
         "You are an expert recommendation aggregator. Your task is to analyze recommendations from different metrics "
-        f"and create an OPTIMAL final recommendation list of EXACTLY {NUM_RECOMMENDATIONS} movies. "
+        "and create an OPTIMAL final recommendation list of EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} movies. "
         "Balance the precision@k and coverage metrics, giving more weight to precision for top recommendations while "
         "ensuring adequate coverage of movie genres."
         "\\n\\n"
@@ -110,26 +140,45 @@ def create_evaluation_prompt() -> PromptTemplate:
         "2. Consider the ordering of movies within each metric's list - higher ranked items are more important.\\n"
         "3. Provide a justification that explains your aggregation logic and the trade-offs between metrics.\\n"
         "4. Ensure your final recommendations form a cohesive, personalized set for the user.\\n"
-        f"5. STRICT REQUIREMENT: Return EXACTLY {NUM_RECOMMENDATIONS} movie IDs, no more and no less. Your output MUST BE a valid JSON object matching the Pydantic schema.\\n"
+        "5. STRICT REQUIREMENT: Return EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} movie IDs, no more and no less. Your output MUST BE a valid JSON object matching the Pydantic schema.\\n"
         "\\n"
         "<|eot_id|>"
     )
+    # Formatta con il valore effettivo di NUM_RECOMMENDATIONS
+    eval_system_prompt = eval_system_prompt_template.format(NUM_RECOMMENDATIONS_PLACEHOLDER=NUM_RECOMMENDATIONS)
     
-    # Template per il messaggio utente  
-    user_template_str = (
-        "<|start_header_id|>user<|end_header_id|>\\n"
-        "# Recommendations per Metric:\\n"
-        "{all_recommendations}\\n\\n"
-        "# Movie catalog for reference:\\n"
-        "{catalog}\\n\\n"
-        "# Required Output Format:\\n"
-        f"You MUST provide EXACTLY {NUM_RECOMMENDATIONS} movie IDs in your final_recommendations list. "
-        "This is a strict requirement - more or fewer IDs will cause a system error. "
-        "Include detailed justification and trade-off analysis. Your entire output must be a single, valid JSON object."
-        "{feedback_block}" # Placeholder per il feedback
-        "\\n<|eot_id|>\\n"
-        "<|start_header_id|>assistant<|end_header_id|>\\n"
-    )
+    # user_template_str_template usa {NUM_RECOMMENDATIONS_PLACEHOLDER}
+    user_template_str_template = """<|start_header_id|>user<|end_header_id|>
+# Recommendations per Metric:
+{{all_recommendations}}
+
+# Movie catalog for reference:
+{{catalog}}
+
+# Required Output Format:
+You MUST provide EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} movie IDs in your final_recommendations list. This is a strict requirement - more or fewer IDs will cause a system error. Include detailed justification and trade-off analysis. Your entire output must be a single, valid JSON object.{{feedback_block}}
+Your entire response MUST be a single JSON object enclosed in triple backticks.
+  The JSON object MUST have keys "final_recommendations" (a list of EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} integer movie IDs), "justification" (string), and "trade_offs" (string).
+  Example of the required JSON structure (ensure EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} items in 'final_recommendations'):
+  ```json
+  {{{{  // Quadruple braces
+    "final_recommendations": [
+      movie_id_1, // first recommended movie ID
+      movie_id_2,
+      // ... (additional movie IDs up to {NUM_RECOMMENDATIONS_PLACEHOLDER}) ...
+      movie_id_{NUM_RECOMMENDATIONS_PLACEHOLDER} // last of the {NUM_RECOMMENDATIONS_PLACEHOLDER} movie IDs
+    ],
+    "justification": "Detailed justification for the final selection and ordering.",
+    "trade_offs": "Description of trade-offs considered between metrics."
+  }}}}  // Quadruple braces
+  ```
+  Do not include any other text, preambles, or explanations outside the main triple backtick block. THE COUNT OF 'final_recommendations' MUST BE EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER}.
+
+<|eot_id|>
+<|start_header_id|>assistant<|end_header_id|>
+"""
+    # Formatta con il valore effettivo di NUM_RECOMMENDATIONS
+    user_template_str = user_template_str_template.format(NUM_RECOMMENDATIONS_PLACEHOLDER=NUM_RECOMMENDATIONS)
     
     # Crea il template completo
     return PromptTemplate(

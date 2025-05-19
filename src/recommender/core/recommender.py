@@ -37,6 +37,7 @@ from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from openai import RateLimitError
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+from pydantic import ValidationError # NUOVO: Aggiunto per la validazione Pydantic
 
 # LangGraph imports (NUOVO)
 from langgraph.graph import StateGraph, END
@@ -83,11 +84,11 @@ COMMON_LLM_PARAMS = {
     "openai_api_base": "https://openrouter.ai/api/v1",
     "openai_api_key": OPENROUTER_API_KEY,
     "temperature": 0.2,
-    "max_tokens": 2500, # AUMENTATO da 1536 per permettere output più lunghi (50 recs + spiegazione)
+    "max_tokens": 2500, # AUMENTATO da 2500 per permettere output più lunghi (50 recs + spiegazione)
 }
 
 
-LLM_MODEL_ID = "google/gemini-2.5-flash-preview"
+LLM_MODEL_ID = "meta-llama/llama-3.3-70b-instruct"
 
 # Setup LLM con retry
 llm = ChatOpenAI(model=LLM_MODEL_ID, **COMMON_LLM_PARAMS)
@@ -256,108 +257,178 @@ class RecommenderSystem:
     async def _run_metric_tool_internal(self, metric_name: str, catalog: str, user_profile: str, user_id: Optional[int] = None) -> Dict:
         """Versione interna di run_metric_agent_tool che può essere chiamata dai nodi."""
         max_attempts = 3
-        metric_desc = self.current_prompt_variants.get(metric_name)
-        prompt_template = create_metric_prompt(metric_name, metric_desc)
         
+        print(f"DEBUG _run_metric_tool_internal: Called for metric '{metric_name}', user {user_id}") # NUOVA PRINT
+        metric_desc = self.current_prompt_variants.get(metric_name)
+        print(f"DEBUG _run_metric_tool_internal: metric_desc = {repr(metric_desc)}") # NUOVA PRINT
+        
+        prompt_template = create_metric_prompt(metric_name, metric_desc)
+        print(f"DEBUG _run_metric_tool_internal: prompt_template type = {type(prompt_template)}") # NUOVA PRINT
+        if hasattr(prompt_template, 'template'):
+            print(f"DEBUG _run_metric_tool_internal: prompt_template.template (first 100 chars) = {repr(prompt_template.template[:100])}") # NUOVA PRINT
+        
+        # NUOVA PRINT
+        print(f"DEBUG _run_metric_tool_internal: repr(prompt_template) = {repr(prompt_template)}")
+        print(f"DEBUG _run_metric_tool_internal: prompt_template.input_variables = {prompt_template.input_variables if hasattr(prompt_template, 'input_variables') else 'N/A'}")
+
         for attempt in range(max_attempts):
-            try:
-                prompt_str = prompt_template.format(catalog=catalog, user_profile=user_profile)
-                
-                # Seleziona il metodo per l'output strutturato
-                structured_output_method = "function_calling"
-                
-                # Aggiungi schema più rigido e validatori 
-                structured_llm = self.llm.with_structured_output(
-                    RecommendationOutput, 
-                    method=structured_output_method,
-                    include_raw=True  # Per scopi di debug
-                )
-                
-                print(f"Attempt {attempt+1}/{max_attempts} invoking structured LLM for metric: {metric_name}")
-                
-                # Aumenta il context window per evitare troncamenti
-                parsed_response = await structured_llm.ainvoke(
-                    prompt_str,
-                    max_tokens=3000
-                )
-                
-                # Accedi a 'parsed' dal dizionario restituito da ainvoke
-                recommendation_obj = parsed_response.get('parsed') # Usa .get() per sicurezza
+            try: # Blocco try principale
+                prompt_str = None # Inizializza
+                try: # NUOVO TRY-EXCEPT SPECIFICO
+                    print(f"DEBUG _run_metric_tool_internal: Attempting prompt_template.format() for metric '{metric_name}', user {user_id}, attempt {attempt + 1}") # NUOVA PRINT
+                    prompt_str = prompt_template.format(catalog=catalog, user_profile=user_profile)
+                    print(f"DEBUG _run_metric_tool_internal: prompt_template.format() successful. prompt_str (first 100 chars) = {repr(prompt_str[:100])}") # NUOVA PRINT
+                except Exception as format_exception:
+                    print(f"!!! ERROR during prompt_template.format() for metric '{metric_name}', user {user_id}, attempt {attempt + 1} !!!")
+                    print(f"  Exception type: {type(format_exception)}")
+                    print(f"  Exception repr: {repr(format_exception)}")
+                    print(f"  Exception str: {str(format_exception)}")
+                    print(f"  catalog (type: {type(catalog)}, len: {len(catalog) if isinstance(catalog, (str, list, dict)) else 'N/A'}): {repr(catalog[:200]) if isinstance(catalog, str) else catalog}")
+                    print(f"  user_profile (type: {type(user_profile)}, len: {len(user_profile) if isinstance(user_profile, (str, list, dict)) else 'N/A'}): {repr(user_profile[:200]) if isinstance(user_profile, str) else user_profile}")
+                    if hasattr(prompt_template, 'template'):
+                         print(f"  prompt_template.template (full): {repr(prompt_template.template)}")
+                    raise format_exception # Rilancia per essere catturata dal blocco esterno
 
-                if recommendation_obj is None:
-                    parsing_error_details = parsed_response.get('parsing_error', 'N/A')
-                    raw_output_aimessage = parsed_response.get('raw')
-                    raw_content = getattr(raw_output_aimessage, 'content', '') if raw_output_aimessage else ''
-                    
+                print(f"Attempt {attempt+1}/{max_attempts} invoking LLM for metric: {metric_name} (user {user_id if user_id is not None else 'N/A'}) - expecting JSON in backticks.")
+                
+                # MODIFICATO: Chiamata LLM diretta per ottenere testo grezzo
+                text_content = None # Inizializza text_content
+                try:
+                    raw_response_message = await self.llm.ainvoke(prompt_str, max_tokens=3000)
+                    text_content = getattr(raw_response_message, 'content', str(raw_response_message))
+                    print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): LLM call successful. Raw response type: {type(raw_response_message)}, text_content type: {type(text_content)}")
+                except Exception as llm_call_exception:
                     user_id_str = str(user_id) if user_id is not None else 'N/A'
-                    print(f"DEBUG: LLM raw output for metric {metric_name} (user {user_id_str}, attempt {attempt+1}): AIMessage content='{str(raw_content)[:200]}...', additional_kwargs={getattr(raw_output_aimessage, 'additional_kwargs', {})}")
+                    print(f"!!! ERROR during LLM call for metric {metric_name} (user {user_id_str}, attempt {attempt+1}) !!!")
+                    print(f"  Exception type: {type(llm_call_exception)}")
+                    print(f"  Exception repr: {repr(llm_call_exception)}")
+                    print(f"  Exception str: {str(llm_call_exception)}")
+                    # Rilancia l'eccezione per essere gestita dal blocco try-except esterno esistente
+                    # o gestiscila specificamente qui se necessario
+                    raise llm_call_exception 
 
-                    error_details_for_exception = str(parsing_error_details) if parsing_error_details and parsing_error_details != 'N/A' else "No specific parsing error details provided by the parser."
-                    
-                    # Controlla se l'output era vuoto o un rifiuto
-                    is_empty_output_or_refusal = not raw_content and (not parsing_error_details or parsing_error_details == 'N/A' or "no specific parsing error" in error_details_for_exception.lower())
-                    
-                    if is_empty_output_or_refusal:
-                        error_details_for_exception = "The LLM response was empty or a refusal. A valid structured output is MANDATORY."
-                    
-                    raise ValueError(f"LLM output could not be structured. Details: {error_details_for_exception}")
+                # NUOVO: Estrazione JSON da triple backticks
+                json_str = None
+                # Prova prima ```json ... ```
+                match = re.search(r"```json\s*(.*?)\s*```", text_content, re.DOTALL | re.IGNORECASE)
+                if match:
+                    json_str = match.group(1)
+                else:
+                    # Prova ``` ... ```
+                    match = re.search(r"```\s*(.*?)\s*```", text_content, re.DOTALL)
+                    if match:
+                        json_str = match.group(1)
+                    else:
+                        user_id_str = str(user_id) if user_id is not None else 'N/A'
+                        # DEBUG PRINT AGGIUNTO - CORRETTO COME F-STRING MULTI-RIGA
+                        print(f"""DEBUG metric {metric_name} (user {user_id_str}, attempt {attempt+1}): LLM raw output (text_content):
+{text_content[:1000]}...
+""") 
+                        raise ValueError("No JSON block found enclosed in ```json ... ``` or ``` ... ``` backticks.")
 
-                # A questo punto, recommendation_obj non è None.
-                # La validazione Pydantic (len == NUM_RECOMMENDATIONS e tipi int) è già avvenuta DENTRO with_structured_output.
-                # La riga seguente è una doppia verifica, ora sicura.
+                # NUOVO: Logica per rimuovere virgolette esterne se presenti
+                unquoted_json_str = json_str
+                if isinstance(json_str, str):
+                    if (json_str.startswith("'") and json_str.endswith("'")) or \
+                       (json_str.startswith('"') and json_str.endswith('"')):
+                        unquoted_json_str = json_str[1:-1]
+                        print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): Removed surrounding quotes. Original: {repr(json_str)}, Unquoted: {repr(unquoted_json_str)}")
+
+                print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): json_str (potentially unquoted) BEFORE strip: {repr(unquoted_json_str)}")
+                stripped_json_str = unquoted_json_str.strip()
+                print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): json_str AFTER strip: {repr(stripped_json_str)}")
+
+                if not stripped_json_str: # Modificato per controllare stripped_json_str
+                    raise ValueError("Extracted JSON string is empty after strip.")
+                    
+                try:
+                    parsed_json = json.loads(stripped_json_str)
+                except json.JSONDecodeError as e:
+                    user_id_str = str(user_id) if user_id is not None else 'N/A'
+                    # DEBUG PRINT AGGIUNTI
+                    print(f"DEBUG metric {metric_name} (user {user_id_str}, attempt {attempt+1}): FAILED JSON PARSE.")
+                    print(f"  text_content[:500]: {text_content[:500]}...")
+                    print(f"  json_str REPR: {repr(json_str)}")
+                    print(f"  stripped_json_str REPR: {repr(stripped_json_str)}")
+                    print(f"  Exception type: {type(e)}")
+                    print(f"  Exception repr: {repr(e)}")
+                    print(f"  Exception msg: {e.msg}")
+                    print(f"  Exception doc: {e.doc}") # Aggiunto per vedere il documento JSON che ha causato l'errore
+                    print(f"  Exception pos: {e.pos}") # Aggiunto per vedere la posizione dell'errore
+                    raise ValueError(f"Failed to decode JSON: {e.msg}. Initial char: '{stripped_json_str[:10] if stripped_json_str else ""}'. Extracted string repr: '{repr(stripped_json_str)[:200]}...'")
+
+                try:
+                    # Valida con Pydantic
+                    # Assumendo che RecommendationOutput.parse_obj sia il metodo corretto per la versione Pydantic
+                    recommendation_obj = RecommendationOutput.parse_obj(parsed_json)
+                except ValidationError as e:
+                    user_id_str = str(user_id) if user_id is not None else 'N/A'
+                    print(f"DEBUG: LLM raw output (Pydantic validation failed) for metric {metric_name} (user {user_id_str}, attempt {attempt+1}): Content='{text_content[:500]}...' Parsed JSON='{str(parsed_json)[:500]}...'")
+                    raise ValueError(f"Pydantic validation failed for RecommendationOutput: {e}. Parsed JSON: '{str(parsed_json)[:200]}...'")
+                
                 if len(recommendation_obj.recommendations) != NUM_RECOMMENDATIONS:
-                    # Non dovremmo mai arrivare qui se il validatore Pydantic di RecommendationOutput ha funzionato.
-                    raise ValueError(f"Post-structuring validation failed: expected {NUM_RECOMMENDATIONS} items, found {len(recommendation_obj.recommendations)} in a supposedly valid object.")
+                    raise ValueError(f"Post-Pydantic validation failed: expected {NUM_RECOMMENDATIONS} items, found {len(recommendation_obj.recommendations)}.")
                 
                 return {"metric": metric_name, **recommendation_obj.dict()}
                 
             except Exception as e:
-                # Logica di gestione errori uguale a run_metric_agent_tool
+                error_message_raw = str(e)
+                # Esegui l'escape delle parentesi graffe per evitare problemi con f-string/template successivi
+                error_message_escaped = error_message_raw.replace('{', '{{').replace('}', '}}')
+
+                error_message_for_llm = error_message_escaped # Default a errore escapato
+                parsed_json_str_for_feedback = str(parsed_json)[:100] if 'parsed_json' in locals() else 'N/A'
+
+                if isinstance(e, ValueError):
+                    if "No JSON block found" in error_message_raw:
+                        error_message_for_llm = f"Your previous response did not contain a JSON object enclosed in triple backticks (e.g., ```json\\n{{{{...}}}}\\n```). Please provide the JSON in the correct format. Raw response started with: {text_content[:100].replace('{', '{{').replace('}', '}}')}"
+                    elif "Failed to decode JSON" in error_message_raw:
+                        error_message_for_llm = f"Your previous response contained a malformed JSON object within the triple backticks. Error: {error_message_escaped}. Please ensure the JSON is valid. The problematic JSON string started with: {json_str[:100].replace('{', '{{').replace('}', '}}')}"
+                    elif "Pydantic validation failed" in error_message_raw or "Post-Pydantic validation failed" in error_message_raw:
+                        specific_error_detail = error_message_escaped
+                        if 'parsed_json' in locals() and isinstance(parsed_json.get('recommendations'), list):
+                            actual_len = len(parsed_json['recommendations'])
+                            specific_error_detail += f" Your list had {actual_len} items, but EXACTLY {NUM_RECOMMENDATIONS} are required."
+                        error_message_for_llm = f"The JSON in your previous response was valid, but did not match the required schema (e.g., wrong field types, missing fields, or incorrect number of recommendations - expected exactly {NUM_RECOMMENDATIONS}). Error: {specific_error_detail}. Please correct the structure. Parsed JSON started with: {parsed_json_str_for_feedback.replace('{', '{{').replace('}', '}}')}"
+                    elif "Extracted JSON string is empty" in error_message_raw:
+                        error_message_for_llm = f"Your previous response resulted in an empty JSON string after extracting from backticks. Please provide a non-empty JSON object. Raw response started with: {text_content[:100].replace('{', '{{').replace('}', '}}')}"
+                
                 if attempt < max_attempts - 1:
-                    print(f"Error in attempt {attempt+1} for metric {metric_name} (user {user_id if user_id is not None else 'N/A'}): {e}, retrying...")
-                    
-                    # Tentativo di rendere il retry più intelligente fornendo feedback all'LLM
-                    error_feedback = ""
-                    try:
-                        # Se l'eccezione è la nostra ValueError da parsing fallito
-                        if isinstance(e, ValueError) and "LLM output could not be structured" in str(e):
-                            # Estrai il parsing_error specifico se disponibile
-                            # Il messaggio è tipo: "LLM output could not be structured into RecommendationOutput. Parsing error: XYZ"
-                            parts = str(e).split("Details: ")
-                            if len(parts) > 1:
-                                specific_error_msg = parts[1]
-                                if specific_error_msg: 
-                                    error_feedback = f"Your previous response for {metric_name} (attempt {attempt}) FAILED with the error: '{specific_error_msg}'. You MUST correct this. Ensure your output strictly follows all formatting rules, provides exactly {NUM_RECOMMENDATIONS} movie IDs, a valid explanation, and is a complete, non-empty response."
-                    except Exception as extraction_error:
-                        print(f"Could not extract specific error for feedback: {extraction_error}")
-
-                    if not error_feedback: # Fallback a un messaggio di errore generico se non si estrae nulla
-                        error_feedback = f"Your previous response for {metric_name} (attempt {attempt}) was not valid. Please try again, strictly following all output format rules (especially exactly {NUM_RECOMMENDATIONS} movie IDs, a valid explanation, and a complete, non-empty response)."
-
-                    # Aggiungi il feedback al prompt template per il prossimo tentativo
-                    # Assicurati che il template originale sia preservato e che il feedback sia aggiunto in modo appropriato
-                    # Questo potrebbe richiedere di riformattare il prompt template originale se diventa troppo lungo
-                    # o di inserire il feedback in un punto strategico.
-                    # Per ora, lo aggiungiamo alla fine del template esistente, sperando che l'LLM lo consideri.
+                    print(f"Error in attempt {attempt+1} for metric {metric_name} (user {user_id if user_id is not None else 'N/A'}): {e}, retrying with feedback...")
                     
                     # Ricostruisci il prompt template con il feedback
-                    # NOTA: Questo modifica il prompt_template per i tentativi successivi di QUESTO CICLO
-                    # Bisogna fare attenzione a non renderlo permanentemente modificato per altre chiamate.
-                    # Poiché create_metric_prompt viene chiamato ad ogni _run_metric_tool_internal, 
-                    # il prompt_template viene rigenerato fresco, quindi questa modifica è locale al ciclo for.
-
                     current_template_str = prompt_template.template
-                    updated_template_str = current_template_str.replace(
-                        "<|start_header_id|>assistant<|end_header_id|>\\n", # Punto di inserimento prima della risposta dell'assistente
-                        f"<|start_header_id|>user<|end_header_id|>\\n# FEEDBACK_ON_PREVIOUS_ATTEMPT: {error_feedback} Please regenerate your response correctly.<|eot_id|>\\n<|start_header_id|>assistant<|end_header_id|>\\n"
-                    )
+                    # Assicurati che <|eot_id|> sia seguito da \n prima di <|start_header_id|>user
+                    # Questo è un punto comune di inserimento per il feedback
+                    # L'obiettivo è inserire un nuovo turno user/assistant con il feedback
+                    # prima della richiesta finale all'assistant di generare l'output
+                    
+                    # Trova il punto di inserimento del feedback.
+                    # Idealmente, dopo l'ultimo <|eot_id|> del system/user e prima del <|start_header_id|>assistant<|end_header_id|>
+                    # che precede la risposta attesa.
+                    insertion_point = "<|start_header_id|>assistant<|end_header_id|>\\n"
+                    if insertion_point in current_template_str:
+                         feedback_prompt_segment = (
+                            f"<|eot_id|>\\n<|start_header_id|>user<|end_header_id|>\\n"
+                            f"# IMPORTANT FEEDBACK ON PREVIOUS ATTEMPT:\\n"
+                            f"{error_message_for_llm}\\n"
+                            f"Please regenerate your response, ensuring it is a single JSON object enclosed in triple backticks, correctly structured, and contains exactly {NUM_RECOMMENDATIONS} recommendations.\\n"
+                            f"<|eot_id|>\\n{insertion_point}"
+                        )
+                         updated_template_str = current_template_str.replace(
+                            insertion_point, 
+                            feedback_prompt_segment,
+                            1 # Replace only the last occurrence before expected output
+                         )
+                    else: # Fallback se il punto di inserimento non è standard
+                        updated_template_str = f"{current_template_str}\\n<|start_header_id|>user<|end_header_id|>\\n# FEEDBACK: {error_message_for_llm}<|eot_id|>\\n<|start_header_id|>assistant<|end_header_id|>\\n"
+
                     prompt_template = PromptTemplate(
-                        input_variables=["catalog", "user_profile"], # Le variabili non cambiano
+                        input_variables=["catalog", "user_profile"], 
                         template=updated_template_str
                     )
-                    continue # Passa al prossimo tentativo
+                    continue 
                 else:
-                    # Fallback con placeholder se tutti i tentativi falliscono
                     print(f"All attempts failed for {metric_name} (user {user_id if user_id is not None else 'N/A'}): {e}")
                     placeholder_recs = [0] * NUM_RECOMMENDATIONS 
                     return {
@@ -370,62 +441,146 @@ class RecommenderSystem:
         """Versione interna di evaluate_recommendations_tool che può essere chiamata dai nodi."""
         max_attempts = 3
         
-        # Usa la funzione create_evaluation_prompt importata dal modulo prompt_manager
+        print(f"DEBUG _evaluate_recommendations_internal: Called.") # NUOVA PRINT
         full_eval_prompt_template = create_evaluation_prompt()
-        
-        feedback_str = "" # Inizializza stringa di feedback
+        print(f"DEBUG _evaluate_recommendations_internal: full_eval_prompt_template type = {type(full_eval_prompt_template)}") # NUOVA PRINT
+        if hasattr(full_eval_prompt_template, 'template'):
+            print(f"DEBUG _evaluate_recommendations_internal: full_eval_prompt_template.template (first 100 chars) = {repr(full_eval_prompt_template.template[:100])}") # NUOVA PRINT
+            
+        # NUOVA PRINT
+        print(f"DEBUG _evaluate_recommendations_internal: repr(full_eval_prompt_template) = {repr(full_eval_prompt_template)}")
+        print(f"DEBUG _evaluate_recommendations_internal: full_eval_prompt_template.input_variables = {full_eval_prompt_template.input_variables if hasattr(full_eval_prompt_template, 'input_variables') else 'N/A'}")
+
+        feedback_for_llm_str = "" 
 
         for attempt in range(max_attempts):
-            try:
-                # Crea il prompt con le raccomandazioni per ciascuna metrica e il feedback
-                prompt_str = full_eval_prompt_template.format(
-                    all_recommendations=all_recommendations_str,
-                    catalog=catalog_str,
-                    feedback_block=feedback_str # Passa il feedback corrente
-                )
+            try: # Blocco try principale
+                prompt_str = None # Inizializza
+                try: # NUOVO TRY-EXCEPT SPECIFICO
+                    print(f"DEBUG _evaluate_recommendations_internal: Attempting full_eval_prompt_template.format(), attempt {attempt + 1}") # NUOVA PRINT
+                    prompt_str = full_eval_prompt_template.format(
+                        all_recommendations=all_recommendations_str,
+                        catalog=catalog_str,
+                        feedback_block=feedback_for_llm_str 
+                    )
+                    print(f"DEBUG _evaluate_recommendations_internal: full_eval_prompt_template.format() successful. prompt_str (first 100 chars) = {repr(prompt_str[:100])}") # NUOVA PRINT
+                except Exception as format_exception:
+                    print(f"!!! ERROR during full_eval_prompt_template.format(), attempt {attempt + 1} !!!")
+                    print(f"  Exception type: {type(format_exception)}")
+                    print(f"  Exception repr: {repr(format_exception)}")
+                    print(f"  Exception str: {str(format_exception)}")
+                    print(f"  all_recommendations_str (type: {type(all_recommendations_str)}, len: {len(all_recommendations_str) if isinstance(all_recommendations_str, str) else 'N/A'}): {repr(all_recommendations_str[:200])}")
+                    print(f"  catalog_str (type: {type(catalog_str)}, len: {len(catalog_str) if isinstance(catalog_str, str) else 'N/A'}): {repr(catalog_str[:200])}")
+                    print(f"  feedback_for_llm_str (type: {type(feedback_for_llm_str)}, len: {len(feedback_for_llm_str) if isinstance(feedback_for_llm_str, str) else 'N/A'}): {repr(feedback_for_llm_str)}")
+                    if hasattr(full_eval_prompt_template, 'template'):
+                         print(f"  full_eval_prompt_template.template (full): {repr(full_eval_prompt_template.template)}")
+                    raise format_exception # Rilancia per essere catturata dal blocco esterno
+
+                print(f"Attempt {attempt+1}/{max_attempts} invoking evaluation aggregator - expecting JSON in backticks.")
                 
-                structured_llm = self.llm.with_structured_output(
-                    EvaluationOutput, 
-                    method="function_calling",
-                    include_raw=True
-                )
+                # MODIFICATO: Chiamata LLM diretta per ottenere testo grezzo
+                text_content = None # Inizializza text_content
+                try:
+                    raw_response_message = await self.llm.ainvoke(prompt_str, max_tokens=3000)
+                    text_content = getattr(raw_response_message, 'content', str(raw_response_message))
+                    print(f"DEBUG evaluation (attempt {attempt+1}): LLM call successful. Raw response type: {type(raw_response_message)}, text_content type: {type(text_content)}")
+                except Exception as llm_call_exception:
+                    print(f"!!! ERROR during LLM call for evaluation (attempt {attempt+1}) !!!")
+                    print(f"  Exception type: {type(llm_call_exception)}")
+                    print(f"  Exception repr: {repr(llm_call_exception)}")
+                    print(f"  Exception str: {str(llm_call_exception)}")
+                    raise llm_call_exception
+
+                # NUOVO: Estrazione JSON da triple backticks
+                json_str = None
+                match = re.search(r"```json\s*(.*?)\s*```", text_content, re.DOTALL | re.IGNORECASE)
+                if match:
+                    json_str = match.group(1)
+                else:
+                    # Prova ``` ... ```
+                    match = re.search(r"```\s*(.*?)\s*```", text_content, re.DOTALL)
+                    if match:
+                        json_str = match.group(1)
+                    else:
+                        # DEBUG PRINT AGGIUNTO - CORRETTO COME F-STRING MULTI-RIGA
+                        print(f"""DEBUG evaluation (attempt {attempt+1}): LLM raw output (text_content):
+{text_content[:1000]}...
+""")
+                        raise ValueError("No JSON block found in LLM response for evaluation, or backticks missing.")
                 
-                print(f"Attempt {attempt+1}/{max_attempts} invoking evaluation aggregator")
-                
-                parsed_response = await structured_llm.ainvoke(prompt_str, max_tokens=3000)
-                evaluation_obj = parsed_response.get('parsed')
+                # NUOVO: Logica per rimuovere virgolette esterne se presenti
+                unquoted_json_str = json_str
+                if isinstance(json_str, str):
+                    if (json_str.startswith("'") and json_str.endswith("'")) or \
+                       (json_str.startswith('"') and json_str.endswith('"')):
+                        unquoted_json_str = json_str[1:-1]
+                        print(f"DEBUG evaluation (attempt {attempt+1}): Removed surrounding quotes. Original: {repr(json_str)}, Unquoted: {repr(unquoted_json_str)}")
 
-                if evaluation_obj is None:
-                    parsing_error_details = parsed_response.get('parsing_error', 'N/A')
-                    raw_output_aimessage = parsed_response.get('raw')
-                    raw_content = getattr(raw_output_aimessage, 'content', '') if raw_output_aimessage else ''
+                print(f"DEBUG evaluation (attempt {attempt+1}): json_str (potentially unquoted) BEFORE strip: {repr(unquoted_json_str)}")
+                stripped_json_str = unquoted_json_str.strip()
+                print(f"DEBUG evaluation (attempt {attempt+1}): json_str AFTER strip: {repr(stripped_json_str)}")
 
-                    print(f"DEBUG: LLM raw output for evaluation (attempt {attempt+1}): AIMessage content='{str(raw_content)[:200]}...', additional_kwargs={getattr(raw_output_aimessage, 'additional_kwargs', {})}")
-                    
-                    error_details_for_exception = str(parsing_error_details) if parsing_error_details and parsing_error_details != 'N/A' else "No specific parsing error details provided by the parser."
+                if not stripped_json_str: # Modificato per controllare stripped_json_str
+                    raise ValueError("Extracted JSON string for evaluation is empty after strip.")
 
-                    is_empty_output_or_refusal = not raw_content and (not parsing_error_details or parsing_error_details == 'N/A' or "no specific parsing error" in error_details_for_exception.lower())
+                try:
+                    parsed_json = json.loads(stripped_json_str)
+                except json.JSONDecodeError as e:
+                    # DEBUG PRINT AGGIUNTI
+                    print(f"DEBUG evaluation (attempt {attempt+1}): FAILED JSON PARSE.")
+                    print(f"  text_content[:500]: {text_content[:500]}...")
+                    print(f"  json_str REPR: {repr(json_str)}")
+                    print(f"  stripped_json_str REPR: {repr(stripped_json_str)}")
+                    print(f"  Exception type: {type(e)}")
+                    print(f"  Exception repr: {repr(e)}")
+                    print(f"  Exception msg: {e.msg}")
+                    print(f"  Exception doc: {e.doc}") # Aggiunto
+                    print(f"  Exception pos: {e.pos}") # Aggiunto
+                    raise ValueError(f"Failed to decode JSON for evaluation: {e.msg}. Initial char: '{stripped_json_str[:10] if stripped_json_str else ""}'. Extracted string repr: '{repr(stripped_json_str)[:200]}...'")
 
-                    if is_empty_output_or_refusal:
-                        error_details_for_exception = "The LLM response was empty or a refusal. A valid structured JSON output is MANDATORY."
-                    
-                    raise ValueError(f"LLM output for evaluation could not be structured. Details: {error_details_for_exception}")
+                try:
+                    # Valida con Pydantic
+                    evaluation_obj = EvaluationOutput.parse_obj(parsed_json)
+                except ValidationError as e:
+                    print(f"DEBUG: LLM raw output (Pydantic validation failed) for evaluation (attempt {attempt+1}): Content='{text_content[:500]}...' Parsed JSON='{str(parsed_json)[:500]}...'")
+                    raise ValueError(f"Pydantic validation failed for EvaluationOutput: {e}. Parsed JSON: '{str(parsed_json)[:200]}...'")
 
                 if len(evaluation_obj.final_recommendations) != NUM_RECOMMENDATIONS:
-                    raise ValueError(f"Post-structuring validation failed for evaluation: expected {NUM_RECOMMENDATIONS} items, found {len(evaluation_obj.final_recommendations)}")
+                    raise ValueError(f"Post-Pydantic validation failed for evaluation: expected {NUM_RECOMMENDATIONS} items, found {len(evaluation_obj.final_recommendations)}")
                 
                 return evaluation_obj.dict()
             
             except Exception as e:
-                if attempt < max_attempts - 1:
-                    print(f"Error in evaluation attempt {attempt+1}: {e}, retrying...")
-                    specific_error_msg = str(e) 
-                    if isinstance(e, ValueError) and "LLM output for evaluation could not be structured" in str(e):
-                         parts = str(e).split("Details: ")
-                         if len(parts) > 1:
-                            specific_error_msg = parts[1] # Usa il messaggio più dettagliato
+                error_message_raw = str(e)
+                # Esegui l'escape delle parentesi graffe per evitare problemi con f-string/template successivi
+                error_message_escaped = error_message_raw.replace('{', '{{').replace('}', '}}')
+                
+                error_message_for_llm = error_message_escaped # Default a errore escapato
+                parsed_json_str_for_feedback = str(parsed_json)[:100] if 'parsed_json' in locals() else 'N/A'
 
-                    feedback_str = f"\\n\\n# FEEDBACK_ON_PREVIOUS_ATTEMPT: Your previous response (attempt {attempt}) FAILED with the error: '{specific_error_msg}'. You MUST correct this. Ensure your output is a valid JSON object, with exactly {NUM_RECOMMENDATIONS} final recommendations, and is a complete, non-empty response."
+                if isinstance(e, ValueError):
+                    if "No JSON block found" in error_message_raw:
+                        error_message_for_llm = f"Your previous evaluation response did not contain a JSON object enclosed in triple backticks (e.g., ```json\\n{{{{...}}}}\\n```). Please provide the JSON in the correct format. Raw response started with: {text_content[:100].replace('{', '{{').replace('}', '}}')}"
+                    elif "Failed to decode JSON" in error_message_raw:
+                        error_message_for_llm = f"Your previous evaluation response contained a malformed JSON object. Error: {error_message_escaped}. Please ensure the JSON is valid. The problematic JSON string started with: {json_str[:100].replace('{', '{{').replace('}', '}}')}"
+                    elif "Pydantic validation failed" in error_message_raw or "Post-Pydantic validation failed" in error_message_raw:
+                        specific_error_detail = error_message_escaped
+                        if 'parsed_json' in locals() and isinstance(parsed_json.get('final_recommendations'), list):
+                            actual_len = len(parsed_json['final_recommendations'])
+                            specific_error_detail += f" Your list had {actual_len} items, but EXACTLY {NUM_RECOMMENDATIONS} are required."
+                        error_message_for_llm = f"The JSON in your previous evaluation response was valid, but did not match the required schema (e.g., missing fields, or incorrect number of final_recommendations - expected {NUM_RECOMMENDATIONS}). Error: {specific_error_detail}. Please correct the structure. Parsed JSON started with: {parsed_json_str_for_feedback.replace('{', '{{').replace('}', '}}')}"
+                    elif "Extracted JSON string for evaluation is empty" in error_message_raw:
+                        error_message_for_llm = f"Your previous response resulted in an empty JSON string after extracting from backticks. Please provide a non-empty JSON object. Raw response started with: {text_content[:100].replace('{', '{{').replace('}', '}}')}"
+
+
+                if attempt < max_attempts - 1:
+                    print(f"Error in evaluation attempt {attempt+1}: {e}, retrying with feedback...")
+                    # Il feedback viene inserito nel placeholder {feedback_block} del prompt di valutazione
+                    feedback_for_llm_str = (
+                        f"\\n\\n# IMPORTANT FEEDBACK ON PREVIOUS ATTEMPT (Attempt {attempt+1}):\\n"
+                        f"{error_message_for_llm}\\n"
+                        f"Please regenerate your response, ensuring it is a single JSON object enclosed in triple backticks, correctly structured, and contains exactly {NUM_RECOMMENDATIONS} final recommendations."
+                    )
                     continue
                 else:
                     print(f"All evaluation attempts failed: {e}")
