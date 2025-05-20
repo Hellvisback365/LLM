@@ -225,23 +225,97 @@ class ExperimentReporter:
             html += f"<tr><th>Trade-offs</th><td>{final_eval.get('trade_offs', 'N/A')}</td></tr></table>"
 
             exp_metrics = exp.get('metrics', {})
+            
+            # Sezione Metriche per Utente
+            if exp_metrics and 'per_user' in exp_metrics:
+                html += "<h4>Metriche Calcolate (Per Utente)</h4>"
+                for user_id, user_metric_data in exp_metrics['per_user'].items():
+                    html += f"<h5>Utente {user_id}</h5>"
+                    html += "<table><tr><th>Strategia di Prompt</th><th>Precision@k Scores</th><th>Genre Coverage</th></tr>"
+                    for strategy_name, strategy_metrics in user_metric_data.items():
+                        p_at_k_scores = strategy_metrics.get('precision_scores', {})
+                        p_at_k_str = ", ".join([f"P@{k}={v:.4f}" for k, v in p_at_k_scores.items()])
+                        genre_cov = strategy_metrics.get('genre_coverage', 0.0)
+                        
+                        # Costruisci stringa per metriche aggiuntive per utente
+                        additional_metrics_str_user = ""
+                        if "average_release_year" in strategy_metrics:
+                            additional_metrics_str_user += f", AvgYear={strategy_metrics['average_release_year']:.1f}"
+                        if "temporal_dispersion" in strategy_metrics:
+                            additional_metrics_str_user += f", TempDisp={strategy_metrics['temporal_dispersion']:.2f}"
+                        if "genre_entropy" in strategy_metrics:
+                            additional_metrics_str_user += f", GenreEntropy={strategy_metrics['genre_entropy']:.4f}"
+                            
+                        html += f"<tr><td>{strategy_name}</td><td>{p_at_k_str}</td><td>{genre_cov:.4f}{additional_metrics_str_user}</td></tr>"
+                    html += "</table>"
+
+            # Sezione Metriche Aggregate (già esistente e modificata precedentemente)
             if exp_metrics and not exp_metrics.get('error'):
                 html += "<h4>Metriche Calcolate</h4><div class='metrics-container'>"
-                html += "<div class='metric-block'><h5>Precision@k</h5><table><tr><th>Metrica</th><th>Valore</th></tr>"
-                for key, name in [('precision_at_k', 'Prec@k (Prec)'), ('coverage', 'Prec@k (Cov)'), ('final_recommendations', 'Prec@k (Final)')]:
-                    score = exp_metrics.get(key, {}).get('precision_score', 0)
-                    html += f"<tr><td>{name}</td><td>{score:.4f}</td></tr>"
+                
+                aggregate_metrics = exp_metrics.get('aggregate_mean', {})
+
+                # Precision@k / MAP@k section
+                html += "<div class='metric-block'><h5>Precision/MAP @k (e.g., @10)</h5><table><tr><th>Metrica</th><th>Valore @10</th></tr>"
+                
+                # Precision Strategy (usually 'precision_at_k')
+                prec_strategy_name = next((k for k in aggregate_metrics.keys() if 'precision' in k.lower()), None)
+                if prec_strategy_name:
+                    prec_metrics = aggregate_metrics.get(prec_strategy_name, {})
+                    map_at_k_prec = prec_metrics.get('map_at_k', {})
+                    score_prec_at_10 = map_at_k_prec.get('10', map_at_k_prec.get(10, 0.0))
+                    html += f"<tr><td>MAP@10 ({prec_strategy_name})</td><td>{score_prec_at_10:.4f}</td></tr>"
+                    # Nuove metriche aggregate per la strategia di precisione
+                    if 'avg_release_year' in prec_metrics:
+                        html += f"<tr><td>AvgYear ({prec_strategy_name})</td><td>{prec_metrics['avg_release_year']:.1f}</td></tr>"
+
+                # Coverage Strategy (usually 'coverage')
+                cov_strategy_name = next((k for k in aggregate_metrics.keys() if 'coverage' in k.lower()), None)
+                if cov_strategy_name: 
+                    cov_metrics = aggregate_metrics.get(cov_strategy_name, {})
+                    map_at_k_cov = cov_metrics.get('map_at_k', {})
+                    score_cov_at_10 = map_at_k_cov.get('10', map_at_k_cov.get(10, 0.0))
+                    html += f"<tr><td>MAP@10 ({cov_strategy_name})</td><td>{score_cov_at_10:.4f}</td></tr>"
+                    # Nuove metriche aggregate per la strategia di coverage
+                    if 'avg_temporal_dispersion' in cov_metrics:
+                        html += f"<tr><td>AvgTempDisp ({cov_strategy_name})</td><td>{cov_metrics['avg_temporal_dispersion']:.2f}</td></tr>"
+                    if 'avg_genre_entropy' in cov_metrics:
+                        html += f"<tr><td>AvgGenreEntropy ({cov_strategy_name})</td><td>{cov_metrics['avg_genre_entropy']:.4f}</td></tr>"
+
+                # Final Recommendations (se disponibili, potrebbero non avere MAP@k diretto qui)
+                # Le metriche P@k per Final Recs sono spesso calcolate e mostrate separatamente
+                # Se ci sono metriche specifiche per 'final' potremmo aggiungerle.
                 html += "</table></div>"
-                html += "<div class='metric-block'><h5>Genre Coverage</h5><table><tr><th>Metrica</th><th>Valore</th></tr>"
-                for key, name in [('precision_at_k', 'GenreCov (Prec)'), ('coverage', 'GenreCov (Cov)'), ('final_recommendations', 'GenreCov (Final)')]:
-                    score = exp_metrics.get(key, {}).get('genre_coverage', 0)
-                    html += f"<tr><td>{name}</td><td>{score:.4f}</td></tr>"
+
+                html += "<div class='metric-block'><h5>Mean Genre Coverage</h5><table><tr><th>Metrica</th><th>Valore</th></tr>"
+                if prec_strategy_name and 'mean_genre_coverage' in aggregate_metrics.get(prec_strategy_name, {}):
+                    html += f"<tr><td>GenreCov ({prec_strategy_name})</td><td>{aggregate_metrics[prec_strategy_name]['mean_genre_coverage']:.4f}</td></tr>"
+                if cov_strategy_name and 'mean_genre_coverage' in aggregate_metrics.get(cov_strategy_name, {}):
+                    html += f"<tr><td>GenreCov ({cov_strategy_name})</td><td>{aggregate_metrics[cov_strategy_name]['mean_genre_coverage']:.4f}</td></tr>"
+                # final_recs_metrics = aggregate_metrics.get('final', {}) # 'final' potrebbe non essere sempre presente o avere queste metriche
+                # if 'mean_genre_coverage' in final_recs_metrics:
+                #     html += f"<tr><td>GenreCov (Final Recs)</td><td>{final_recs_metrics['mean_genre_coverage']:.4f}</td></tr>"
                 html += "</table></div>"
-                html += "<div class='metric-block'><h5>Total Coverage</h5><table><tr><th>Metrica</th><th>Valore</th></tr>"
-                total_cov_score = exp_metrics.get('total_coverage', 0)
-                html += f"<tr><td>Item Coverage</td><td>{total_cov_score:.4f}</td></tr>"
-                html += "</table></div>"
-                html += "</div>"
+
+                # Blocco per Total Item Coverage (se presente)
+                # Di solito item coverage è una metrica di sistema, non per strategia.
+                # La nostra implementazione ora la mette sotto una delle strategie.
+                # Cerchiamola in una delle strategie note, o in una chiave 'system_wide' se esistesse.
+                item_cov_val = None
+                key_for_item_cov = None
+                if prec_strategy_name and 'total_item_coverage_system' in aggregate_metrics.get(prec_strategy_name, {}):
+                    item_cov_val = aggregate_metrics[prec_strategy_name]['total_item_coverage_system']
+                    key_for_item_cov = prec_strategy_name
+                elif cov_strategy_name and 'total_item_coverage_system' in aggregate_metrics.get(cov_strategy_name, {}):
+                    item_cov_val = aggregate_metrics[cov_strategy_name]['total_item_coverage_system']
+                    key_for_item_cov = cov_strategy_name
+                
+                if item_cov_val is not None:
+                    html += "<div class='metric-block'><h5>Total Item Coverage</h5><table><tr><th>Metrica</th><th>Valore</th></tr>"
+                    html += f"<tr><td>Item Coverage (System)</td><td>{item_cov_val:.4f}</td></tr>"
+                    html += "</table></div>"
+
+                html += "</div>" # metrics-container
             elif exp_metrics.get('error'):
                  html += f"<h4>Errore nel calcolo metriche</h4><p>{exp_metrics['error']}</p>"
             html += "</div>"
@@ -323,15 +397,68 @@ class ExperimentReporter:
             md += f"- **Trade-offs**: {final_eval.get('trade_offs', 'N/A')}\n\n"
 
             exp_metrics = exp.get('metrics', {})
+            
+            # Sezione Metriche per Utente in Markdown
+            if exp_metrics and 'per_user' in exp_metrics:
+                md += "#### Metriche Calcolate (Per Utente)\\n"
+                for user_id, user_metric_data in exp_metrics['per_user'].items():
+                    md += f"##### Utente {user_id}\\n"
+                    md += "| Strategia di Prompt | Precision@k Scores | Genre Coverage | Altre Metriche Specifiche |\n"
+                    md += "|---|---|---|---|\n"
+                    for strategy_name, strategy_metrics in user_metric_data.items():
+                        p_at_k_scores = strategy_metrics.get('precision_scores', {})
+                        p_at_k_str = ", ".join([f"P@{k}={v:.4f}" for k, v in p_at_k_scores.items()])
+                        genre_cov = strategy_metrics.get('genre_coverage', 0.0)
+                        
+                        # Costruisci stringa per metriche aggiuntive per utente in MD
+                        additional_metrics_str_user_md = ""
+                        if "average_release_year" in strategy_metrics:
+                            additional_metrics_str_user_md += f", AvgYear={strategy_metrics['average_release_year']:.1f}"
+                        if "temporal_dispersion" in strategy_metrics:
+                            additional_metrics_str_user_md += f", TempDisp={strategy_metrics['temporal_dispersion']:.2f}"
+                        if "genre_entropy" in strategy_metrics:
+                            additional_metrics_str_user_md += f", GenreEntropy={strategy_metrics['genre_entropy']:.4f}"
+                            
+                        md += f"| {strategy_name} | {p_at_k_str} | {genre_cov:.4f}{additional_metrics_str_user_md} |\\n"
+                    md += "\\n"
+            
+            # Sezione Metriche Aggregate (già esistente e modificata precedentemente)
             if exp_metrics and not exp_metrics.get('error'):
-                md += "#### Metriche Calcolate\n"
-                md += "| Metrica | Precision@k | Genre Coverage |\n|---|---|---|\n"
-                for key, name in [('precision_at_k', 'Precision'), ('coverage', 'Coverage'), ('final_recommendations', 'Final')]:
-                    prec = exp_metrics.get(key, {}).get('precision_score', 0)
-                    gen_cov = exp_metrics.get(key, {}).get('genre_coverage', 0)
-                    md += f"| {name} | {prec:.4f} | {gen_cov:.4f} |\n"
-                total_cov = exp_metrics.get('total_coverage', 0)
-                md += f"\n- **Total Item Coverage**: {total_cov:.4f}\n"
+                md += "#### Metriche Calcolate (Aggregate)\\n" # Titolo modificato per chiarezza
+                aggregate_metrics = exp_metrics.get('aggregate_mean', {})
+
+                md += "| Strategia/Tipo | Indicatore | Valore @10 (o Aggregato) | Altre Metriche Specifiche |\n|---|---|---|---|\n"
+                
+                map_at_k_prec = aggregate_metrics.get('precision_at_k', {}).get('map_at_k', {})
+                score_prec_at_10 = map_at_k_prec.get('10', map_at_k_prec.get(10, 0.0))
+                prec_agg_specific_metrics_md = self._format_specific_metrics_md(aggregate_metrics.get('precision_at_k', {}))
+                md += f"| Precision Strategy | MAP@10 | {score_prec_at_10:.4f} | {prec_agg_specific_metrics_md} |\n"
+
+                map_at_k_cov = aggregate_metrics.get('coverage', {}).get('map_at_k', {})
+                score_cov_at_10 = map_at_k_cov.get('10', map_at_k_cov.get(10, 0.0))
+                cov_agg_specific_metrics_md = self._format_specific_metrics_md(aggregate_metrics.get('coverage', {}))
+                md += f"| Coverage Strategy | MAP@10 | {score_cov_at_10:.4f} | {cov_agg_specific_metrics_md} |\n"
+
+                precision_scores_final = aggregate_metrics.get('final', {}).get('precision_scores_agg', {})
+                score_final_at_10 = precision_scores_final.get('10', precision_scores_final.get(10, 0.0))
+                final_agg_specific_metrics_md = self._format_specific_metrics_md(aggregate_metrics.get('final', {}))
+                md += f"| Final Recs | P@10 | {score_final_at_10:.4f} | {final_agg_specific_metrics_md} |\n"
+                
+                gc_prec = aggregate_metrics.get('precision_at_k', {}).get('mean_genre_coverage', 0.0)
+                # Non ripetiamo le specific metrics qui, già mostrate con MAP@10 per la stessa strategia
+                md += f"| Precision Strategy | Mean Genre Coverage | {gc_prec:.4f} | - |\n"
+                
+                gc_cov = aggregate_metrics.get('coverage', {}).get('mean_genre_coverage', 0.0)
+                md += f"| Coverage Strategy | Mean Genre Coverage | {gc_cov:.4f} | - |\n"
+
+                gc_final = aggregate_metrics.get('final', {}).get('genre_coverage', 0.0)
+                md += f"| Final Recs | Genre Coverage | {gc_final:.4f} | - |\n"
+                
+                md += "\n" 
+                
+                total_cov = aggregate_metrics.get('total_item_coverage', 0.0)
+                md += f"- **Total Item Coverage (All Recs)**: {total_cov:.4f}\n"
+
             elif exp_metrics.get('error'):
                  md += f"*Errore nel calcolo metriche: {exp_metrics['error']}*\n"
             md += "\n---\n"
@@ -425,3 +552,25 @@ class ExperimentReporter:
             
         print("\nAnalisi completata.")
         return summary
+
+    def _format_specific_metrics_html(self, metrics_dict: Dict) -> str:
+        """Helper per formattare metriche specifiche aggiuntive per HTML."""
+        parts = []
+        if "average_release_year" in metrics_dict:
+            parts.append(f"AvgYear={metrics_dict['average_release_year']:.1f}")
+        if "temporal_dispersion" in metrics_dict:
+            parts.append(f"TempDisp={metrics_dict['temporal_dispersion']:.2f}")
+        if "genre_entropy" in metrics_dict:
+            parts.append(f"GenreEntr={metrics_dict['genre_entropy']:.4f}")
+        return ", " + ", ".join(parts) if parts else ""
+
+    def _format_specific_metrics_md(self, metrics_dict: Dict) -> str:
+        """Helper per formattare metriche specifiche aggiuntive per Markdown."""
+        parts = []
+        if "average_release_year" in metrics_dict:
+            parts.append(f"AvgYear: {metrics_dict['average_release_year']:.1f}")
+        if "temporal_dispersion" in metrics_dict:
+            parts.append(f"TempDisp: {metrics_dict['temporal_dispersion']:.2f}")
+        if "genre_entropy" in metrics_dict:
+            parts.append(f"GenreEntr: {metrics_dict['genre_entropy']:.4f}")
+        return "; ".join(parts) if parts else "-"

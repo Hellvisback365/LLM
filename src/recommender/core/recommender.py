@@ -519,10 +519,13 @@ class RecommenderSystem:
             else: print("Attenzione: RAG non inizializzato."); return "[]"
         except Exception as e: print(f"Errore get_optimized_catalog: {e}"); return "[]"
              
-    async def run_recommendation_pipeline(self, use_prompt_variants: Dict = None) -> Tuple[Dict, Dict, Dict[int, List[int]]]:
+    async def run_recommendation_pipeline(self, use_prompt_variants: Dict = None, experiment_name: Optional[str] = None) -> Tuple[Dict, Dict, Dict[int, List[int]]]:
         """
         Esegue l'intera pipeline di raccomandazione per tutti gli utenti specificati
         utilizzando LangGraph per l'orchestrazione.
+        Args:
+            use_prompt_variants: Dizionario di prompt da usare per questa run.
+            experiment_name: Nome dell'esperimento, se applicabile.
         """
         # MODIFICATO: verifica che LangGraph sia inizializzato anziché l'agente
         if not self.recommender_graph:
@@ -618,13 +621,14 @@ class RecommenderSystem:
             print(f"Errore salvataggio recommendation_results.json: {e}")
             sys.stdout.flush()
 
-    def calculate_and_display_metrics(self, metric_results: Dict, final_evaluation: Dict, per_user_relevant_items: Dict[int, List[int]]) -> Dict:
+    def calculate_and_display_metrics(self, metric_results: Dict, final_evaluation: Dict, per_user_relevant_items: Dict[int, List[int]], experiment_name: Optional[str] = None) -> Dict:
         """Calcola e visualizza metriche per utente e aggregate.
         
         Args:
             metric_results: Dizionario {user_id: {metric_name: results}}
             final_evaluation: Dizionario con le raccomandazioni finali aggregate.
             per_user_relevant_items: Dizionario {user_id: list_of_held_out_ids}
+            experiment_name: Nome dell'esperimento, se applicabile, per guidare calcoli di metriche specifiche.
             
         Returns:
             Dizionario con metriche per utente e metriche aggregate (medie).
@@ -639,54 +643,86 @@ class RecommenderSystem:
         k_values = [1, 5, 10, 20, 50]
         # Assicurati che current_prompt_variants sia popolato correttamente.
         # Fallback a PROMPT_VARIANTS di default se necessario.
-        metric_names = list(self.current_prompt_variants.keys()) if self.current_prompt_variants else \
+        
+        # current_prompt_variants potrebbe contenere i nomi delle strategie usate nell'esperimento corrente
+        # metric_names sarà la lista di queste strategie (es. ['precision_at_k_recency', 'coverage_standard'])
+        # o i nomi di default se non è un esperimento custom (es. ['precision_at_k', 'coverage'])
+        metric_names_in_experiment = list(self.current_prompt_variants.keys()) if self.current_prompt_variants else \
                        list(PROMPT_VARIANTS.keys())
 
+
         per_user_calculated_metrics, aggregate_calculated_metrics = metrics_calculator.compute_all_metrics(
-            metric_results=metric_results,
-            final_evaluation=final_evaluation,
+            metric_results_for_users=metric_results,
             per_user_relevant_items=per_user_relevant_items,
             k_values=k_values,
-            metric_names=metric_names
+            metric_names=metric_names_in_experiment, # Passa i nomi delle metriche dell'esperimento corrente
+            experiment_name=experiment_name # Passa experiment_name
         )
 
         # --- Logica di Visualizzazione (utilizza i dati calcolati) ---
         print("\nMetriche Calcolate (Per Utente):")
         for user_id, u_calculated_data in per_user_calculated_metrics.items():
-            # Stampa warning se l'utente non ha item rilevanti (opzionale, già gestito in parte)
             if not per_user_relevant_items.get(user_id, []):
-                # Questo warning può essere utile per contesto, anche se P@k sarà 0
                 print(f"  Utente {user_id}: Attenzione - Nessun item rilevante (held-out) di riferimento.")
             
             print(f"  Utente {user_id}:")
-            for metric_name_key in metric_names: # Itera nell'ordine definito da metric_names
+            # Itera sulle metric_names_in_experiment per coerenza con compute_all_metrics
+            for metric_name_key in metric_names_in_experiment: 
                 data_for_metric = u_calculated_data.get(metric_name_key)
                 if data_for_metric:
-                    pak_scores = data_for_metric["precision_scores"]
-                    genre_cov = data_for_metric["genre_coverage"]
+                    pak_scores = data_for_metric.get("precision_scores", {}) # Default a {}
+                    genre_cov = data_for_metric.get("genre_coverage", 0.0) # Default a 0.0
                     pak_str = ", ".join([f"P@{k}={score:.4f}" for k, score in pak_scores.items()])
-                    print(f"    {metric_name_key}: {pak_str}, GenreCoverage={genre_cov:.4f}")
+                    
+                    # Visualizza le nuove metriche specifiche se presenti
+                    avg_year_str = ""
+                    if "average_release_year" in data_for_metric:
+                        avg_year_str = f", AvgYear={data_for_metric['average_release_year']:.1f}"
+                    
+                    temp_disp_str = ""
+                    if "temporal_dispersion" in data_for_metric:
+                        temp_disp_str = f", TempDisp={data_for_metric['temporal_dispersion']:.2f}"
+                        
+                    genre_entropy_str = ""
+                    if "genre_entropy" in data_for_metric:
+                        genre_entropy_str = f", GenreEntropy={data_for_metric['genre_entropy']:.4f}"
+
+                    print(f"    {metric_name_key}: {pak_str}, GenreCoverage={genre_cov:.4f}{avg_year_str}{temp_disp_str}{genre_entropy_str}")
                 else:
-                    # Se una metrica specifica non ha dati (dovrebbe essere raro se metric_names è corretto)
                     print(f"    {metric_name_key}: Dati non disponibili.")
 
         print("\nMetriche Aggregate (Medie su Utenti):")
-        # Itera su metric_names + ['final'] per mantenere l'ordine e includere le metriche finali
-        for name_key in metric_names + ['final']:
+        # Itera su metric_names_in_experiment + ['final'] per mantenere l'ordine e includere le metriche finali
+        for name_key in metric_names_in_experiment + ['final']:
             agg_data = aggregate_calculated_metrics.get(name_key)
             if agg_data:
                 label = f"Mean {name_key.capitalize()}" if name_key != 'final' else "Final Aggregated"
                 
+                # Visualizzazione P@k/MAP@k e Genre Coverage esistente
                 if name_key == 'final':
                     pak_scores_agg = agg_data.get("precision_scores_agg", {})
                     genre_cov_agg = agg_data.get("genre_coverage", 0.0)
                     pak_str_agg = ", ".join([f"P@{k}={score:.4f}" for k, score in pak_scores_agg.items()])
                     print(f"  {label}: {pak_str_agg} (vs all held-out), GenreCoverage={genre_cov_agg:.4f}")
-                else:
+                else: # Per le strategie di prompt
                     map_scores = agg_data.get("map_at_k", {})
                     mean_genre_cov = agg_data.get("mean_genre_coverage", 0.0)
                     map_str = ", ".join([f"MAP@{k}={score:.4f}" for k, score in map_scores.items()])
-                    print(f"  {label}: {map_str}, Mean GenreCoverage={mean_genre_cov:.4f}")
+                    
+                    # Visualizza le nuove metriche aggregate se presenti
+                    avg_year_agg_str = ""
+                    if "average_release_year" in agg_data: # Nome chiave per aggregato
+                        avg_year_agg_str = f", AvgYear={agg_data['average_release_year']:.1f}"
+                    
+                    temp_disp_agg_str = ""
+                    if "temporal_dispersion" in agg_data: # Nome chiave per aggregato
+                        temp_disp_agg_str = f", TempDisp={agg_data['temporal_dispersion']:.2f}"
+                        
+                    genre_entropy_agg_str = ""
+                    if "genre_entropy" in agg_data: # Nome chiave per aggregato
+                        genre_entropy_agg_str = f", GenreEntropy={agg_data['genre_entropy']:.4f}"
+                        
+                    print(f"  {label}: {map_str}, Mean GenreCoverage={mean_genre_cov:.4f}{avg_year_agg_str}{temp_disp_agg_str}{genre_entropy_agg_str}")
             else:
                  print(f"  Metrica aggregata '{name_key}' non trovata.")
 

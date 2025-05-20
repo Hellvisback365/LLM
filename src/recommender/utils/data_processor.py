@@ -47,7 +47,28 @@ def load_movies(file_path: str = None) -> pd.DataFrame:
         file_path = os.path.join(DATA_RAW_DIR, 'movies.dat')
     
     # I file .dat del dataset MovieLens sono separati da '::'
-    movies = pd.read_csv(file_path, sep='::', engine='python', header=None, names=MOVIES_COLUMNS, encoding='latin-1')
+    movies = pd.read_csv(file_path, sep='::', engine='python', header=None, names=['movie_id', 'title_with_year', 'genres'], encoding='latin-1')
+    
+    # Estrai l'anno dal titolo e crea una nuova colonna 'year'
+    # Regex per trovare (YYYY) alla fine della stringa del titolo
+    # Assicurarsi che 'title_with_year' sia trattato come stringa
+    movies['title_with_year'] = movies['title_with_year'].astype(str)
+    year_extraction = movies['title_with_year'].str.extract(r'\((\d{4})\)$', expand=False)
+    
+    # Converti in numerico, errori a NaT/NaN che poi possono essere gestiti (es. fillna o dropna)
+    movies['year'] = pd.to_numeric(year_extraction, errors='coerce')
+    
+    # Opzionale: creare una colonna titolo senza l'anno
+    # movies['title'] = movies['title_with_year'].str.replace(r'\\s*\\(\\d{4}\\)$', '', regex=True).str.strip()
+    # Per ora, rinominiamo title_with_year in title per coerenza se altre parti del codice usano 'title'
+    movies.rename(columns={'title_with_year': 'title'}, inplace=True)
+
+    print(f"Film caricati: {len(movies)}")
+    # Stampa un campione di titoli e anni estratti per verifica
+    # print("Esempio estrazione anno:")
+    # print(movies[['title', 'year']].head())
+    # print(f"Anni non parsabili (NaN): {movies['year'].isna().sum()}")
+
     return movies
 
 def filter_users_by_min_ratings(ratings: pd.DataFrame, min_ratings: int = 100) -> pd.DataFrame:

@@ -46,12 +46,14 @@ class ExperimentManager:
         
         # Esegui la pipeline con le varianti custom
         metric_results, final_evaluation, per_user_held_out_items = await self.recommender.run_recommendation_pipeline(
-            use_prompt_variants=prompt_variants
+            use_prompt_variants=prompt_variants,
+            experiment_name=experiment_name
         )
         
         # Calcola metriche
         metrics = self.recommender.calculate_and_display_metrics(
-            metric_results, final_evaluation, per_user_held_out_items
+            metric_results, final_evaluation, per_user_held_out_items,
+            experiment_name=experiment_name
         )
         
         # Salva risultati
@@ -71,6 +73,8 @@ class ExperimentManager:
         result_to_save = convert_numpy_types_for_json(result)
         
         try:
+            print(f"[ExperimentManager.run_experiment] Dati delle metriche da salvare per l'esperimento '{experiment_name}':")
+            print(json.dumps(result_to_save.get('metrics', {}), indent=2, ensure_ascii=False))
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump(result_to_save, f, ensure_ascii=False, indent=2)
             print(f"Risultati esperimento salvati: {filename}")
