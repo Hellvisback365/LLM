@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-05-20T19:53:41.556394",
+  "timestamp": "2025-05-21T12:10:13.788057",
   "metric_recommendations": {
     "4277": {
       "precision_at_k": {
@@ -24,9 +24,7 @@
           2248,
           2322,
           2431,
-          2472,
           2504,
-          2528,
           2571,
           2628,
           2667,
@@ -50,24 +48,30 @@
           3256,
           3278,
           3301,
+          3302,
           3316,
           3343,
           3394,
           3410,
-          3417
+          3417,
+          3451
         ],
-        "explanation": "The recommendations are based on the user's profile, focusing on genres, directors, and themes from their liked movies. The top recommendations include sci-fi and action movies like 'Star Wars: Episode IV - A New Hope' and 'Jurassic Park', as well as comedies like 'History of the World: Part I' and 'The Princess Bride'. The list also includes movies from the 80s and 90s, such as 'The Terminator' and 'Groundhog Day', which align with the user's preferences. Additionally, some classic films like 'Ben-Hur' and 'The Lion King' are included due to their high ratings and popularity. The ordering of the recommendations is based on the user's rating history and the similarity between the movies in the catalog and their liked movies."
+        "explanation": "The recommendations are based on the user's profile, focusing on genres, themes, and time periods from their liked movies. The top recommendations include 'Star Wars: Episode IV - A New Hope' (260), 'Jurassic Park' (480), and 'The Three Musketeers' (552), which match the user's interest in action, adventure, and sci-fi movies. Other recommendations, such as 'Delicatessen' (1175), 'Aliens' (1200), and 'The Terminator' (1240), also align with the user's preferences. The list is ordered according to the user's likely interest in each movie, with the most recommended movies first."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
           924,
-          1175,
           1036,
+          1175,
+          3685,
+          3686,
           1078,
+          1088,
           1127,
           1225,
-          1201,
+          1240,
+          1263,
           1320,
           1476,
           1584,
@@ -81,12 +85,12 @@
           1921,
           1965,
           2003,
+          2004,
           2039,
           2081,
           2116,
           2117,
           2141,
-          2153,
           2177,
           2198,
           2217,
@@ -106,71 +110,67 @@
           2579,
           2593,
           2600,
-          2685,
-          2691,
-          2693,
-          2722,
-          2761
+          2685
         ],
-        "explanation": "The recommendations are based on the user's liked movies, which include a mix of sci-fi, action, comedy, and drama films. The list starts with movies that are closely related to the user's liked movies in terms of genre and style, such as '2001: A Space Odyssey' (924) and 'Delicatessen' (1175). The list then expands to include other movies that are similar in tone and theme, such as 'Die Hard' (1036) and 'The Abyss' (1127). The recommendations also include some classic films like 'Alien' (1201) and 'The Terminator' (1201), as well as some more recent releases like 'The Matrix' (2571) and 'eXistenZ' (2600). The ordering of the list prioritizes movies that are likely to be of high interest to the user, based on their viewing history and preferences."
+        "explanation": "The recommendations are based on maximizing genre coverage while remaining relevant to the user's preferences. The user's liked movies suggest a preference for sci-fi, action, and comedy genres. The recommendations start with movies that represent a good compromise between genre diversity and user preferences, such as '2001: A Space Odyssey' (sci-fi) and 'Die Hard' (action). The list then includes movies that prioritize pure diversity, introducing the user to new genres like drama, romance, and horror. The ordering ensures that the most relevant movies are presented first, followed by those that expand the user's genre exposure. The explanation for the specific ordering is as follows: the first 20 movies are chosen based on their relevance to the user's liked movies, with a focus on sci-fi and action genres. The next 15 movies introduce drama and romance genres, which are less represented in the user's liked movies but still relevant. The final 15 movies prioritize pure diversity, introducing horror, comedy, and other genres to expand the user's preferences. The recommendations are ordered to balance relevance and diversity, ensuring that the user is exposed to new genres while still enjoying movies that align with their preferences."
       }
     },
     "4169": {
       "precision_at_k": {
         "metric": "precision_at_k",
         "recommendations": [
-          172,
-          196,
-          780,
-          836,
-          924,
-          1075,
           1265,
-          1307,
-          1356,
-          1371,
-          1372,
-          1373,
-          1476,
-          1499,
-          1580,
-          1584,
-          1653,
-          1720,
-          1747,
-          1876,
-          1917,
-          1920,
-          1921,
-          1965,
-          2003,
-          2004,
-          2014,
-          2039,
-          2041,
-          2054,
-          2081,
+          1284,
+          2313,
+          2012,
+          367,
+          3737,
+          2919,
+          3380,
+          3948,
+          1068,
+          1411,
+          163,
+          3098,
+          945,
+          2911,
+          563,
+          3927,
+          1233,
+          3360,
+          2353,
+          900,
+          1682,
+          152,
+          2227,
+          2920,
+          1028,
+          2969,
           2085,
-          2100,
-          2116,
-          2117,
-          2141,
-          2148,
-          2153,
-          2177,
-          2198,
-          2217,
-          2248,
-          2253,
-          2270,
-          2311,
-          2322,
-          2367,
-          2387,
-          2404,
-          2431
+          1552,
+          3556,
+          508,
+          3008,
+          1940,
+          1082,
+          2454,
+          701,
+          2168,
+          2949,
+          2583,
+          1089,
+          2729,
+          1935,
+          494,
+          1294,
+          272,
+          3126,
+          3549,
+          2314,
+          2221,
+          3377
         ],
-        "explanation": "Based on the user's profile, I have analyzed the genres, directors, actors, and time periods of the liked and disliked movies to provide personalized recommendations. The user seems to enjoy a wide range of genres, including action, adventure, comedy, drama, and sci-fi. They also appear to appreciate movies from various time periods, from classic films to recent releases. To generate the recommendations, I have considered the user's preferences and avoided movies similar to those they disliked. The top recommendations are based on the user's favorite genres and themes, while the lower-ranked movies are still relevant but less aligned with their preferences."
+        "explanation": "The recommendations are based on the user's liked movies, which include a mix of action, comedy, drama, and sci-fi films. The top recommendations, such as movie ID 1265, 1284, and 2313, are chosen because they share similar genres and themes with the user's liked movies. The ordering of the recommendations is based on the similarity of the movie genres and themes with the user's liked movies, with the most similar movies appearing first. The explanation for the recommendations is that they are likely to be of interest to the user due to their similarity in genres and themes with the user's liked movies."
       },
       "coverage": {
         "metric": "coverage",
@@ -182,6 +182,7 @@
           552,
           614,
           652,
+          682,
           688,
           693,
           719,
@@ -223,10 +224,9 @@
           1862,
           1876,
           1903,
-          1917,
-          1920
+          1917
         ],
-        "explanation": "The recommendations are based on maximizing genre coverage while remaining relevant to the user's preferences. The user's liked movies suggest a preference for action, adventure, and sci-fi genres. The recommended movies are ordered to prioritize a compromise between genre diversity and user preferences, with a focus on movies that represent a mix of action, adventure, and sci-fi. The list includes a range of movies from different decades, including classic films like 'Alien' and 'The Terminator', as well as more recent releases like 'Men in Black' and 'Starship Troopers'. The ordering ensures that movies with a good balance of genre diversity and relevance to the user's preferences are listed first, followed by movies that prioritize pure diversity."
+        "explanation": "The recommendations are based on maximizing genre coverage while remaining relevant to the user's preferences. The user's liked movies suggest a preference for action, adventure, comedy, drama, horror, romance, sci-fi, thriller, and war genres. The recommended movies are ordered to prioritize a compromise between genre diversity and user preferences, with a focus on movies that represent a good balance between these two factors. The list includes a mix of classic and modern films, as well as a range of genres to cater to the user's diverse tastes. The explanation for the ordering is as follows: the first 20 movies are a mix of action, adventure, comedy, and drama films that are highly rated and popular, the next 15 movies are a mix of horror, romance, sci-fi, and thriller films that are also highly rated and popular, and the last 15 movies are a mix of war and classic films that are highly rated and less popular but still relevant to the user's preferences."
       }
     },
     "1680": {
@@ -234,62 +234,63 @@
         "metric": "precision_at_k",
         "recommendations": [
           260,
-          480,
-          1240,
-          1036,
           1198,
-          1200,
+          1240,
+          1371,
+          1372,
+          1373,
           1377,
-          3527,
-          2916,
-          3699,
-          3697,
-          3698,
-          3700,
-          3701,
-          3705,
-          3706,
-          3708,
-          3730,
-          3731,
-          3735,
-          3737,
-          3739,
-          3741,
-          3743,
-          3745,
-          3748,
-          3751,
-          3753,
-          3755,
-          3793,
-          3794,
-          3795,
-          3796,
-          3797,
-          3799,
-          3800,
-          3801,
-          3802,
-          3805,
-          3808,
-          3810,
-          3811,
-          3813,
-          3816,
-          3817,
-          3818,
-          3824,
-          3825,
-          3826,
-          3829
+          1408,
+          1580,
+          1610,
+          1653,
+          1720,
+          1732,
+          1747,
+          1965,
+          2003,
+          2004,
+          2014,
+          2039,
+          2041,
+          2054,
+          2081,
+          2100,
+          2116,
+          2117,
+          2141,
+          2148,
+          2153,
+          2177,
+          2191,
+          2198,
+          2217,
+          2248,
+          2253,
+          2270,
+          2294,
+          2301,
+          2311,
+          2322,
+          2367,
+          2387,
+          2431,
+          2449,
+          2470,
+          2471,
+          2504,
+          2528,
+          2542,
+          2566,
+          2571
         ],
-        "explanation": "The recommendations provided are based on the user's profile, focusing on genres, themes, and time periods from their liked movies. The list prioritizes movies with similar attributes to the user's appreciated films, avoiding genres and themes from disliked movies. The top recommendations include sci-fi and action films like 'Star Wars: Episode IV - A New Hope' and 'Jurassic Park', as well as adventure and thriller movies such as 'Raiders of the Lost Ark' and 'Aliens'. The ordering of the recommendations is based on the similarity of the movie attributes to the user's preferences, with the most similar movies first. The list also includes a mix of classic and modern films to cater to different tastes and preferences."
+        "explanation": "The recommendations are based on the user's liked movies, which show a strong preference for action, adventure, comedy, and sci-fi genres. The top recommendations include classic films like 'Star Wars: Episode IV - A New Hope' (260) and 'Raiders of the Lost Ark' (1198), as well as more recent releases like 'Men in Black' (1580) and 'The Big Lebowski' (1732). The list also includes movies with similar themes and elements, such as space exploration, time travel, and fantasy worlds. The ordering of the recommendations is based on the user's rating history, with the most highly rated movies first. The explanation for the ordering is that the user tends to rate movies with complex plots and unique storytelling higher than those with more straightforward narratives. Overall, the recommendations aim to provide a mix of classic and modern films that cater to the user's diverse tastes and preferences."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
           1,
+          2,
           17,
           21,
           25,
@@ -312,6 +313,7 @@
           447,
           480,
           552,
+          558,
           592,
           614,
           624,
@@ -336,11 +338,9 @@
           1198,
           1200,
           1205,
-          1214,
-          1240,
-          1263
+          1214
         ],
-        "explanation": "To generate these recommendations, we analyzed the user's liked and disliked movies to understand their genre preferences. We noticed the user likes a mix of action, comedy, drama, and sci-fi movies. Based on this, we selected movies from the catalog that match these genres and are likely to be of interest. The recommendations are ordered with a balance between diversity of genres and relevance to the user's preferences, prioritizing movies that are both diverse and relevant first. The list includes a range of classic and modern films to cater to different tastes and preferences. We made sure to exclude any movies the user has already disliked to ensure the recommendations are personalized and enjoyable."
+        "explanation": "To maximize genre coverage while remaining relevant to the user's preferences, the system analyzed the user's liked and disliked movies to identify patterns and genres of interest. The user's liked movies include a variety of genres such as Action, Adventure, Animation, Children's, Comedy, Crime, Drama, Fantasy, Film-Noir, Horror, Mystery, Romance, Sci-Fi, Thriller, War, and Western. The system prioritized movies that belong to these genres and are not already in the user's liked or disliked list. The recommendations are ordered based on their relevance to the user's preferences, with the most relevant movies first. The system also considered the release year of the movies, prioritizing more recent releases. The 50 recommended movies are a mix of popular and lesser-known titles, ensuring a diverse range of genres and styles."
       }
     }
   },
@@ -365,40 +365,40 @@
       2248,
       2322,
       2431,
-      2472,
       2504,
-      2528,
       2571,
-      2628,
-      2667,
-      2788,
-      2797,
-      2811,
-      2858,
-      2863,
-      2874,
-      2929,
-      2946,
-      3007,
-      3033,
-      3061,
-      3077,
-      3082,
-      3113,
-      3147,
-      3156,
-      3233,
-      3256,
-      3278,
-      3301,
-      3316,
-      3343,
-      3394,
-      3410,
-      3417
+      1265,
+      1284,
+      2313,
+      2012,
+      367,
+      3737,
+      2919,
+      3380,
+      3948,
+      1068,
+      1411,
+      163,
+      3098,
+      945,
+      2911,
+      563,
+      3927,
+      1233,
+      3360,
+      2353,
+      900,
+      1682,
+      152,
+      2227,
+      2920,
+      1028,
+      2969,
+      2085,
+      1552
     ],
-    "justification": "The final recommendations are based on a balance between precision@k and coverage metrics. The precision@k metric is given more weight for top recommendations, ensuring that the most relevant movies are prioritized. The coverage metric is also considered to ensure a diverse range of movie genres is included. The recommendations are ordered based on their ranking in the precision@k metric, with the most relevant movies first. The movie catalog is used as a reference to ensure that the recommended movies are available and relevant to the user's preferences.",
-    "trade_offs": "A trade-off is made between the precision@k and coverage metrics. While precision@k is prioritized for top recommendations, coverage is still considered to ensure a diverse range of movie genres. This means that some movies with high precision@k scores may be excluded in favor of movies that provide better coverage of different genres. Additionally, the ordering of the recommendations may not perfectly reflect the user's preferences, as the balance between precision@k and coverage metrics can lead to some compromises."
+    "justification": "The final recommendations are based on a balance between precision@k and coverage metrics. Precision@k is given more weight for top recommendations, while coverage is considered to ensure a diverse set of movie genres. The top recommendations from the precision@k metric are chosen first, followed by recommendations from the coverage metric that are not already included. This approach ensures that the most relevant movies are presented first, while also providing a good coverage of different genres. The ordering of the recommendations is based on the user's rating history and the similarity of the movie genres and themes with the user's liked movies.",
+    "trade_offs": "The trade-off between precision@k and coverage metrics is considered. Precision@k is prioritized for top recommendations to ensure that the most relevant movies are presented first. However, coverage is also considered to ensure that a diverse set of movie genres is included. This approach may lead to some less relevant movies being included in the recommendations, but it provides a good balance between relevance and diversity. The system also considers the release year of the movies, prioritizing more recent releases. However, this may lead to some classic movies being excluded from the recommendations."
   },
   "metrics": {
     "per_user": {
@@ -421,7 +421,7 @@
             "20": 0.0,
             "50": 0.04
           },
-          "genre_coverage": 0.9444444444444444
+          "genre_coverage": 0.8888888888888888
         }
       },
       "4169": {
@@ -430,10 +430,10 @@
             "1": 0.0,
             "5": 0.0,
             "10": 0.0,
-            "20": 0.05,
-            "50": 0.02
+            "20": 0.0,
+            "50": 0.0
           },
-          "genre_coverage": 0.8888888888888888
+          "genre_coverage": 0.9444444444444444
         },
         "coverage": {
           "precision_scores": {
@@ -443,19 +443,19 @@
             "20": 0.0,
             "50": 0.04
           },
-          "genre_coverage": 0.8333333333333334
+          "genre_coverage": 0.7777777777777778
         }
       },
       "1680": {
         "precision_at_k": {
           "precision_scores": {
             "1": 0.0,
-            "5": 0.0,
-            "10": 0.1,
+            "5": 0.2,
+            "10": 0.2,
             "20": 0.1,
-            "50": 0.04
+            "50": 0.08
           },
-          "genre_coverage": 0.9444444444444444
+          "genre_coverage": 0.8888888888888888
         },
         "coverage": {
           "precision_scores": {
@@ -465,7 +465,7 @@
             "20": 0.05,
             "50": 0.04
           },
-          "genre_coverage": 0.8333333333333334
+          "genre_coverage": 0.8888888888888888
         }
       }
     },
@@ -473,12 +473,15 @@
       "precision_at_k": {
         "map_at_k": {
           "1": 0.0,
-          "5": 0.0,
-          "10": 0.03333333333333333,
-          "20": 0.05000000000000001,
-          "50": 0.03333333333333333
+          "5": 0.06666666666666667,
+          "10": 0.06666666666666667,
+          "20": 0.03333333333333333,
+          "50": 0.04
         },
-        "mean_genre_coverage": 0.8703703703703702
+        "mean_genre_coverage": 0.8703703703703703,
+        "num_recommendations": 150,
+        "num_unique_recommendations": 134,
+        "total_item_coverage_system": 0.053824362606232294
       },
       "coverage": {
         "map_at_k": {
@@ -488,19 +491,26 @@
           "20": 0.016666666666666666,
           "50": 0.04
         },
-        "mean_genre_coverage": 0.8703703703703703
+        "mean_genre_coverage": 0.8518518518518517,
+        "num_recommendations": 150,
+        "num_unique_recommendations": 112
       },
       "final": {
+        "mean_genre_coverage": 0.0,
+        "num_recommendations": 50,
+        "num_unique_recommendations": 50,
         "precision_scores_agg": {
           "1": 0.0,
           "5": 0.2,
           "10": 0.3,
-          "20": 0.2,
-          "50": 0.26
+          "20": 0.25,
+          "50": 0.3
         },
-        "genre_coverage": 0.7777777777777778
-      },
-      "total_item_coverage": 0.052536698429049705
+        "genre_coverage": 0.9444444444444444,
+        "average_release_year": 1981.34,
+        "temporal_dispersion": 18.96165604582047,
+        "genre_entropy": 3.6077575406301547
+      }
     }
   },
   "per_user_held_out_items": {

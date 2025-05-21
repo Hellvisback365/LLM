@@ -656,7 +656,8 @@ class RecommenderSystem:
             per_user_relevant_items=per_user_relevant_items,
             k_values=k_values,
             metric_names=metric_names_in_experiment, # Passa i nomi delle metriche dell'esperimento corrente
-            experiment_name=experiment_name # Passa experiment_name
+            experiment_name=experiment_name, # Passa experiment_name
+            final_evaluation_recommendations=final_evaluation.get('final_recommendations', []) # NUOVA RIGA
         )
 
         # --- Logica di Visualizzazione (utilizza i dati calcolati) ---

@@ -137,7 +137,8 @@ class MetricsCalculator:
         per_user_relevant_items: Dict[int, List[int]],
         k_values: List[int],
         metric_names: List[str], # Nomi delle strategie/metriche e.g., ['precision_at_k', 'coverage']
-        experiment_name: Optional[str] = None # Nome dell'esperimento corrente
+        experiment_name: Optional[str] = None, # Nome dell'esperimento corrente
+        final_evaluation_recommendations: Optional[List[int]] = None # NUOVO PARAMETRO
     ) -> Tuple[Dict[int, Dict[str, Dict]], Dict[str, Dict[str, Any]]]:
         """
         Calcola tutte le metriche per ogni utente e aggrega i risultati.
@@ -147,6 +148,7 @@ class MetricsCalculator:
             k_values: Lista di valori K per Precision@k.
             metric_names: Lista dei nomi delle metriche/strategie (es. "precision_at_k", "coverage").
             experiment_name: Nome dell'esperimento corrente, se presente.
+            final_evaluation_recommendations: Lista di ID film dalle raccomandazioni finali aggregate.
         Returns:
             Tuple con (metriche calcolate per utente, metriche aggregate).
         """
@@ -177,8 +179,7 @@ class MetricsCalculator:
                     continue
                 
                 data = results_per_metric_name[metric_name]
-                recs = data.get('recommendations', [])
-                recs_ids = [m['movie_id'] for m in recs if isinstance(m, dict) and 'movie_id' in m]
+                recs_ids = data.get('recommendations', [])
                 
                 # Calcola P@k e Genre Coverage di base
                 calculated_set = self.calculate_metrics_for_recommendation_set(recs_ids, user_relevant, k_values)
@@ -217,7 +218,44 @@ class MetricsCalculator:
                 accumulator_for_aggregation[metric_name]['total_recommendations'] += len(recs_ids)
                 accumulator_for_aggregation[metric_name]['unique_recommendations'].update(recs_ids)
 
-        aggregate_calculated_metrics = self.aggregate_calculated_metrics(accumulator_for_aggregation, k_values, metric_names, experiment_name)
+        # --- NUOVA LOGICA PER METRICHE FINALI AGGREGATE ---
+        if final_evaluation_recommendations:
+            all_relevant_items_combined = set()
+            for user_id_key in per_user_relevant_items:
+                all_relevant_items_combined.update(per_user_relevant_items[user_id_key])
+            
+            final_recs_ids = final_evaluation_recommendations
+            
+            # Calcola P@k per le raccomandazioni finali aggregate
+            final_pak_scores = {
+                k: self.calculate_precision_at_k(final_recs_ids, list(all_relevant_items_combined), k) 
+                for k in k_values
+            }
+            # Calcola Genre Coverage per le raccomandazioni finali aggregate
+            final_genre_cov = self.calculate_genre_coverage(final_recs_ids)
+            
+            # Aggiungi al dizionario degli accumulatori o direttamente ai risultati aggregati
+            # Qui lo aggiungiamo a un 'final_accumulator' per coerenza con 'aggregate_calculated_metrics'
+            accumulator_for_aggregation['final'] = {
+                'precision_scores': {k: [final_pak_scores[k]] for k in k_values}, # P@k per final è un valore singolo, non una lista da mediare
+                'genre_coverage_scores': [final_genre_cov], # Anche questo
+                'average_release_year_scores': [self.calculate_average_release_year(final_recs_ids)],
+                'temporal_dispersion_scores': [self.calculate_temporal_dispersion(final_recs_ids)],
+                'genre_entropy_scores': [self.calculate_genre_entropy(final_recs_ids)],
+                'total_recommendations': len(final_recs_ids),
+                'unique_recommendations': set(final_recs_ids)
+            }
+            # Assicurati che 'final' sia in metric_names se aggregate_calculated_metrics si basa solo su di esso
+            # Oppure, gestisci 'final' separatamente in aggregate_calculated_metrics
+            if 'final' not in metric_names: # Aggiungiamo 'final' se non c'è già per la prossima fase
+                metric_names_for_aggregation = metric_names + ['final'] 
+            else:
+                metric_names_for_aggregation = metric_names
+        else:
+            metric_names_for_aggregation = metric_names
+        # --- FINE NUOVA LOGICA ---
+
+        aggregate_calculated_metrics = self.aggregate_calculated_metrics(accumulator_for_aggregation, k_values, metric_names_for_aggregation, experiment_name)
         
         print(f"[MetricsCalculator.compute_all_metrics] Returning per_user_calculated_metrics (sample for user {list(per_user_calculated_metrics.keys())[0] if per_user_calculated_metrics else 'N/A'}): {per_user_calculated_metrics.get(list(per_user_calculated_metrics.keys())[0] if per_user_calculated_metrics else None, {}).keys()}")
         print(f"[MetricsCalculator.compute_all_metrics] Returning aggregate_calculated_metrics: {aggregate_calculated_metrics.keys()}")
@@ -245,33 +283,62 @@ class MetricsCalculator:
 
             for k in k_values:
                 scores_k = current_metric_aggregation['precision_scores'].get(k, [])
-                aggregated_data_for_name['map_at_k'][k] = np.mean(scores_k) if scores_k else 0.0
+                # Per 'final', scores_k è già una lista con un singolo valore calcolato, non da mediare ulteriormente
+                # Per le altre metriche (strategie), è una lista di score per utente da mediare
+                if name == 'final':
+                    aggregated_data_for_name['map_at_k'][k] = scores_k[0] if scores_k else 0.0
+                    # Rinominiamo in 'precision_scores_agg' per 'final' come atteso dal chiamante
+                    if 'precision_scores_agg' not in aggregated_data_for_name: aggregated_data_for_name['precision_scores_agg'] = {}
+                    aggregated_data_for_name['precision_scores_agg'][k] = scores_k[0] if scores_k else 0.0
+                else:
+                    aggregated_data_for_name['map_at_k'][k] = np.mean(scores_k) if scores_k else 0.0
             
             genre_cov_scores = current_metric_aggregation['genre_coverage_scores']
-            aggregated_data_for_name['mean_genre_coverage'] = np.mean(genre_cov_scores) if genre_cov_scores else 0.0
+            if name == 'final':
+                aggregated_data_for_name['genre_coverage'] = genre_cov_scores[0] if genre_cov_scores else 0.0 # Valore singolo
+            else:
+                aggregated_data_for_name['mean_genre_coverage'] = np.mean(genre_cov_scores) if genre_cov_scores else 0.0
 
             # Aggrega metriche specifiche basate su experiment_name e name (chiave del prompt)
             print(f"  [MetricsCalculator.aggregate_calculated_metrics] Processing strategy '{name}', experiment_name '{experiment_name}': Initial aggregated_data_for_name keys: {aggregated_data_for_name.keys()}")
-            if experiment_name:
+            
+            # Gestione delle metriche aggiuntive (average_release_year, temporal_dispersion, genre_entropy)
+            # Queste metriche, quando calcolate per 'final', sono già valori singoli (in una lista di un elemento)
+            # Per le strategie di prompt, sono liste di valori per utente da mediare.
+            if name == 'final':
+                avg_year_scores = current_metric_aggregation.get('average_release_year_scores', [])
+                aggregated_data_for_name["average_release_year"] = avg_year_scores[0] if avg_year_scores else 0.0
+                
+                temp_disp_scores = current_metric_aggregation.get('temporal_dispersion_scores', [])
+                aggregated_data_for_name["temporal_dispersion"] = temp_disp_scores[0] if temp_disp_scores else 0.0
+                
+                genre_ent_scores = current_metric_aggregation.get('genre_entropy_scores', [])
+                aggregated_data_for_name["genre_entropy"] = genre_ent_scores[0] if genre_ent_scores else 0.0
+            
+            elif experiment_name: # Logica esistente per strategie di prompt
                 if experiment_name == "precision_at_k_recency" and name == "precision_at_k":
                     avg_year_scores = current_metric_aggregation.get('average_release_year_scores', [])
-                    aggregated_data_for_name["avg_release_year"] = np.mean(avg_year_scores) if avg_year_scores else 0.0
-                    print(f"    Added 'avg_release_year': {aggregated_data_for_name.get('avg_release_year')}")
+                    aggregated_data_for_name["average_release_year"] = np.mean(avg_year_scores) if avg_year_scores else 0.0
+                    print(f"    Added 'average_release_year': {aggregated_data_for_name.get('average_release_year')}")
                 
                 elif experiment_name == "coverage_temporal" and name == "coverage":
                     temp_disp_scores = current_metric_aggregation.get('temporal_dispersion_scores', [])
-                    aggregated_data_for_name["avg_temporal_dispersion"] = np.mean(temp_disp_scores) if temp_disp_scores else 0.0
-                    print(f"    Added 'avg_temporal_dispersion': {aggregated_data_for_name.get('avg_temporal_dispersion')}")
+                    aggregated_data_for_name["temporal_dispersion"] = np.mean(temp_disp_scores) if temp_disp_scores else 0.0
+                    print(f"    Added 'avg_temporal_dispersion': {aggregated_data_for_name.get('temporal_dispersion')}") # Corretto nome chiave
                 
                 elif experiment_name == "coverage_genre_balance" and name == "coverage":
                     genre_ent_scores = current_metric_aggregation.get('genre_entropy_scores', [])
-                    aggregated_data_for_name["avg_genre_entropy"] = np.mean(genre_ent_scores) if genre_ent_scores else 0.0
-                    print(f"    Added 'avg_genre_entropy': {aggregated_data_for_name.get('avg_genre_entropy')}")
+                    aggregated_data_for_name["genre_entropy"] = np.mean(genre_ent_scores) if genre_ent_scores else 0.0
+                    print(f"    Added 'avg_genre_entropy': {aggregated_data_for_name.get('genre_entropy')}") # Corretto nome chiave
 
                 elif experiment_name == "combined_serendipity_temporal" and name == "coverage":
                     temp_disp_scores = current_metric_aggregation.get('temporal_dispersion_scores', [])
-                    aggregated_data_for_name["avg_temporal_dispersion"] = np.mean(temp_disp_scores) if temp_disp_scores else 0.0
-                    print(f"    Added 'avg_temporal_dispersion' for combined_serendipity_temporal: {aggregated_data_for_name.get('avg_temporal_dispersion')}")
+                    aggregated_data_for_name["temporal_dispersion"] = np.mean(temp_disp_scores) if temp_disp_scores else 0.0
+                    print(f"    Added 'avg_temporal_dispersion' for combined_serendipity_temporal: {aggregated_data_for_name.get('temporal_dispersion')}") # Corretto nome chiave
+            
+            # Rimuovi map_at_k per la metrica 'final' se non serve e c'è precision_scores_agg
+            if name == 'final' and 'map_at_k' in aggregated_data_for_name and 'precision_scores_agg' in aggregated_data_for_name:
+                del aggregated_data_for_name['map_at_k']
             
             print(f"  [MetricsCalculator.aggregate_calculated_metrics] Strategy '{name}': Final aggregated_data_for_name keys: {aggregated_data_for_name.keys()}")
             aggregate_results[name] = aggregated_data_for_name

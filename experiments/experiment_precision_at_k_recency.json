@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-05-20T19:58:55.326296",
+  "timestamp": "2025-05-21T12:14:58.526464",
   "experiment_info": {
     "name": "precision_at_k_recency",
     "prompt_variants": {
@@ -15,12 +15,11 @@
           260,
           480,
           552,
-          1088,
           1175,
           1200,
           1263,
           1371,
-          1584,
+          1610,
           1653,
           1720,
           1732,
@@ -29,26 +28,20 @@
           2177,
           2191,
           2198,
-          2217,
           2248,
           2253,
           2270,
           2294,
-          2301,
           2322,
           2372,
-          2387,
           2431,
           2449,
-          2472,
           2504,
           2528,
           2542,
-          2566,
           2571,
           2572,
           2589,
-          2600,
           2628,
           2667,
           2685,
@@ -61,9 +54,16 @@
           2874,
           2880,
           2929,
-          2946
+          2946,
+          3007,
+          3033,
+          3061,
+          3077,
+          3082,
+          3113,
+          3147
         ],
-        "explanation": "The recommendations are based on a serendipity-focused approach, aiming to suggest movies that are less obvious but still relevant to the user's interests. The user's liked movies list shows a preference for classic films, animations, and sci-fi movies. The recommendations include a mix of older and newer films, covering various genres such as action, adventure, comedy, drama, and romance. Some notable recommendations include 'Star Wars: Episode IV - A New Hope' (1977), 'Jurassic Park' (1993), 'The Lion King' (1994), and 'The Matrix' (1999). These films are iconic, highly-rated, and align with the user's interests. The list also includes some lesser-known films like 'Delicatessen' (1991), 'The Princess Bride' (1987), and 'Groundhog Day' (1993), which offer a unique viewing experience. The ordering of the recommendations is based on a combination of factors, including the user's viewing history, genre preferences, and the overall popularity of the films."
+        "explanation": "The recommendations are based on a serendipity-focused strategy, aiming to suggest movies that are less likely to be known by the user but still relevant to their interests. The user's liked movies list shows a preference for classic films, sci-fi, and comedies. The recommended list includes a mix of older and newer films, covering various genres such as action, adventure, comedy, drama, and sci-fi. Movies like 'Star Wars: Episode IV - A New Hope' (1977), 'Jurassic Park' (1993), and 'The Matrix' (1999) are included due to their iconic status and relevance to the user's interests. Other films like 'The Big Lebowski' (1998), 'Lock, Stock & Two Smoking Barrels' (1998), and 'American Beauty' (1999) are recommended for their critical acclaim and genre diversity. The list also includes some lesser-known films like 'Delicatessen' (1991), 'The Princess Bride' (1987), and 'Strictly Ballroom' (1992), which might appeal to the user's sense of adventure and taste for unique storytelling. Overall, the recommendations aim to provide a balanced and surprising mix of films that cater to the user's preferences while introducing them to new and exciting cinematic experiences."
       },
       "coverage": {
         "metric": "coverage",
@@ -119,7 +119,7 @@
           3163,
           2371
         ],
-        "explanation": "The recommendations are based on the user's liked movies, which include a variety of genres such as sci-fi, drama, and comedy. The top recommended movie is '2001: A Space Odyssey' (1968), which is a classic sci-fi film. The list also includes other highly-rated movies from the user's liked list, such as 'Delicatessen' (1991) and 'Amadeus' (1984). The recommendations are ordered based on their release year, with older movies first, to provide a sense of temporal coverage and to introduce the user to classic films from different eras."
+        "explanation": "The recommendations are based on the user's liked movies, which include a mix of classic films, sci-fi, and drama. The top recommendations, such as '2001: A Space Odyssey' (1968) and 'Delicatessen' (1991), are chosen for their similarity in genre and themes to the user's liked movies. The list also includes movies from the same directors or actors as the user's liked movies, such as 'Alien' (1979) and 'The Terminator' (1984). The ordering of the recommendations is based on the temporal coverage strategy, which prioritizes movies from different time periods to provide a diverse range of recommendations. The explanation for the ordering is that the system aims to provide a mix of classic and modern films, as well as a range of genres, to cater to the user's diverse tastes."
       }
     },
     "4169": {
@@ -129,12 +129,13 @@
           1720,
           1580,
           1653,
-          1584,
           1876,
           1917,
+          1920,
           1921,
+          1476,
+          1499,
           2003,
-          1965,
           2014,
           2039,
           2041,
@@ -144,7 +145,6 @@
           2117,
           2141,
           2148,
-          2153,
           2177,
           2198,
           2217,
@@ -166,7 +166,6 @@
           2572,
           2628,
           2685,
-          2693,
           2788,
           2797,
           2811,
@@ -175,9 +174,10 @@
           2929,
           2946,
           3033,
-          3041
+          3041,
+          3077
         ],
-        "explanation": "The recommendations are based on a combination of factors including the user's liked and disliked movies, and the movie catalog. The system aims to optimize for precision at K (in this case, K=50) with a focus on serendipity, which means suggesting movies that are not only relevant but also unexpected and novel. The recommendations are ordered according to their predicted relevance and novelty, with the most relevant and novel movies first. The explanation for these specific 50 movies being chosen and ordered is based on their genres, release years, and other attributes that match the user's preferences, while also introducing some unexpected and diverse options to enhance the discovery experience."
+        "explanation": "The recommendations are based on a combination of factors including genre, year, and user preferences. The user's liked movies suggest a preference for action, adventure, and sci-fi films, while their disliked movies indicate a dislike for romantic comedies and dramas. The recommended movies are ordered according to their relevance to the user's preferences, with more recent films and those with multiple genres that match the user's preferences given higher priority. The list includes a mix of popular and lesser-known films to provide a balance of familiarity and discovery."
       },
       "coverage": {
         "metric": "coverage",
@@ -233,7 +233,7 @@
           1903,
           1917
         ],
-        "explanation": "The recommendations are based on the user's liked and disliked movies. Since the user has liked a variety of movies across different genres and years, the recommendations are also diverse. The list includes a mix of action, adventure, comedy, drama, horror, romance, sci-fi, and thriller movies from different decades. The ordering of the recommendations is based on the frequency of genres and years in the user's liked movies, with more recent movies and popular genres given higher priority. The explanation for the specific 50 movies chosen is that they represent a balanced and diverse set of recommendations that cater to the user's broad tastes in movies."
+        "explanation": "To optimize for temporal coverage, the system aims to recommend movies that span across different years, ensuring a diverse range of release dates. The strategy involves selecting movies from various decades, prioritizing those that are less represented in the user's liked or disliked lists. This approach enhances the discovery of new content and minimizes the repetition of similar movie recommendations based on release year alone."
       }
     },
     "1680": {
@@ -241,39 +241,8 @@
         "metric": "precision_at_k",
         "recommendations": [
           260,
-          329,
-          340,
-          351,
-          355,
-          552,
-          614,
-          688,
-          711,
-          736,
-          780,
-          836,
-          837,
-          924,
-          1036,
-          1078,
-          1088,
-          1127,
-          1172,
-          1175,
-          1188,
-          1197,
           1198,
-          1200,
-          1205,
-          1214,
           1240,
-          1263,
-          1265,
-          1294,
-          1307,
-          1320,
-          1356,
-          1367,
           1371,
           1372,
           1373,
@@ -289,53 +258,56 @@
           1701,
           1720,
           1732,
-          1747
+          1747,
+          1821,
+          1866,
+          1876,
+          1917,
+          1920,
+          1921,
+          1965,
+          2003,
+          2004,
+          2014,
+          2039,
+          2041,
+          2054,
+          2081,
+          2085,
+          2116,
+          2117,
+          2141,
+          2148,
+          2153,
+          2177,
+          2191,
+          2198,
+          2217,
+          2248,
+          2253,
+          2270,
+          2294,
+          2301,
+          2311,
+          2322
         ],
-        "explanation": "To generate the recommendations, I first analyzed the user's liked and disliked movies to understand their preferences. I noticed that the user tends to like movies from various genres, including action, adventure, comedy, drama, and sci-fi. They also seem to prefer movies from the 80s and 90s. Based on this information, I selected movies from the catalog that match these preferences and are not already liked or disliked by the user. I prioritized movies with genres that are commonly liked by the user and ensured that the recommendations are diverse and cover a range of years. The recommendations are ordered based on their relevance to the user's preferences, with the most relevant movies first."
+        "explanation": "To optimize for PRECISION@K with a focus on SERENDIPITY, the system aims to recommend movies that are not only likely to be of interest to the user but also unexpected or novel. Given the user's profile, which includes a list of liked and disliked movies, the system will analyze the genres, directors, and release years of these movies to identify patterns and preferences. The recommendations will then be ordered based on their predicted relevance and novelty, ensuring that the top recommendations are both accurate and surprising. The system will also consider the diversity of the recommendations to avoid suggesting similar movies and to provide a broader range of options. In this case, the recommendations are based on a combination of collaborative filtering and content-based filtering techniques, which take into account the user's past behavior and the attributes of the movies themselves."
       },
       "coverage": {
         "metric": "coverage",
         "recommendations": [
           2085,
           2141,
-          1198,
-          1200,
-          1240,
-          1371,
-          1372,
-          1373,
-          2367,
+          2100,
           2470,
           2471,
-          2100,
-          2116,
-          2117,
-          1036,
-          1078,
-          1088,
-          1127,
-          1172,
-          1188,
-          1197,
-          1198,
-          1205,
-          1214,
-          1240,
-          1263,
-          1320,
-          1356,
-          1367,
-          1371,
-          1372,
-          1373,
-          1408,
-          1476,
-          1499,
-          1544,
-          1580,
-          1584,
+          2367,
+          2003,
+          2004,
+          2039,
+          2041,
+          2081,
           1610,
-          1615,
           1653,
           1732,
           1747,
@@ -345,9 +317,37 @@
           1876,
           1917,
           1920,
-          1921
+          1921,
+          1965,
+          2003,
+          2470,
+          2471,
+          2367,
+          2004,
+          2039,
+          2041,
+          2081,
+          1610,
+          1653,
+          1732,
+          1747,
+          1821,
+          1855,
+          1862,
+          1876,
+          1917,
+          1920,
+          1921,
+          1965,
+          2571,
+          2600,
+          2687,
+          2693,
+          2722,
+          2740,
+          2761
         ],
-        "explanation": "To optimize for temporal coverage, the system recommends movies from a diverse range of years. The list includes classic films from the 1960s, 1970s, and 1980s, as well as more recent releases from the 1990s and 2000s. The recommendations cover various genres, such as action, adventure, comedy, drama, horror, and sci-fi, to cater to different user preferences. By including a mix of old and new movies, the system aims to provide a comprehensive and engaging viewing experience for the user."
+        "explanation": "The recommendations are based on the user's liked and disliked movies. Since the user has liked a variety of movies across different genres and decades, the recommendations aim to provide a diverse set of movies that cater to different tastes. The list includes classic films like '101 Dalmatians' (1961) and 'The Lord of the Rings' (1978), as well as more recent releases like 'The Matrix' (1999) and 'eXistenZ' (1999). The recommendations also consider the user's interest in sci-fi, action, and comedy movies, with films like 'Star Trek: First Contact' (1996), 'Men in Black' (1997), and 'The Big Lebowski' (1998) making the list. Additionally, the recommendations include movies from different directors and actors that the user may not have seen before, but are likely to enjoy based on their viewing history. Overall, the goal is to provide a list of 50 movies that are engaging, diverse, and tailored to the user's unique preferences."
       }
     }
   },
@@ -356,12 +356,11 @@
       260,
       480,
       552,
-      1088,
       1175,
       1200,
       1263,
       1371,
-      1584,
+      1610,
       1653,
       1720,
       1732,
@@ -370,26 +369,20 @@
       2177,
       2191,
       2198,
-      2217,
       2248,
       2253,
       2270,
       2294,
-      2301,
       2322,
       2372,
-      2387,
       2431,
       2449,
-      2472,
       2504,
       2528,
       2542,
-      2566,
       2571,
       2572,
       2589,
-      2600,
       2628,
       2667,
       2685,
@@ -402,10 +395,17 @@
       2874,
       2880,
       2929,
-      2946
+      2946,
+      3007,
+      3033,
+      3061,
+      3077,
+      3082,
+      3113,
+      3147
     ],
-    "justification": "The final recommendations are based on a combination of precision@k and coverage metrics. The precision@k metric is given more weight for top recommendations, ensuring that the most relevant movies are suggested first. The coverage metric is used to ensure that a diverse range of genres and years are included in the recommendations. The ordering of the movies is based on their predicted relevance and novelty, with the most relevant and novel movies first. The recommendations include a mix of classic films and more recent releases, covering various genres such as action, adventure, comedy, drama, and romance.",
-    "trade_offs": "The trade-off between precision@k and coverage metrics is considered, with precision@k being the primary consideration for top recommendations. The system aims to balance the two metrics, ensuring that the recommendations are both relevant and diverse. The use of precision@k as the primary metric for top recommendations may result in some highly relevant but less diverse recommendations, while the use of coverage as a secondary metric ensures that a range of genres and years are included. The system also considers the ordering of the movies within each metric's list, with higher ranked items being more important."
+    "justification": "The final recommendations are based on a combination of precision@k and coverage metrics. Precision@k is given more weight for top recommendations, while coverage is considered to ensure a diverse set of movies. The recommendations are ordered based on their predicted relevance and novelty, with more recent films and those with multiple genres that match the user's preferences given higher priority. The list includes a mix of popular and lesser-known films to provide a balance of familiarity and discovery.",
+    "trade_offs": "The trade-off between precision@k and coverage is considered, with precision@k being the primary consideration for top recommendations. The system aims to provide a balance between recommending movies that are likely to be of interest to the user and providing a diverse set of movies that cater to different tastes. The ordering of the recommendations is based on the temporal coverage strategy, which prioritizes movies from different time periods to provide a diverse range of recommendations."
   },
   "metrics": {
     "per_user": {
@@ -416,9 +416,10 @@
             "5": 0.0,
             "10": 0.0,
             "20": 0.0,
-            "50": 0.02
+            "50": 0.04
           },
-          "genre_coverage": 0.8888888888888888
+          "genre_coverage": 0.8888888888888888,
+          "average_release_year": 1986.9
         },
         "coverage": {
           "precision_scores": {
@@ -440,7 +441,8 @@
             "20": 0.05,
             "50": 0.04
           },
-          "genre_coverage": 0.8888888888888888
+          "genre_coverage": 0.8888888888888888,
+          "average_release_year": 1989.04
         },
         "coverage": {
           "precision_scores": {
@@ -457,22 +459,23 @@
         "precision_at_k": {
           "precision_scores": {
             "1": 0.0,
-            "5": 0.0,
-            "10": 0.0,
-            "20": 0.05,
-            "50": 0.08
+            "5": 0.2,
+            "10": 0.1,
+            "20": 0.1,
+            "50": 0.06
           },
-          "genre_coverage": 0.8333333333333334
+          "genre_coverage": 0.8888888888888888,
+          "average_release_year": 1988.9
         },
         "coverage": {
           "precision_scores": {
             "1": 0.0,
             "5": 0.0,
-            "10": 0.1,
+            "10": 0.0,
             "20": 0.05,
             "50": 0.06
           },
-          "genre_coverage": 0.8333333333333334
+          "genre_coverage": 0.8888888888888888
         }
       }
     },
@@ -480,34 +483,45 @@
       "precision_at_k": {
         "map_at_k": {
           "1": 0.0,
-          "5": 0.06666666666666667,
-          "10": 0.03333333333333333,
-          "20": 0.03333333333333333,
+          "5": 0.13333333333333333,
+          "10": 0.06666666666666667,
+          "20": 0.05000000000000001,
           "50": 0.04666666666666667
         },
-        "mean_genre_coverage": 0.8703703703703703
+        "mean_genre_coverage": 0.8888888888888888,
+        "num_recommendations": 150,
+        "num_unique_recommendations": 92,
+        "average_release_year": 1988.28,
+        "total_item_coverage_system": 0.0453257790368272
       },
       "coverage": {
         "map_at_k": {
           "1": 0.0,
           "5": 0.0,
-          "10": 0.03333333333333333,
+          "10": 0.0,
           "20": 0.016666666666666666,
           "50": 0.03333333333333333
         },
-        "mean_genre_coverage": 0.851851851851852
+        "mean_genre_coverage": 0.8703703703703703,
+        "num_recommendations": 150,
+        "num_unique_recommendations": 119
       },
       "final": {
+        "mean_genre_coverage": 0.0,
+        "num_recommendations": 50,
+        "num_unique_recommendations": 50,
         "precision_scores_agg": {
           "1": 0.0,
           "5": 0.2,
-          "10": 0.2,
-          "20": 0.15,
-          "50": 0.18
+          "10": 0.3,
+          "20": 0.2,
+          "50": 0.22
         },
-        "genre_coverage": 0.8888888888888888
-      },
-      "total_item_coverage": 0.045583311872263714
+        "genre_coverage": 0.8888888888888888,
+        "average_release_year": 1986.9,
+        "temporal_dispersion": 16.311039206623224,
+        "genre_entropy": 3.4020474156962903
+      }
     }
   },
   "per_user_held_out_items": {
