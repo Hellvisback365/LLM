@@ -48,9 +48,6 @@ async def main():
     if run_experiments_flag:
         print("\n=== Running Prompt Variant Experiments ===\n")
         precision_variants = {
-            "precision_at_k_serendipity": (
-                "You are an expert recommendation system that optimizes for PRECISION@K with focus on SERENDIPITY..."
-            ),
             "precision_at_k_recency": (
                 "You are an expert recommendation system that optimizes for PRECISION@K with focus on RECENCY..."
             )
@@ -72,11 +69,6 @@ async def main():
         for name, prompt in coverage_variants.items():
             variant_dict = {"coverage": prompt, "precision_at_k": PROMPT_VARIANTS["precision_at_k"]}
             experiment_tasks.append(recommender.generate_recommendations_with_custom_prompt(variant_dict, name))
-        combined = {
-            "precision_at_k": precision_variants["precision_at_k_serendipity"],
-            "coverage": coverage_variants["coverage_temporal"]
-        }
-        experiment_tasks.append(recommender.generate_recommendations_with_custom_prompt(combined, "combined_serendipity_temporal"))
         
         try:
              print(f"Avvio di {len(experiment_tasks)} esperimenti...")

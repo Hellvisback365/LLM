@@ -187,22 +187,36 @@ class MetricsCalculator:
                 
                 # Calcola metriche specifiche basate su experiment_name e metric_name (chiave del prompt)
                 if experiment_name:
+                    # [SPIEGAZIONE PER TESI]: Calcoliamo average_release_year (metrica per la recency)
+                    # solo quando l'esperimento è "precision_at_k_recency" E stiamo analizzando
+                    # i risultati del "ramo" precision_at_k. Questo riflette la scelta strategica
+                    # di applicare il focus sulla recency primariamente all'agente di precision,
+                    # come discusso per la giustificazione del setup sperimentale.
                     if experiment_name == "precision_at_k_recency" and metric_name == "precision_at_k":
                         calculated_set["average_release_year"] = self.calculate_average_release_year(recs_ids)
                         accumulator_for_aggregation[metric_name]['average_release_year_scores'].append(calculated_set["average_release_year"])
                         print(f"    Added 'average_release_year': {calculated_set.get('average_release_year')}")
                     
+                    # [SPIEGAZIONE PER TESI]: Calcoliamo temporal_dispersion (metrica per la "copertura temporale")
+                    # solo quando l'esperimento è "coverage_temporal" (o uno combinato che include "temporal" per la coverage)
+                    # E stiamo analizzando i risultati del "ramo" coverage.
+                    # Questo aspetto è legato alla diversificazione dell'output della coverage su diverse epoche.
                     elif experiment_name == "coverage_temporal" and metric_name == "coverage":
                         calculated_set["temporal_dispersion"] = self.calculate_temporal_dispersion(recs_ids)
                         accumulator_for_aggregation[metric_name]['temporal_dispersion_scores'].append(calculated_set["temporal_dispersion"])
                         print(f"    Added 'temporal_dispersion': {calculated_set.get('temporal_dispersion')}")
                     
+                    # [SPIEGAZIONE PER TESI]: Calcoliamo genre_entropy (metrica per il "bilanciamento di genere")
+                    # solo quando l'esperimento è "coverage_genre_balance" E stiamo analizzando
+                    # i risultati del "ramo" coverage.
+                    # Questo aspetto è legato alla diversificazione dei generi nell'output della coverage.
                     elif experiment_name == "coverage_genre_balance" and metric_name == "coverage":
                         calculated_set["genre_entropy"] = self.calculate_genre_entropy(recs_ids)
                         accumulator_for_aggregation[metric_name]['genre_entropy_scores'].append(calculated_set["genre_entropy"])
                         print(f"    Added 'genre_entropy': {calculated_set.get('genre_entropy')}")
                     
-                    # Per combined_serendipity_temporal, la parte "temporal" si applica al prompt di "coverage"
+                    # [SPIEGAZIONE PER TESI]: Per l'esperimento combinato "combined_serendipity_temporal",
+                    # la parte "temporal" (misurata da temporal_dispersion) si applica al prompt di "coverage".
                     elif experiment_name == "combined_serendipity_temporal" and metric_name == "coverage":
                         calculated_set["temporal_dispersion"] = self.calculate_temporal_dispersion(recs_ids)
                         accumulator_for_aggregation[metric_name]['temporal_dispersion_scores'].append(calculated_set["temporal_dispersion"])

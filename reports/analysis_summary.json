@@ -1,12 +1,12 @@
 {
-  "timestamp": "2025-05-21T12:15:30.440244",
-  "total_experiments": 5,
-  "unique_final_recommendations": 120,
+  "timestamp": "2025-05-26T12:38:06.677401",
+  "total_experiments": 3,
+  "unique_final_recommendations": 78,
   "metrics_analyzed": [
     "precision_at_k",
     "coverage"
   ],
-  "prompt_variant_groups": 5,
+  "prompt_variant_groups": 3,
   "reports_generated_status": {
     "html": "Report HTML salvato in reports\\experiment_report.html",
     "markdown": "Report Markdown salvato in reports\\experiment_report.md",
