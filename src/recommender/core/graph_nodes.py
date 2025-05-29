@@ -117,17 +117,17 @@ class RecommenderGraphNodes:
         # Genera cataloghi specifici per metrica usando RAG
         catalog_precision = None
         catalog_coverage = None
-        catalog_json_fallback = self.recommender.get_optimized_catalog(limit=300)
+        catalog_json_fallback = self.recommender.get_optimized_catalog(limit=150)
         
         if self.recommender.rag:
             try:
                 # Catalogo per Precision@k
                 print(f"RAG PRE-CALL: Tentativo chiamata similarity_search per precision_at_k per utente {user_id}...")
                 start_rag_p = time.time()
-                cat_p = self.recommender.rag.similarity_search(profile_summary, k=300, metric_focus="precision_at_k", user_id=int(user_id))
+                cat_p = self.recommender.rag.similarity_search(profile_summary, k=150, metric_focus="precision_at_k", user_id=int(user_id))
                 end_rag_p = time.time()
                 print(f"RAG POST-CALL: Tempo impiegato per precision_at_k: {end_rag_p - start_rag_p:.2f} secondi. Risultati: {len(cat_p) if cat_p is not None else 'None'}")
-                catalog_precision = json.dumps(cat_p[:300], ensure_ascii=False) if cat_p else catalog_json_fallback
+                catalog_precision = json.dumps(cat_p[:150], ensure_ascii=False) if cat_p else catalog_json_fallback
                 print(f"RAG: Generato catalogo specifico per precision_at_k (size: {len(cat_p) if cat_p else 'Fallback'}) (Successo)")
             except Exception as e:
                 print(f"!!! ERRORE RAG (precision_at_k) user {user_id}: {type(e).__name__} - {e} !!!")
@@ -139,10 +139,10 @@ class RecommenderGraphNodes:
                 coverage_query = "diversi generi film non ancora visti dall'utente" + profile_summary 
                 print(f"RAG PRE-CALL: Tentativo chiamata similarity_search per coverage per utente {user_id}...")
                 start_rag_c = time.time()
-                cat_c = self.recommender.rag.similarity_search(coverage_query, k=300, metric_focus="coverage", user_id=int(user_id))
+                cat_c = self.recommender.rag.similarity_search(coverage_query, k=150, metric_focus="coverage", user_id=int(user_id))
                 end_rag_c = time.time()
                 print(f"RAG POST-CALL: Tempo impiegato per coverage: {end_rag_c - start_rag_c:.2f} secondi. Risultati: {len(cat_c) if cat_c is not None else 'None'}")
-                catalog_coverage = json.dumps(cat_c[:300], ensure_ascii=False) if cat_c else catalog_json_fallback
+                catalog_coverage = json.dumps(cat_c[:150], ensure_ascii=False) if cat_c else catalog_json_fallback
                 print(f"RAG: Generato catalogo specifico per coverage (size: {len(cat_c) if cat_c else 'Fallback'}) (Successo)")
             except Exception as e:
                 print(f"!!! ERRORE RAG (coverage) user {user_id}: {type(e).__name__} - {e} !!!")

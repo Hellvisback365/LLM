@@ -84,11 +84,11 @@ COMMON_LLM_PARAMS = {
     "openai_api_base": "https://openrouter.ai/api/v1",
     "openai_api_key": OPENROUTER_API_KEY,
     "temperature": 0.2,
-    "max_tokens": 2500, # AUMENTATO da 2500 per permettere output più lunghi (50 recs + spiegazione)
+    "max_tokens": 4000, # AUMENTATO da 2500 per permettere output più lunghi (50 recs + spiegazione)
 }
 
 
-LLM_MODEL_ID = "meta-llama/llama-3.3-70b-instruct"
+LLM_MODEL_ID = "meta-llama/llama-3.2-3b-instruct"
 
 # Setup LLM con retry
 llm = ChatOpenAI(model=LLM_MODEL_ID, **COMMON_LLM_PARAMS)
