@@ -111,7 +111,7 @@ class RecommenderSystem:
     Sistema di raccomandazione unificato basato su LangGraph.
     """
     
-    def __init__(self, specific_user_ids: List[int] = [4277, 4169, 1680], model_id: str = LLM_MODEL_ID):
+    def __init__(self, specific_user_ids: List[int] = [4277, 4169, 1680, 1], model_id: str = LLM_MODEL_ID):
         self.specific_user_ids = specific_user_ids
         self.model_id = model_id
         self.llm = llm
@@ -709,18 +709,24 @@ class RecommenderSystem:
                     map_scores = agg_data.get("map_at_k", {})
                     mean_genre_cov = agg_data.get("mean_genre_coverage", 0.0)
                     map_str = ", ".join([f"MAP@{k}={score:.4f}" for k, score in map_scores.items()])
-                    
-                    # Visualizza le nuove metriche aggregate se presenti
+                      # Visualizza le nuove metriche aggregate se presenti
                     avg_year_agg_str = ""
                     if "average_release_year" in agg_data: # Nome chiave per aggregato
                         avg_year_agg_str = f", AvgYear={agg_data['average_release_year']:.1f}"
+                    elif "avg_year" in agg_data: # Nome chiave alternativo per agente aggregatore
+                        avg_year_agg_str = f", AvgYear={agg_data['avg_year']:.1f}"
                     
                     temp_disp_agg_str = ""
                     if "temporal_dispersion" in agg_data: # Nome chiave per aggregato
                         temp_disp_agg_str = f", TempDisp={agg_data['temporal_dispersion']:.2f}"
+                    elif "avg_temporal_dispersion" in agg_data: # Nome chiave alternativo per agente aggregatore
+                        temp_disp_agg_str = f", TempDisp={agg_data['avg_temporal_dispersion']:.2f}"
                         
                     genre_entropy_agg_str = ""
                     if "genre_entropy" in agg_data: # Nome chiave per aggregato
+                        genre_entropy_agg_str = f", GenreEntropy={agg_data['genre_entropy']:.4f}"
+                    elif "avg_genre_entropy" in agg_data: # Nome chiave alternativo per agente aggregatore
+                        genre_entropy_agg_str = f", GenreEntropy={agg_data['avg_genre_entropy']:.4f}"
                         genre_entropy_agg_str = f", GenreEntropy={agg_data['genre_entropy']:.4f}"
                         
                     print(f"  {label}: {map_str}, Mean GenreCoverage={mean_genre_cov:.4f}{avg_year_agg_str}{temp_disp_agg_str}{genre_entropy_agg_str}")

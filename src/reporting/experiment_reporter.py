@@ -265,6 +265,11 @@ class ExperimentReporter:
                     map_at_k_prec = prec_metrics.get('map_at_k', {})
                     score_prec_at_10 = map_at_k_prec.get('10', map_at_k_prec.get(10, 0.0))
                     html += f"<tr><td>MAP@10 ({prec_strategy_name})</td><td>{score_prec_at_10:.4f}</td></tr>"
+                    # Nuove metriche aggregate per la strategia di precision
+                    if 'avg_year' in prec_metrics or 'average_release_year' in prec_metrics:
+                        avg_year_val = prec_metrics.get('avg_year', prec_metrics.get('average_release_year', 0.0))
+                        html += f"<tr><td>AvgYear ({prec_strategy_name})</td><td>{avg_year_val:.1f}</td></tr>"
+                    html += f"<tr><td>MAP@10 ({prec_strategy_name})</td><td>{score_prec_at_10:.4f}</td></tr>"
                     # Nuove metriche aggregate per la strategia di precisione
                     if 'avg_release_year' in prec_metrics:
                         html += f"<tr><td>AvgYear ({prec_strategy_name})</td><td>{prec_metrics['avg_release_year']:.1f}</td></tr>"
@@ -277,9 +282,12 @@ class ExperimentReporter:
                     score_cov_at_10 = map_at_k_cov.get('10', map_at_k_cov.get(10, 0.0))
                     html += f"<tr><td>MAP@10 ({cov_strategy_name})</td><td>{score_cov_at_10:.4f}</td></tr>"
                     # Nuove metriche aggregate per la strategia di coverage
-                    if 'avg_temporal_dispersion' in cov_metrics:
-                        html += f"<tr><td>AvgTempDisp ({cov_strategy_name})</td><td>{cov_metrics['avg_temporal_dispersion']:.2f}</td></tr>"
-                    if 'avg_genre_entropy' in cov_metrics:
+                    if 'avg_temporal_dispersion' in cov_metrics or 'temporal_dispersion' in cov_metrics:
+                        temp_disp_val = cov_metrics.get('avg_temporal_dispersion', cov_metrics.get('temporal_dispersion', 0.0))
+                        html += f"<tr><td>AvgTempDisp ({cov_strategy_name})</td><td>{temp_disp_val:.2f}</td></tr>"
+                    if 'avg_genre_entropy' in cov_metrics or 'genre_entropy' in cov_metrics:
+                        genre_ent_val = cov_metrics.get('avg_genre_entropy', cov_metrics.get('genre_entropy', 0.0))
+                        html += f"<tr><td>AvgGenreEntropy ({cov_strategy_name})</td><td>{genre_ent_val:.4f}</td></tr>"
                         html += f"<tr><td>AvgGenreEntropy ({cov_strategy_name})</td><td>{cov_metrics['avg_genre_entropy']:.4f}</td></tr>"
 
                 # Final Recommendations (se disponibili, potrebbero non avere MAP@k diretto qui)
@@ -556,21 +564,33 @@ class ExperimentReporter:
     def _format_specific_metrics_html(self, metrics_dict: Dict) -> str:
         """Helper per formattare metriche specifiche aggiuntive per HTML."""
         parts = []
-        if "average_release_year" in metrics_dict:
-            parts.append(f"AvgYear={metrics_dict['average_release_year']:.1f}")
-        if "temporal_dispersion" in metrics_dict:
-            parts.append(f"TempDisp={metrics_dict['temporal_dispersion']:.2f}")
-        if "genre_entropy" in metrics_dict:
-            parts.append(f"GenreEntr={metrics_dict['genre_entropy']:.4f}")
+        # Controlla sia i nomi originali che quelli aggregati
+        avg_year = metrics_dict.get("average_release_year") or metrics_dict.get("avg_year")
+        if avg_year:
+            parts.append(f"AvgYear={avg_year:.1f}")
+        
+        temp_disp = metrics_dict.get("temporal_dispersion") or metrics_dict.get("avg_temporal_dispersion")
+        if temp_disp:
+            parts.append(f"TempDisp={temp_disp:.2f}")
+        
+        genre_entropy = metrics_dict.get("genre_entropy") or metrics_dict.get("avg_genre_entropy")
+        if genre_entropy:
+            parts.append(f"GenreEntr={genre_entropy:.4f}")
         return ", " + ", ".join(parts) if parts else ""
 
     def _format_specific_metrics_md(self, metrics_dict: Dict) -> str:
         """Helper per formattare metriche specifiche aggiuntive per Markdown."""
         parts = []
-        if "average_release_year" in metrics_dict:
-            parts.append(f"AvgYear: {metrics_dict['average_release_year']:.1f}")
-        if "temporal_dispersion" in metrics_dict:
-            parts.append(f"TempDisp: {metrics_dict['temporal_dispersion']:.2f}")
-        if "genre_entropy" in metrics_dict:
-            parts.append(f"GenreEntr: {metrics_dict['genre_entropy']:.4f}")
+        # Controlla sia i nomi originali che quelli aggregati
+        avg_year = metrics_dict.get("average_release_year") or metrics_dict.get("avg_year")
+        if avg_year:
+            parts.append(f"AvgYear: {avg_year:.1f}")
+        
+        temp_disp = metrics_dict.get("temporal_dispersion") or metrics_dict.get("avg_temporal_dispersion")
+        if temp_disp:
+            parts.append(f"TempDisp: {temp_disp:.2f}")
+        
+        genre_entropy = metrics_dict.get("genre_entropy") or metrics_dict.get("avg_genre_entropy")
+        if genre_entropy:
+            parts.append(f"GenreEntr: {genre_entropy:.4f}")
         return "; ".join(parts) if parts else "-"

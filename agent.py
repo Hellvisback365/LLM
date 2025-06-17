@@ -26,7 +26,7 @@ load_dotenv()
 # ----------------------------
 async def main():
     print("\n=== Starting Unified Recommender System (via agent.py) ===\n")
-    recommender = RecommenderSystem(specific_user_ids=[4277, 4169, 1680])
+    recommender = RecommenderSystem(specific_user_ids=[4277, 4169, 1680, 1])
     try:
          recommender.initialize_system(force_reload_data=False, force_recreate_vector_store=False)
     except Exception as e:

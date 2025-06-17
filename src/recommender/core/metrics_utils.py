@@ -250,15 +250,22 @@ class MetricsCalculator:
             
             # Aggiungi al dizionario degli accumulatori o direttamente ai risultati aggregati
             # Qui lo aggiungiamo a un 'final_accumulator' per coerenza con 'aggregate_calculated_metrics'
-            accumulator_for_aggregation['final'] = {
+            final_accumulator = {
                 'precision_scores': {k: [final_pak_scores[k]] for k in k_values}, # P@k per final è un valore singolo, non una lista da mediare
                 'genre_coverage_scores': [final_genre_cov], # Anche questo
-                'average_release_year_scores': [self.calculate_average_release_year(final_recs_ids)],
-                'temporal_dispersion_scores': [self.calculate_temporal_dispersion(final_recs_ids)],
-                'genre_entropy_scores': [self.calculate_genre_entropy(final_recs_ids)],
                 'total_recommendations': len(final_recs_ids),
                 'unique_recommendations': set(final_recs_ids)
             }
+            
+            # Aggiungi metriche specifiche solo per gli esperimenti appropriati
+            if experiment_name == "precision_at_k_recency":
+                final_accumulator['average_release_year_scores'] = [self.calculate_average_release_year(final_recs_ids)]
+            elif experiment_name == "coverage_temporal":
+                final_accumulator['temporal_dispersion_scores'] = [self.calculate_temporal_dispersion(final_recs_ids)]
+            elif experiment_name == "coverage_genre_balance":
+                final_accumulator['genre_entropy_scores'] = [self.calculate_genre_entropy(final_recs_ids)]
+            
+            accumulator_for_aggregation['final'] = final_accumulator
             # Assicurati che 'final' sia in metric_names se aggregate_calculated_metrics si basa solo su di esso
             # Oppure, gestisci 'final' separatamente in aggregate_calculated_metrics
             if 'final' not in metric_names: # Aggiungiamo 'final' se non c'è già per la prossima fase
@@ -320,14 +327,16 @@ class MetricsCalculator:
             # Queste metriche, quando calcolate per 'final', sono già valori singoli (in una lista di un elemento)
             # Per le strategie di prompt, sono liste di valori per utente da mediare.
             if name == 'final':
-                avg_year_scores = current_metric_aggregation.get('average_release_year_scores', [])
-                aggregated_data_for_name["average_release_year"] = avg_year_scores[0] if avg_year_scores else 0.0
-                
-                temp_disp_scores = current_metric_aggregation.get('temporal_dispersion_scores', [])
-                aggregated_data_for_name["temporal_dispersion"] = temp_disp_scores[0] if temp_disp_scores else 0.0
-                
-                genre_ent_scores = current_metric_aggregation.get('genre_entropy_scores', [])
-                aggregated_data_for_name["genre_entropy"] = genre_ent_scores[0] if genre_ent_scores else 0.0
+                # Solo per esperimenti specifici, aggiungiamo le metriche corrispondenti
+                if experiment_name == "precision_at_k_recency":
+                    avg_year_scores = current_metric_aggregation.get('average_release_year_scores', [])
+                    aggregated_data_for_name["average_release_year"] = avg_year_scores[0] if avg_year_scores else 0.0
+                elif experiment_name == "coverage_temporal":
+                    temp_disp_scores = current_metric_aggregation.get('temporal_dispersion_scores', [])
+                    aggregated_data_for_name["temporal_dispersion"] = temp_disp_scores[0] if temp_disp_scores else 0.0
+                elif experiment_name == "coverage_genre_balance":
+                    genre_ent_scores = current_metric_aggregation.get('genre_entropy_scores', [])
+                    aggregated_data_for_name["genre_entropy"] = genre_ent_scores[0] if genre_ent_scores else 0.0
             
             elif experiment_name: # Logica esistente per strategie di prompt
                 if experiment_name == "precision_at_k_recency" and name == "precision_at_k":
@@ -343,12 +352,29 @@ class MetricsCalculator:
                 elif experiment_name == "coverage_genre_balance" and name == "coverage":
                     genre_ent_scores = current_metric_aggregation.get('genre_entropy_scores', [])
                     aggregated_data_for_name["genre_entropy"] = np.mean(genre_ent_scores) if genre_ent_scores else 0.0
-                    print(f"    Added 'avg_genre_entropy': {aggregated_data_for_name.get('genre_entropy')}") # Corretto nome chiave
+                    # Aggiungi anche ai nomi chiave per l'agente aggregatore
+                    aggregated_data_for_name["avg_genre_entropy"] = aggregated_data_for_name["genre_entropy"]
+                    print(f"    Added 'genre_entropy' and 'avg_genre_entropy': {aggregated_data_for_name.get('genre_entropy')}")
+
+                elif experiment_name == "coverage_temporal" and name == "coverage":
+                    temp_disp_scores = current_metric_aggregation.get('temporal_dispersion_scores', [])
+                    aggregated_data_for_name["temporal_dispersion"] = np.mean(temp_disp_scores) if temp_disp_scores else 0.0
+                    # Aggiungi anche ai nomi chiave per l'agente aggregatore
+                    aggregated_data_for_name["avg_temporal_dispersion"] = aggregated_data_for_name["temporal_dispersion"]
+                    print(f"    Added 'temporal_dispersion' and 'avg_temporal_dispersion': {aggregated_data_for_name.get('temporal_dispersion')}")
+
+                elif experiment_name == "precision_at_k_recency" and name == "precision_at_k":
+                    avg_year_scores = current_metric_aggregation.get('average_release_year_scores', [])
+                    aggregated_data_for_name["average_release_year"] = np.mean(avg_year_scores) if avg_year_scores else 0.0
+                    # Aggiungi anche ai nomi chiave per l'agente aggregatore  
+                    aggregated_data_for_name["avg_year"] = aggregated_data_for_name["average_release_year"]
+                    print(f"    Added 'average_release_year' and 'avg_year': {aggregated_data_for_name.get('average_release_year')}")
 
                 elif experiment_name == "combined_serendipity_temporal" and name == "coverage":
                     temp_disp_scores = current_metric_aggregation.get('temporal_dispersion_scores', [])
                     aggregated_data_for_name["temporal_dispersion"] = np.mean(temp_disp_scores) if temp_disp_scores else 0.0
-                    print(f"    Added 'avg_temporal_dispersion' for combined_serendipity_temporal: {aggregated_data_for_name.get('temporal_dispersion')}") # Corretto nome chiave
+                    aggregated_data_for_name["avg_temporal_dispersion"] = aggregated_data_for_name["temporal_dispersion"]
+                    print(f"    Added 'temporal_dispersion' and 'avg_temporal_dispersion' for combined_serendipity_temporal: {aggregated_data_for_name.get('temporal_dispersion')}")
             
             # Rimuovi map_at_k per la metrica 'final' se non serve e c'è precision_scores_agg
             if name == 'final' and 'map_at_k' in aggregated_data_for_name and 'precision_scores_agg' in aggregated_data_for_name:
@@ -372,4 +398,52 @@ class MetricsCalculator:
         if target_key_for_item_coverage not in aggregate_results: aggregate_results[target_key_for_item_coverage] = {}
         aggregate_results[target_key_for_item_coverage]['total_item_coverage_system'] = total_item_coverage
             
-        return aggregate_results 
+        return aggregate_results
+
+    def calculate_aggregated_metrics_for_agent(self, accumulator: Dict[str, Dict[str, Any]], metric_names: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Calcola le metriche aggregate per l'agente aggregatore, indipendentemente dal nome dell'esperimento.
+        Questa funzione estende l'aggregazione standard per includere sempre GenreEntropy, TempDisp, e AvgYear
+        quando i dati sono disponibili.
+        
+        Args:
+            accumulator: Accumulatore con i dati per ogni metrica
+            metric_names: Lista dei nomi delle metriche/strategie
+            
+        Returns:
+            Dict con le metriche aggregate estese per l'agente aggregatore
+        """
+        aggregated_results = {}
+        
+        for name in metric_names:
+            current_metric_aggregation = accumulator.get(name)
+            if not current_metric_aggregation:
+                continue
+                
+            aggregated_data = {}
+            
+            # Media delle metriche temporali (AvgYear) - applica sempre se disponibile
+            avg_year_scores = current_metric_aggregation.get('average_release_year_scores', [])
+            if avg_year_scores:
+                aggregated_data["average_release_year"] = np.mean(avg_year_scores)
+                aggregated_data["avg_year"] = aggregated_data["average_release_year"]  # Nome alternativo per agente aggregatore
+                print(f"    [AgentAggregator] Added AvgYear for '{name}': {aggregated_data['average_release_year']:.1f}")
+            
+            # Media della dispersione temporale (TempDisp) - applica sempre se disponibile  
+            temp_disp_scores = current_metric_aggregation.get('temporal_dispersion_scores', [])
+            if temp_disp_scores:
+                aggregated_data["temporal_dispersion"] = np.mean(temp_disp_scores)
+                aggregated_data["avg_temporal_dispersion"] = aggregated_data["temporal_dispersion"]  # Nome alternativo per agente aggregatore
+                print(f"    [AgentAggregator] Added TempDisp for '{name}': {aggregated_data['temporal_dispersion']:.2f}")
+            
+            # Media dell'entropia di genere (GenreEntropy) - applica sempre se disponibile
+            genre_entropy_scores = current_metric_aggregation.get('genre_entropy_scores', [])
+            if genre_entropy_scores:
+                aggregated_data["genre_entropy"] = np.mean(genre_entropy_scores)
+                aggregated_data["avg_genre_entropy"] = aggregated_data["genre_entropy"]  # Nome alternativo per agente aggregatore
+                print(f"    [AgentAggregator] Added GenreEntropy for '{name}': {aggregated_data['genre_entropy']:.4f}")
+            
+            if aggregated_data:  # Solo aggiungi se ci sono dati da aggregare
+                aggregated_results[name] = aggregated_data
+        
+        return aggregated_results
