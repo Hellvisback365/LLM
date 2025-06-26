@@ -22,18 +22,26 @@ from src.reporting.experiment_reporter import ExperimentReporter
 load_dotenv()
 
 # ----------------------------
+# Configurazione batch processing
+# ----------------------------
+# Configurabile via variabile d'ambiente per processare molti utenti
+# Ridotto il batch size per evitare errori di ricorsione e memoria
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "10"))  # Default: 10 utenti per batch
+print(f"Configurazione batch processing: {BATCH_SIZE} utenti per batch")
+
+# ----------------------------
 # 1. Main (Modificato per usare RecommenderSystem dal core)
 # ----------------------------
 async def main():
     print("\n=== Starting Unified Recommender System (via agent.py) ===\n")
-    recommender = RecommenderSystem(specific_user_ids=[4277, 4169, 1680, 1])
+    recommender = RecommenderSystem()
     try:
          recommender.initialize_system(force_reload_data=False, force_recreate_vector_store=False)
     except Exception as e:
          print(f"Errore fatale inizializzazione: {e}. Impossibile continuare."); return
          
     try:
-        result = await recommender.generate_standard_recommendations()
+        result = await recommender.generate_standard_recommendations(batch_size=BATCH_SIZE)
         print("\n=== Standard Recommendation Process Complete ===")
         if result and isinstance(result, dict) and result.get('final_evaluation'):
              print(f"Final recommendations: {result['final_evaluation'].get('final_recommendations', 'N/A')}")

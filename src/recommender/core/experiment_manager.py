@@ -31,23 +31,25 @@ class ExperimentManager:
         """
         self.recommender = recommender_system
         
-    async def run_experiment(self, prompt_variants: Dict, experiment_name: str = "custom_experiment") -> Tuple[Dict, str]:
+    async def run_experiment(self, prompt_variants: Dict, experiment_name: str = "custom_experiment", batch_size: int = 50) -> Tuple[Dict, str]:
         """
         Esegue un esperimento con prompt customizzati.
         
         Args:
             prompt_variants: Dizionario con le varianti di prompt da utilizzare
             experiment_name: Nome dell'esperimento per il salvataggio dei risultati
+            batch_size: Numero di utenti da processare per batch (default: 50)
             
         Returns:
             Tuple[Dict, str]: Risultati dell'esperimento e percorso del file salvato
         """
-        print(f"\n=== Esecuzione Esperimento: {experiment_name} ===")
+        print(f"\n=== Esecuzione Esperimento: {experiment_name} (batch_size: {batch_size}) ===")
         
         # Esegui la pipeline con le varianti custom
         metric_results, final_evaluation, per_user_held_out_items = await self.recommender.run_recommendation_pipeline(
             use_prompt_variants=prompt_variants,
-            experiment_name=experiment_name
+            experiment_name=experiment_name,
+            batch_size=batch_size
         )
         
         # Calcola metriche
@@ -83,17 +85,22 @@ class ExperimentManager:
             
         return result, filename
         
-    async def run_standard_pipeline(self) -> Dict:
+    async def run_standard_pipeline(self, batch_size: int = 50) -> Dict:
         """
         Esegue la pipeline standard di raccomandazione.
+        
+        Args:
+            batch_size: Numero di utenti da processare per batch (default: 50)
         
         Returns:
             Dict: Risultati della pipeline standard
         """
-        print("\n=== Esecuzione Pipeline Standard ===")
+        print(f"\n=== Esecuzione Pipeline Standard (batch_size: {batch_size}) ===")
         
         # Esegui la pipeline con le varianti standard
-        metric_results, final_evaluation, per_user_held_out_items = await self.recommender.run_recommendation_pipeline()
+        metric_results, final_evaluation, per_user_held_out_items = await self.recommender.run_recommendation_pipeline(
+            batch_size=batch_size
+        )
         
         # Calcola metriche
         metrics = self.recommender.calculate_and_display_metrics(

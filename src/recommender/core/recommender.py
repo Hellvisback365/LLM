@@ -83,8 +83,8 @@ if not OPENROUTER_API_KEY:
 COMMON_LLM_PARAMS = {
     "openai_api_base": "https://openrouter.ai/api/v1",
     "openai_api_key": OPENROUTER_API_KEY,
-    "temperature": 0.2,
-    "max_tokens": 4000, # AUMENTATO da 2500 per permettere output più lunghi (50 recs + spiegazione)
+    "temperature": 0.1,  # Ridotto per output più consistente
+    "max_tokens": 2000,  # Ridotto per evitare errori di lunghezza
 }
 
 
@@ -111,7 +111,7 @@ class RecommenderSystem:
     Sistema di raccomandazione unificato basato su LangGraph.
     """
     
-    def __init__(self, specific_user_ids: List[int] = [4277, 4169, 1680, 1], model_id: str = LLM_MODEL_ID):
+    def __init__(self, specific_user_ids: List[int] = None, model_id: str = LLM_MODEL_ID):
         self.specific_user_ids = specific_user_ids
         self.model_id = model_id
         self.llm = llm
@@ -138,9 +138,9 @@ class RecommenderSystem:
                 profiles_file = os.path.join(processed_dir, 'user_profiles.csv')
                 movies_file = os.path.join(processed_dir, 'movies.csv')
 
-                if not force_reload and all(os.path.exists(f) for f in [ratings_file, profiles_file, movies_file]):
+                if not force_reload and all(os.path.exists(f) for f in [profiles_file, movies_file]):
                     print("Caricamento dati da file elaborati...")
-                    self.filtered_ratings = pd.read_csv(ratings_file)
+                    # self.filtered_ratings = pd.read_csv(ratings_file)
                     self.user_profiles = pd.read_csv(profiles_file, index_col=0) 
                     if self.user_profiles is not None:
                          self.user_profiles.index.name = 'user_id'
@@ -151,7 +151,7 @@ class RecommenderSystem:
                     self.movies = load_movies()
                     self.filtered_ratings = filter_users_by_specific_users(ratings, self.specific_user_ids)
                     self.user_profiles = create_user_profiles(self.filtered_ratings)
-                    self.filtered_ratings.to_csv(ratings_file, index=False)
+                    # self.filtered_ratings.to_csv(ratings_file, index=False)
                     self.user_profiles.to_csv(profiles_file, index=True) 
                     self.movies.to_csv(movies_file, index=False)
                 
@@ -218,13 +218,10 @@ class RecommenderSystem:
         # Definire il punto di ingresso
         workflow.set_entry_point("initialize")
         
-        # Definire i flussi
+        # Definire i flussi - usa un approccio sequenziale invece di parallelo per evitare problemi di sincronizzazione
         workflow.add_edge("initialize", "prepare_user_data")
         workflow.add_edge("prepare_user_data", "run_precision_metric")
-        workflow.add_edge("prepare_user_data", "run_coverage_metric")
-        
-        # Rimuovo i bordi condizionali e aggiungo bordi diretti a collect_metric_results
-        workflow.add_edge("run_precision_metric", "collect_metric_results")
+        workflow.add_edge("run_precision_metric", "run_coverage_metric")
         workflow.add_edge("run_coverage_metric", "collect_metric_results")
         
         # Dopo aver raccolto i risultati, decidere se passare all'utente successivo o concludere
@@ -240,7 +237,7 @@ class RecommenderSystem:
         # L'evaluator conclude il grafo
         workflow.add_edge("evaluate_all_results", END)
         
-        # Compila il grafo
+        # Compila il grafo con un limite di ricorsione più alto
         self.recommender_graph = workflow.compile()
         
         print("LangGraph inizializzato.")
@@ -263,13 +260,6 @@ class RecommenderSystem:
         print(f"DEBUG _run_metric_tool_internal: metric_desc = {repr(metric_desc)}") 
         
         prompt_template = create_metric_prompt(metric_name, metric_desc)
-        # print(f"DEBUG _run_metric_tool_internal: prompt_template type = {type(prompt_template)}") 
-        # if hasattr(prompt_template, 'template'):
-        #     print(f"DEBUG _run_metric_tool_internal: prompt_template.template (first 100 chars) = {repr(prompt_template.template[:100])}") 
-        # print(f"DEBUG _run_metric_tool_internal: repr(prompt_template) = {repr(prompt_template)}")
-        # print(f"DEBUG _run_metric_tool_internal: prompt_template.input_variables = {prompt_template.input_variables if hasattr(prompt_template, 'input_variables') else 'N/A'}")
-
-        structured_llm = self.llm.with_structured_output(RecommendationOutput)
 
         for attempt in range(max_attempts):
             try: 
@@ -277,218 +267,181 @@ class RecommenderSystem:
                 try: 
                     print(f"DEBUG _run_metric_tool_internal: Attempting prompt_template.format() for metric '{metric_name}', user {user_id}, attempt {attempt + 1}") 
                     prompt_str = prompt_template.format(catalog=catalog, user_profile=user_profile)
-                    # print(f"DEBUG _run_metric_tool_internal: prompt_template.format() successful. prompt_str (first 100 chars) = {repr(prompt_str[:100])}") 
                 except Exception as format_exception:
                     print(f"!!! ERROR during prompt_template.format() for metric '{metric_name}', user {user_id}, attempt {attempt + 1} !!!")
                     print(f"  Exception type: {type(format_exception)}")
-                    # ... (rest of format_exception logging)
                     raise format_exception 
 
-                print(f"Attempt {attempt+1}/{max_attempts} invoking LLM with structured_output for metric: {metric_name} (user {user_id if user_id is not None else 'N/A'}).")
+                print(f"Attempt {attempt+1}/{max_attempts} invoking LLM for metric: {metric_name} (user {user_id if user_id is not None else 'N/A'}).")
                 
-                recommendation_obj = await structured_llm.ainvoke(prompt_str)
+                # Usa il normale llm.ainvoke invece di structured_output per gestire meglio il markdown
+                response = await self.llm.ainvoke(prompt_str)
+                raw_content = getattr(response, 'content', str(response))
                 
-                print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): LLM structured_output call successful. Object type: {type(recommendation_obj)}")
-                return {"metric": metric_name, **recommendation_obj.dict()}
+                # Pulisci la risposta rimuovendo markdown
+                cleaned_content = self._clean_llm_json_response(raw_content)
+                
+                # Parsing manuale del JSON
+                import json
+                try:
+                    parsed_json = json.loads(cleaned_content)
+                    # Valida usando il schema Pydantic
+                    recommendation_obj = RecommendationOutput(**parsed_json)
+                    print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): JSON parsing successful.")
+                    return {"metric": metric_name, **recommendation_obj.dict()}
+                except json.JSONDecodeError as e:
+                    print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): JSON decode error - {str(e)[:300]}...")
+                    if attempt == max_attempts - 1:
+                        print(f"Generating fallback response for metric {metric_name} (user {user_id}) after JSON decode failures")
+                        return self._generate_fallback_recommendation(metric_name, user_id)
+                    continue
                 
             except ValidationError as e:
                 user_id_str = str(user_id) if user_id is not None else 'N/A'
                 error_message_raw = str(e)
-                error_message_escaped = error_message_raw.replace('{', '{{').replace('}', '}}')
                 print(f"DEBUG metric {metric_name} (user {user_id_str}, attempt {attempt+1}): Pydantic ValidationError - {error_message_raw[:500]}...")
-                error_message_for_llm = (
-                    f"Your previous response for metric '{metric_name}' failed Pydantic validation. "
-                    f"This means the output structure was incorrect, data types didn't match, or list lengths were wrong. "
-                    f"The system expects fields like 'recommendations' (a list of EXACTLY {NUM_RECOMMENDATIONS} integers) and 'explanation' (a string). "
-                    f"Validation errors reported: {error_message_escaped}. "
-                    f"Please carefully review the required schema and regenerate your response to match it precisely."
-                )
+                
+                # Se è l'ultimo tentativo, restituisci un fallback
+                if attempt == max_attempts - 1:
+                    print(f"Generating fallback response for metric {metric_name} (user {user_id_str}) after validation failures")
+                    return self._generate_fallback_recommendation(metric_name, user_id)
+                
+                # Altrimenti continua al prossimo tentativo
+                continue
             
             except RateLimitError as e:
                 print(f"Rate limit error in attempt {attempt+1} for metric {metric_name} (user {user_id if user_id is not None else 'N/A'}): {e}. Retrying...")
                 if attempt < max_attempts - 1:
-                    # Consider adding a sleep here if not handled by a global tenacity configuration for self.llm
-                    # For example: await asyncio.sleep( (2**attempt) )
+                    import asyncio
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
                     continue 
-                else: # Last attempt failed due to RateLimitError
+                else:
                     print(f"All attempts failed for {metric_name} (user {user_id if user_id is not None else 'N/A'}) due to RateLimitError: {e}")
-                    error_message_for_llm = f"Repeated rate limit errors. Last error: {str(e)}" # Used for placeholder if falls through
-                    # Fall through to return placeholder
+                    return self._generate_fallback_recommendation(metric_name, user_id)
 
             except Exception as e: 
                 user_id_str = str(user_id) if user_id is not None else 'N/A'
                 error_message_raw = str(e)
-                error_message_escaped = error_message_raw.replace('{', '{{').replace('}', '}}')
                 print(f"DEBUG metric {metric_name} (user {user_id_str}, attempt {attempt+1}): General Exception - {type(e).__name__}: {error_message_raw[:500]}...")
-                error_message_for_llm = (
-                    f"An unexpected error occurred while generating the response for metric '{metric_name}'. "
-                    f"The error was: {type(e).__name__} - {error_message_escaped}. "
-                    f"This could be due to the model not strictly following instructions or an internal parsing/network issue. "
-                    f"Please ensure your output strictly adheres to the required schema (fields: 'recommendations' with {NUM_RECOMMENDATIONS} integers, 'explanation' as string)."
-                )
+                
+                # Se è l'ultimo tentativo, restituisci un fallback
+                if attempt == max_attempts - 1:
+                    print(f"Generating fallback response for metric {metric_name} (user {user_id_str}) after general errors")
+                    return self._generate_fallback_recommendation(metric_name, user_id)
+                
+                # Altrimenti continua al prossimo tentativo
+                continue
 
-            if attempt < max_attempts - 1:
-                print(f"Error in attempt {attempt+1} for metric {metric_name} (user {user_id if user_id is not None else 'N/A'}), retrying with feedback...")
-                current_template_str = prompt_template.template
-                insertion_point = "<|start_header_id|>assistant<|end_header_id|>\n"
-                feedback_prompt_segment = (
-                    f"<|eot_id|>\n<|start_header_id|>user<|end_header_id|>\n"
-                    f"# IMPORTANT FEEDBACK ON PREVIOUS ATTEMPT (Attempt {attempt + 1}):\n"
-                    f"{error_message_for_llm}\n"
-                    f"Please regenerate your response, ensuring it strictly matches the Pydantic schema for RecommendationOutput, "
-                    f"and contains exactly {NUM_RECOMMENDATIONS} recommendations.\n"
-                    f"<|eot_id|>\n{insertion_point}"
-                )
-                if insertion_point in current_template_str:
-                     updated_template_str = current_template_str.replace(insertion_point, feedback_prompt_segment, 1)
-                else: 
-                    updated_template_str = (
-                        f"{current_template_str}\n<|start_header_id|>user<|end_header_id|>\n"
-                        f"# IMPORTANT FEEDBACK ON PREVIOUS ATTEMPT (Attempt {attempt + 1}):\n{error_message_for_llm}\n"
-                        f"Please regenerate your response, ensuring it strictly matches the Pydantic schema for RecommendationOutput, "
-                        f"and contains exactly {NUM_RECOMMENDATIONS} recommendations.\n"
-                        f"<|eot_id|>\n<|start_header_id|>assistant<|end_header_id|>\n"
-                    )
-                prompt_template = PromptTemplate(input_variables=["catalog", "user_profile"], template=updated_template_str)
-                continue 
-            else: 
-                final_error_msg_for_placeholder = locals().get('error_message_for_llm', 'Unknown error after max attempts.')
-                print(f"All attempts failed for {metric_name} (user {user_id if user_id is not None else 'N/A'}): {final_error_msg_for_placeholder}")
-                placeholder_recs = [0] * NUM_RECOMMENDATIONS 
-                return {
-                    "metric": metric_name, 
-                    "recommendations": placeholder_recs, 
-                    "explanation": f"Error after {max_attempts} attempts for user {user_id if user_id is not None else 'N/A'}: {final_error_msg_for_placeholder}. Returning placeholder."
-                }
+        # Fallback finale se tutti i tentativi falliscono
+        return self._generate_fallback_recommendation(metric_name, user_id)
+
+    def _generate_fallback_recommendation(self, metric_name: str, user_id: Optional[int] = None) -> Dict:
+        """Genera una raccomandazione di fallback quando l'LLM fallisce."""
+        import random
+        
+        # Genera raccomandazioni casuali dai film disponibili
+        if self.movies is not None and not self.movies.empty:
+            movie_ids = self.movies['movie_id'].tolist()
+            fallback_recommendations = random.sample(movie_ids, min(NUM_RECOMMENDATIONS, len(movie_ids)))
+        else:
+            # Fallback estremo con ID casuali
+            fallback_recommendations = list(range(1, NUM_RECOMMENDATIONS + 1))
+        
+        return {
+            "metric": metric_name,
+            "recommendations": fallback_recommendations,
+            "explanation": f"Fallback recommendations generated due to LLM errors for metric {metric_name} (user {user_id}). These are random selections and should not be used for evaluation."
+        }
 
     async def _evaluate_recommendations_internal(self, all_recommendations_str: str, catalog_str: str) -> Dict:
         """Versione interna di evaluate_recommendations_tool che può essere chiamata dai nodi."""
         max_attempts = 3
         
         print(f"DEBUG _evaluate_recommendations_internal: Called.") 
-        original_eval_prompt_template = create_evaluation_prompt()
-        # print(f"DEBUG _evaluate_recommendations_internal: original_eval_prompt_template type = {type(original_eval_prompt_template)}")
-        # if hasattr(original_eval_prompt_template, 'template'):
-        #     print(f"DEBUG _evaluate_recommendations_internal: original_eval_prompt_template.template (first 100 chars) = {repr(original_eval_prompt_template.template[:100])}")
-        
-        structured_llm = self.llm.with_structured_output(EvaluationOutput)
-        current_prompt_template_for_eval = original_eval_prompt_template
+        prompt_template = create_evaluation_prompt()
 
         for attempt in range(max_attempts):
             try: 
-                prompt_str = None 
-                try: 
-                    print(f"DEBUG _evaluate_recommendations_internal: Attempting current_prompt_template_for_eval.format(), attempt {attempt + 1}") 
-                    # The create_evaluation_prompt() includes a {feedback_block} placeholder.
-                    # For the first attempt, feedback_block is effectively empty.
-                    # For retries, current_prompt_template_for_eval will have feedback incorporated.
-                    prompt_str = current_prompt_template_for_eval.format(
-                        all_recommendations=all_recommendations_str,
-                        catalog=catalog_str,
-                        feedback_block="" # Empty for first attempt if placeholder exists and is not removed by feedback injection.
-                                          # Feedback injection logic below overwrites the template string anyway.
-                    )
-                    # print(f"DEBUG _evaluate_recommendations_internal: current_prompt_template_for_eval.format() successful. prompt_str (first 100 chars) = {repr(prompt_str[:100])}") 
-                except Exception as format_exception:
-                    print(f"!!! ERROR during current_prompt_template_for_eval.format() for evaluation, attempt {attempt + 1} !!!")
-                    # ... (log details)
-                    raise format_exception 
-
-                print(f"Attempt {attempt+1}/{max_attempts} invoking LLM with structured_output for evaluation.")
-                evaluation_obj = await structured_llm.ainvoke(prompt_str)
+                print(f"DEBUG _evaluate_recommendations_internal: Attempting prompt format, attempt {attempt + 1}") 
+                prompt_str = prompt_template.format(
+                    all_recommendations=all_recommendations_str,
+                    catalog=catalog_str,
+                    feedback_block=""
+                )
                 
-                print(f"DEBUG evaluation (attempt {attempt+1}): LLM structured_output call successful. Object type: {type(evaluation_obj)}")
-                return evaluation_obj.dict()
+                print(f"Attempt {attempt+1}/{max_attempts} invoking LLM for evaluation.")
+                
+                # Usa llm.ainvoke standard e pulizia manuale del JSON per gestire output con markdown
+                response = await self.llm.ainvoke(prompt_str)
+                raw_content = getattr(response, 'content', str(response))
+                
+                cleaned_content = self._clean_llm_json_response(raw_content)
+                
+                import json
+                try:
+                    parsed_json = json.loads(cleaned_content)
+                    evaluation_obj = EvaluationOutput(**parsed_json)
+                    print(f"DEBUG evaluation (attempt {attempt+1}): JSON parsing and validation successful.")
+                    return evaluation_obj.dict()
+                except json.JSONDecodeError as e:
+                    print(f"DEBUG evaluation (attempt {attempt+1}): JSON decode error - {str(e)[:300]}...")
+                    if attempt == max_attempts - 1:
+                        print(f"Generating fallback evaluation after JSON decode failures")
+                        return self._generate_fallback_evaluation()
+                    continue
             
             except ValidationError as e:
                 error_message_raw = str(e)
-                error_message_escaped = error_message_raw.replace('{', '{{').replace('}', '}}')
                 print(f"DEBUG evaluation (attempt {attempt+1}): Pydantic ValidationError - {error_message_raw[:500]}...")
-                error_message_for_llm = (
-                    f"Your previous evaluation response failed Pydantic validation. "
-                    f"This means the output structure was incorrect or data types didn't match. "
-                    f"Required schema expects fields like 'final_recommendations' (a list of EXACTLY {NUM_RECOMMENDATIONS} integers), "
-                    f"'justification' (string), and 'trade_offs' (string). "
-                    f"Validation errors reported: {error_message_escaped}. "
-                    f"Please carefully review the schema and regenerate your response to match it precisely."
-                )
+                
+                # Se è l'ultimo tentativo, restituisci un fallback
+                if attempt == max_attempts - 1:
+                    print(f"Generating fallback evaluation after validation failures")
+                    return self._generate_fallback_evaluation()
+                
+                continue
 
             except RateLimitError as e:
                 print(f"Rate limit error in evaluation attempt {attempt+1}: {e}. Retrying...")
                 if attempt < max_attempts - 1:
-                    # await asyncio.sleep( (2**attempt) ) # Example
+                    import asyncio
+                    await asyncio.sleep(2 ** attempt)
                     continue
                 else:
                     print(f"All evaluation attempts failed due to RateLimitError after {max_attempts} attempts: {e}")
-                    error_message_for_llm = f"Repeated rate limit errors during evaluation. Last error: {str(e)}"
-                    # Fall through
+                    return self._generate_fallback_evaluation()
 
             except Exception as e:
                 error_message_raw = str(e)
-                error_message_escaped = error_message_raw.replace('{', '{{').replace('}', '}}')
                 print(f"DEBUG evaluation (attempt {attempt+1}): General Exception - {type(e).__name__}: {error_message_raw[:500]}...")
-                error_message_for_llm = (
-                    f"An unexpected error occurred while generating the evaluation response. "
-                    f"The error was: {type(e).__name__} - {error_message_escaped}. "
-                    f"This could be due to the model not strictly following instructions or an internal issue. "
-                    f"Please ensure your output strictly adheres to the required EvaluationOutput schema."
-                )
-
-            if attempt < max_attempts - 1:
-                print(f"Error in evaluation attempt {attempt+1}, retrying with feedback...")
                 
-                # Modify the template for the next attempt.
-                # The original evaluation prompt template from create_evaluation_prompt() might have a {feedback_block}.
-                # We will insert our detailed error_message_for_llm there.
-                base_template_for_retry_str = original_eval_prompt_template.template
+                # Se è l'ultimo tentativo, restituisci un fallback
+                if attempt == max_attempts - 1:
+                    print(f"Generating fallback evaluation after general errors")
+                    return self._generate_fallback_evaluation()
                 
-                feedback_insertion_text = (
-                    f"\n\n# IMPORTANT FEEDBACK ON PREVIOUS ATTEMPT (Attempt {attempt + 1} for Evaluation):\n"
-                    f"{error_message_for_llm}\n"
-                    f"Please regenerate your response, ensuring it strictly matches the Pydantic schema for EvaluationOutput, "
-                    f"and contains exactly {NUM_RECOMMENDATIONS} final recommendations.\n"
-                )
-
-                if "{feedback_block}" in base_template_for_retry_str:
-                    updated_template_str = base_template_for_retry_str.replace("{feedback_block}", feedback_insertion_text, 1)
-                else: # Fallback: append before assistant marker if no explicit feedback_block
-                    assistant_marker = "<|start_header_id|>assistant<|end_header_id|>\n"
-                    user_marker_for_insertion = "<|start_header_id|>user<|end_header_id|>\n" # A common place to insert before assistant
-                    
-                    # Try to insert before the final assistant call in a structured way
-                    # This is a simplified heuristic
-                    if assistant_marker in base_template_for_retry_str:
-                        parts = base_template_for_retry_str.split(assistant_marker)
-                        if len(parts) > 1 : # Ensure assistant_marker is not at the very end
-                           # Insert before the last occurrence of assistant_marker
-                           prefix = assistant_marker.join(parts[:-1])
-                           suffix = parts[-1]
-                           # Try to put it after a user turn if possible
-                           if user_marker_for_insertion in prefix:
-                               last_user_turn_parts = prefix.rsplit(user_marker_for_insertion, 1)
-                               updated_template_str = last_user_turn_parts[0] + user_marker_for_insertion + (last_user_turn_parts[1] if len(last_user_turn_parts)>1 else "") + f"<|eot_id|>\n<|start_header_id|>user<|end_header_id|>\n{feedback_insertion_text}<|eot_id|>\n" + assistant_marker + suffix
-                           else: # simple append before assistant_marker
-                               updated_template_str = prefix + f"<|eot_id|>\n<|start_header_id|>user<|end_header_id|>\n{feedback_insertion_text}<|eot_id|>\n" + assistant_marker + suffix
-                        else: # assistant_marker is at the end or not meaningfully splittable this way
-                           updated_template_str = base_template_for_retry_str.replace(assistant_marker, f"<|eot_id|>\n<|start_header_id|>user<|end_header_id|>\n{feedback_insertion_text}<|eot_id|>\n{assistant_marker}", 1)
-                    else: # Absolute fallback: just append the feedback
-                        updated_template_str = base_template_for_retry_str + f"\n<|start_header_id|>user<|end_header_id|>\n{feedback_insertion_text}<|eot_id|>\n<|start_header_id|>assistant<|end_header_id|>\n"
-
-
-                current_prompt_template_for_eval = PromptTemplate(
-                    input_variables=original_eval_prompt_template.input_variables,
-                    template=updated_template_str
-                )
                 continue
-            else: 
-                final_error_msg_for_placeholder = locals().get('error_message_for_llm', 'Unknown error after max evaluation attempts.')
-                print(f"All evaluation attempts failed: {final_error_msg_for_placeholder}")
-                placeholder_recs = [0] * NUM_RECOMMENDATIONS
-                return {
-                    "final_recommendations": placeholder_recs,
-                    "justification": f"Error after {max_attempts} evaluation attempts: {final_error_msg_for_placeholder}. Returning placeholder.",
-                    "trade_offs": "Non disponibili a causa di errori."
-                }
+
+        # Fallback finale se tutti i tentativi falliscono
+        return self._generate_fallback_evaluation()
+
+    def _generate_fallback_evaluation(self) -> Dict:
+        """Genera una valutazione di fallback quando l'LLM fallisce."""
+        import random
+        
+        # Genera raccomandazioni casuali dai film disponibili
+        if self.movies is not None and not self.movies.empty:
+            movie_ids = self.movies['movie_id'].tolist()
+            fallback_recommendations = random.sample(movie_ids, min(NUM_RECOMMENDATIONS, len(movie_ids)))
+        else:
+            # Fallback estremo con ID casuali
+            fallback_recommendations = list(range(1, NUM_RECOMMENDATIONS + 1))
+        
+        return {
+            "final_recommendations": fallback_recommendations,
+            "justification": "Fallback evaluation generated due to LLM errors. These are random selections and should not be used for actual evaluation.",
+            "trade_offs": "N/A - Fallback response due to system errors"
+        }
 
     def initialize_system(self, force_reload_data: bool = False, force_recreate_vector_store: bool = False) -> None:
         """Metodo pubblico per inizializzare o reinizializzare il sistema."""
@@ -504,28 +457,40 @@ class RecommenderSystem:
         
         print("=== Sistema Inizializzato ===")
 
-    def get_optimized_catalog(self, limit: int = 100) -> str:
-        """Ottiene il catalogo ottimizzato per l'LLM."""
+    def get_optimized_catalog(self, limit: int = 50) -> str:
+        """Ottiene il catalogo ottimizzato per l'LLM con limite molto ridotto per stabilità."""
         catalog_path = os.path.join('data', 'processed', 'optimized_catalog.json')
         try:
             if os.path.exists(catalog_path):
-                with open(catalog_path, 'r', encoding='utf-8') as f: catalog_data = json.load(f)
-                return json.dumps(catalog_data[:limit] if limit else catalog_data, ensure_ascii=False)
+                with open(catalog_path, 'r', encoding='utf-8') as f: 
+                    catalog_data = json.load(f)
+                # Riduce drasticamente il catalogo per evitare errori LLM
+                limited_data = catalog_data[:limit] if limit else catalog_data
+                return json.dumps(limited_data, ensure_ascii=False, separators=(',', ':'))
             elif self.rag:
                  print("Catalogo ottimizzato non trovato, genero da RAG...")
                  if self.movies is None or self.movies.empty: self._load_datasets()
                  movies_list = self.movies.to_dict('records')
                  return self.rag.get_optimized_catalog_for_llm(movies_list, limit=limit)
-            else: print("Attenzione: RAG non inizializzato."); return "[]"
-        except Exception as e: print(f"Errore get_optimized_catalog: {e}"); return "[]"
+            else: 
+                print("Attenzione: RAG non inizializzato.")
+                # Fallback a un catalogo molto piccolo
+                if self.movies is not None and not self.movies.empty:
+                    fallback_movies = self.movies.head(30).to_dict('records')
+                    return json.dumps(fallback_movies, ensure_ascii=False, separators=(',', ':'))
+                return "[]"
+        except Exception as e: 
+            print(f"Errore get_optimized_catalog: {e}")
+            return "[]"
              
-    async def run_recommendation_pipeline(self, use_prompt_variants: Dict = None, experiment_name: Optional[str] = None) -> Tuple[Dict, Dict, Dict[int, List[int]]]:
+    async def run_recommendation_pipeline(self, use_prompt_variants: Dict = None, experiment_name: Optional[str] = None, batch_size: int = 50) -> Tuple[Dict, Dict, Dict[int, List[int]]]:
         """
         Esegue l'intera pipeline di raccomandazione per tutti gli utenti specificati
-        utilizzando LangGraph per l'orchestrazione.
+        utilizzando LangGraph per l'orchestrazione con processamento a batch.
         Args:
             use_prompt_variants: Dizionario di prompt da usare per questa run.
             experiment_name: Nome dell'esperimento, se applicabile.
+            batch_size: Numero di utenti da processare per ogni batch (default: 50).
         """
         # MODIFICATO: verifica che LangGraph sia inizializzato anziché l'agente
         if not self.recommender_graph:
@@ -539,47 +504,129 @@ class RecommenderSystem:
         
         start_all_users = time.time()
         
-        # Stato iniziale per il grafo LangGraph
-        initial_state = {
-            "user_id": None,
-            "user_profile": None,
-            "catalog_precision": None,
-            "catalog_coverage": None,
-            "metric_results": {},
-            "metric_tasks_completed": 0,
-            "expected_metrics": len(self.current_prompt_variants),
-            "all_user_results": {},
-            "current_user_index": 0,
-            "user_ids": self.specific_user_ids,
-            "final_evaluation": None,
-            "held_out_items": {},
-            "error": None
-        }
+        # Recupera tutti gli utenti da processare
+        all_user_ids = self.specific_user_ids if self.specific_user_ids else list(self.user_profiles.index)
+        total_users = len(all_user_ids)
         
-        try:
-            # Esegui il grafo LangGraph
-            print("\n=== Avvio pipeline con LangGraph ===")
-            final_state = await self.recommender_graph.ainvoke(initial_state)
+        print(f"\n=== Avvio pipeline con LangGraph (BATCH MODE) ===")
+        print(f"Utenti totali: {total_users}")
+        print(f"Dimensione batch: {batch_size}")
+        
+        # Carica checkpoint se disponibile
+        last_batch, all_user_metric_results, all_held_out_items = self._load_latest_checkpoint()
+        if last_batch > 0:
+            print(f"Riprendendo dal batch {last_batch + 1} (già processati {len(all_user_metric_results)} utenti)")
+        else:
+            all_user_metric_results = {}
+            all_held_out_items = {}
+        
+        final_evaluation = None
+        
+        # Determina da quale batch iniziare
+        start_batch_index = last_batch if last_batch > 0 else 0
+        
+        # Processamento a batch
+        for batch_start in range(start_batch_index * batch_size, total_users, batch_size):
+            batch_end = min(batch_start + batch_size, total_users)
+            batch_user_ids = all_user_ids[batch_start:batch_end]
+            batch_num = (batch_start // batch_size) + 1
+            total_batches = (total_users + batch_size - 1) // batch_size
             
-            # Estrai i risultati dal final_state
-            user_metric_results = final_state["all_user_results"]
-            final_evaluation = final_state["final_evaluation"]
-            per_user_held_out_items = final_state["held_out_items"]
+            print(f"\n--- BATCH {batch_num}/{total_batches}: utenti {batch_start+1}-{batch_end} ---")
+            print(f"DEBUG: batch_user_ids = {batch_user_ids[:5]}...")  # Mostra i primi 5 user IDs
             
-        except Exception as e:
-            print(f"Errore nell'esecuzione del grafo LangGraph: {e}")
-            traceback.print_exc()
-            user_metric_results = {}
-            final_evaluation = {"final_recommendations": [], "justification": f"Error: {e}", "trade_offs": "N/A"}
-            per_user_held_out_items = {}
+            # Stato iniziale per questo batch - DEVE avere tutti i campi di RecommenderState
+            batch_state = {
+                # Informazioni sull'utente corrente
+                "user_id": None,
+                "user_profile": None,
+                
+                # Cataloghi specifici per metrica
+                "catalog_precision": None,
+                "catalog_coverage": None,
+                
+                # Risultati delle metriche (separate keys per evitare concurrent updates)
+                "precision_at_k_result": None,
+                "coverage_result": None,
+                "precision_completed": False,  # Flag per tracking completion
+                "coverage_completed": False,   # Flag per tracking completion
+                "metric_results": {},
+                "metric_tasks_completed": 0,
+                "expected_metrics": len(self.current_prompt_variants),
+                
+                # Gestione multi-utente
+                "current_user_index": 0,  # Sempre 0 per ogni batch (gli user_ids sono già slice)
+                "batch_user_ids": batch_user_ids,  # Solo gli utenti di questo batch (nuovo campo)
+                "user_ids": all_user_ids,  # Lista completa per compatibilità
+                "all_user_results": {},
+                
+                # Output finale
+                "final_evaluation": None,
+                
+                # Dati per valutazione
+                "held_out_items": {},
+                
+                # Gestione errori
+                "error": None
+            }
+            
+            # DEBUG: Verifica che batch_state abbia i dati corretti
+            print(f"DEBUG batch_state creation: batch_user_ids length = {len(batch_state['batch_user_ids'])}")
+            print(f"DEBUG batch_state creation: first 5 batch_user_ids = {batch_state['batch_user_ids'][:5]}")
+            print(f"DEBUG batch_state creation: current_user_index = {batch_state['current_user_index']}")
+            
+            try:
+                # Calcola limite di ricorsione dinamico basato sulla dimensione del batch
+                # Molto più conservativo per evitare errori di ricorsione
+                recursion_limit = max(50, len(batch_user_ids) * 3 + 30)
+                config = {"recursion_limit": recursion_limit}
+                
+                print(f"Processando batch con {len(batch_user_ids)} utenti (limite ricorsione: {recursion_limit})")
+                
+                # Esegui il grafo LangGraph per questo batch
+                batch_final_state = await self.recommender_graph.ainvoke(batch_state, config=config)
+                
+                # Raccogli risultati da questo batch
+                batch_results = batch_final_state.get("all_user_results", {})
+                batch_held_out = batch_final_state.get("held_out_items", {})
+                batch_evaluation = batch_final_state.get("final_evaluation")
+                
+                # Unisci ai risultati complessivi
+                all_user_metric_results.update(batch_results)
+                all_held_out_items.update(batch_held_out)
+                
+                # Mantieni l'ultima valutazione finale (o puoi combinarle)
+                if batch_evaluation:
+                    final_evaluation = batch_evaluation
+                
+                print(f"Batch {batch_num} completato: {len(batch_results)} utenti processati")
+                
+                # Salva checkpoint dopo ogni batch per evitare perdite di progresso
+                self._save_checkpoint(batch_num, all_user_metric_results, all_held_out_items)
+                
+            except Exception as e:
+                print(f"Errore nel batch {batch_num} (utenti {batch_start+1}-{batch_end}): {e}")
+                traceback.print_exc()
+                # Continua con il prossimo batch invece di fermarsi
+                continue
+        
+        # Se non abbiamo valutazione finale, creane una di emergenza
+        if not final_evaluation:
+            final_evaluation = {
+                "final_recommendations": [], 
+                "justification": "Processamento completato a batch - valutazione non disponibile", 
+                "trade_offs": "N/A"
+            }
         
         end_all_users = time.time()
-        print(f"Tempo totale per generazione raccomandazioni: {end_all_users - start_all_users:.2f} secondi")
+        print(f"\nProcessamento completato!")
+        print(f"Utenti totali processati: {len(all_user_metric_results)}/{total_users}")
+        print(f"Tempo totale: {end_all_users - start_all_users:.2f} secondi")
         
         # Ripristina le varianti di prompt di default
         self.current_prompt_variants = PROMPT_VARIANTS.copy()
         
-        return user_metric_results, final_evaluation, per_user_held_out_items
+        return all_user_metric_results, final_evaluation, all_held_out_items
 
     def save_results(self, metric_results: Dict, final_evaluation: Dict, metrics_calculated: Dict = None, per_user_held_out_items: Dict[int, List[int]] = None):
         """Salva i risultati della pipeline su file."""
@@ -727,7 +774,6 @@ class RecommenderSystem:
                         genre_entropy_agg_str = f", GenreEntropy={agg_data['genre_entropy']:.4f}"
                     elif "avg_genre_entropy" in agg_data: # Nome chiave alternativo per agente aggregatore
                         genre_entropy_agg_str = f", GenreEntropy={agg_data['avg_genre_entropy']:.4f}"
-                        genre_entropy_agg_str = f", GenreEntropy={agg_data['genre_entropy']:.4f}"
                         
                     print(f"  {label}: {map_str}, Mean GenreCoverage={mean_genre_cov:.4f}{avg_year_agg_str}{temp_disp_agg_str}{genre_entropy_agg_str}")
             else:
@@ -750,8 +796,78 @@ class RecommenderSystem:
             self.experiment_manager = ExperimentManager(self)
         return await self.experiment_manager.run_experiment(prompt_variants, experiment_name)
         
-    async def generate_standard_recommendations(self) -> Dict:
-        """Genera raccomandazioni standard, calcola metriche e salva."""
+    async def generate_standard_recommendations(self, batch_size: int = 50) -> Dict:
+        """Genera raccomandazioni standard, calcola metriche e salva.
+        
+        Args:
+            batch_size: Numero di utenti da processare per batch (default: 50)
+        """
         if not self.experiment_manager:
             self.experiment_manager = ExperimentManager(self)
-        return await self.experiment_manager.run_standard_pipeline() 
+        return await self.experiment_manager.run_standard_pipeline(batch_size=batch_size)
+
+    def _save_checkpoint(self, batch_num: int, all_user_results: Dict, all_held_out: Dict) -> None:
+        """Salva un checkpoint del progresso per recupero in caso di errori."""
+        try:
+            checkpoint_data = {
+                "timestamp": datetime.now().isoformat(),
+                "batch_num": batch_num,
+                "completed_users": len(all_user_results),
+                "user_results": {str(k): v for k, v in all_user_results.items()},
+                "held_out_items": {str(k): v for k, v in all_held_out.items()}
+            }
+            
+            checkpoint_path = f"checkpoint_batch_{batch_num}.json"
+            with open(checkpoint_path, "w", encoding="utf-8") as f:
+                json.dump(checkpoint_data, f, ensure_ascii=False, indent=2)
+            
+            print(f"Checkpoint salvato: {checkpoint_path}")
+        except Exception as e:
+            print(f"Errore nel salvataggio checkpoint: {e}")
+
+    def _load_latest_checkpoint(self) -> Tuple[int, Dict, Dict]:
+        """Carica l'ultimo checkpoint disponibile."""
+        try:
+            import glob
+            checkpoint_files = glob.glob("checkpoint_batch_*.json")
+            if not checkpoint_files:
+                return 0, {}, {}
+            
+            # Trova il checkpoint più recente
+            latest_file = max(checkpoint_files, key=lambda x: int(x.split("_")[-1].split(".")[0]))
+            
+            with open(latest_file, "r", encoding="utf-8") as f:
+                checkpoint_data = json.load(f)
+            
+            user_results = {int(k): v for k, v in checkpoint_data["user_results"].items()}
+            held_out = {int(k): v for k, v in checkpoint_data["held_out_items"].items()}
+            
+            print(f"Checkpoint caricato: {latest_file}, batch {checkpoint_data['batch_num']}, {checkpoint_data['completed_users']} utenti completati")
+            return checkpoint_data["batch_num"], user_results, held_out
+            
+        except Exception as e:
+            print(f"Errore nel caricamento checkpoint: {e}")
+            return 0, {}, {}
+
+    def _clean_llm_json_response(self, response_content: str) -> str:
+        """Pulisce la risposta dell'LLM rimuovendo markdown e altri elementi che causano errori di parsing JSON."""
+        if not isinstance(response_content, str):
+            return str(response_content)
+        
+        # Rimuovi markdown code blocks
+        import re
+        # Pattern per rimuovere ```json ... ``` or ``` ... ```
+        cleaned = re.sub(r'```(?:json)?\s*\n?(.*?)\n?```', r'\1', response_content, flags=re.DOTALL)
+        
+        # Rimuovi spazi all'inizio e alla fine
+        cleaned = cleaned.strip()
+        
+        # Se ancora non inizia con {, prova a trovare il primo { e l'ultimo }
+        if not cleaned.startswith('{'):
+            start_idx = cleaned.find('{')
+            if start_idx != -1:
+                end_idx = cleaned.rfind('}')
+                if end_idx != -1 and end_idx > start_idx:
+                    cleaned = cleaned[start_idx:end_idx+1]
+        
+        return cleaned

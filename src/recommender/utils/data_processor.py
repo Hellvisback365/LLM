@@ -96,7 +96,7 @@ def filter_users_by_min_ratings(ratings: pd.DataFrame, min_ratings: int = 100) -
     
     return filtered_ratings
 
-def filter_users_by_specific_users(ratings: pd.DataFrame, user_ids: list = [4277, 4169, 1680, 1]) -> pd.DataFrame:
+def filter_users_by_specific_users(ratings: pd.DataFrame, user_ids: list = None) -> pd.DataFrame:
     """
     Filtra solo per includere specifici utenti
     
@@ -107,6 +107,10 @@ def filter_users_by_specific_users(ratings: pd.DataFrame, user_ids: list = [4277
     Returns:
         DataFrame con le valutazioni degli utenti specificati
     """
+    if user_ids is None:
+        print("Nessun ID utente specifico fornito, verranno utilizzati tutti gli utenti.")
+        return ratings
+        
     # Filtra le valutazioni per includere solo gli utenti selezionati
     filtered_ratings = ratings[ratings['user_id'].isin(user_ids)]
     
@@ -254,4 +258,4 @@ def get_movie_catalog_for_llm(limit: int = None) -> str:
     
     except Exception as e:
         print(f"Errore durante l'ottenimento del catalogo film: {e}")
-        return "[]"  # Restituisci un JSON vuoto in caso di errore 
+        return "[]"  # Restituisci un JSON vuoto in caso di errore
