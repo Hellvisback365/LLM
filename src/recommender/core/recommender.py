@@ -83,8 +83,8 @@ if not OPENROUTER_API_KEY:
 COMMON_LLM_PARAMS = {
     "openai_api_base": "https://openrouter.ai/api/v1",
     "openai_api_key": OPENROUTER_API_KEY,
-    "temperature": 0.1,  # Ridotto per output più consistente
-    "max_tokens": 2000,  # Ridotto per evitare errori di lunghezza
+    "temperature": 0.2,  # Leggermente aumentato per più creatività ma ancora consistente
+    "max_tokens": 4000,  # Aumentato per dare più spazio all'LLM per completare le risposte
 }
 
 
@@ -209,10 +209,13 @@ class RecommenderSystem:
         # 4. Nodo per raccogliere risultati metriche
         workflow.add_node("collect_metric_results", self.graph_nodes.node_collect_metric_results)
         
-        # 5. Nodo per passare al prossimo utente o terminare
+        # 5. Nodo per aggregazione per-utente
+        workflow.add_node("aggregate_user_recommendations", self.graph_nodes.node_aggregate_user_recommendations)
+        
+        # 6. Nodo per passare al prossimo utente o terminare
         workflow.add_node("next_user_or_finish", self.graph_nodes.node_next_user_or_finish)
         
-        # 6. Nodo valutatore finale
+        # 7. Nodo valutatore finale
         workflow.add_node("evaluate_all_results", self.graph_nodes.node_evaluate_all_results)
         
         # Definire il punto di ingresso
@@ -229,10 +232,13 @@ class RecommenderSystem:
             "collect_metric_results",
             self.graph_nodes.check_users_completion,
             {
-                "next_user": "prepare_user_data",  # Vai al prossimo utente
+                "aggregate_user": "aggregate_user_recommendations",  # Prima aggrega l'utente
                 "evaluate": "evaluate_all_results"  # Tutti gli utenti elaborati, valuta
             }
         )
+        
+        # Dopo l'aggregazione per-utente, passa al prossimo utente
+        workflow.add_edge("aggregate_user_recommendations", "prepare_user_data")
         
         # L'evaluator conclude il grafo
         workflow.add_edge("evaluate_all_results", END)
@@ -278,16 +284,68 @@ class RecommenderSystem:
                 response = await self.llm.ainvoke(prompt_str)
                 raw_content = getattr(response, 'content', str(response))
                 
-                # Pulisci la risposta rimuovendo markdown
+                # Pulisci la risposta rimuovendo markdown e altri artefatti
                 cleaned_content = self._clean_llm_json_response(raw_content)
                 
-                # Parsing manuale del JSON
+                # Parsing manuale del JSON con gestione robusta
                 import json
                 try:
                     parsed_json = json.loads(cleaned_content)
-                    # Valida usando il schema Pydantic
-                    recommendation_obj = RecommendationOutput(**parsed_json)
-                    print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): JSON parsing successful.")
+                    
+                    # Gestione flessibile delle raccomandazioni
+                    recommendations = parsed_json.get("recommendations", [])
+                    explanation = parsed_json.get("explanation", "No explanation provided")
+                    
+                    # Assicurati che recommendations sia una lista di interi
+                    if not isinstance(recommendations, list):
+                        print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): recommendations non è una lista, generando fallback")
+                        return self._generate_fallback_recommendation(metric_name, user_id)
+                    
+                    # Converti tutti gli elementi in interi e filtra quelli non validi
+                    valid_recommendations = []
+                    for item in recommendations:
+                        try:
+                            valid_recommendations.append(int(item))
+                        except (ValueError, TypeError):
+                            continue
+                    
+                    # Aggiusta la lunghezza della lista: tronca se troppo lunga, riempi se troppo corta
+                    target_length = 20  # NUM_RECOMMENDATIONS
+                    if len(valid_recommendations) > target_length:
+                        valid_recommendations = valid_recommendations[:target_length]
+                        print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): Troncata lista da {len(recommendations)} a {target_length}")
+                    elif len(valid_recommendations) < target_length:
+                        # Riempi con film casuali dal catalogo
+                        try:
+                            catalog_data = json.loads(catalog)
+                            if isinstance(catalog_data, list) and catalog_data:
+                                available_ids = [movie.get('movie_id') for movie in catalog_data if movie.get('movie_id')]
+                                available_ids = [int(id) for id in available_ids if id is not None]
+                                # Rimuovi IDs già presenti
+                                available_ids = [id for id in available_ids if id not in valid_recommendations]
+                                
+                                import random
+                                needed = target_length - len(valid_recommendations)
+                                if len(available_ids) >= needed:
+                                    valid_recommendations.extend(random.sample(available_ids, needed))
+                                else:
+                                    valid_recommendations.extend(available_ids)
+                                    # Se ancora non basta, ripeti gli esistenti
+                                    while len(valid_recommendations) < target_length:
+                                        valid_recommendations.append(valid_recommendations[0] if valid_recommendations else 1)
+                                
+                                print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): Estesa lista da {len(recommendations)} a {len(valid_recommendations)}")
+                        except Exception as fill_error:
+                            print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): Errore nel riempimento lista: {fill_error}")
+                            return self._generate_fallback_recommendation(metric_name, user_id)
+                    
+                    # Valida usando il schema Pydantic con la lista corretta
+                    final_data = {
+                        "recommendations": valid_recommendations,
+                        "explanation": explanation
+                    }
+                    recommendation_obj = RecommendationOutput(**final_data)
+                    print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): JSON parsing e validazione successful con {len(valid_recommendations)} raccomandazioni.")
                     return {"metric": metric_name, **recommendation_obj.dict()}
                 except json.JSONDecodeError as e:
                     print(f"DEBUG metric {metric_name} (user {user_id if user_id is not None else 'N/A'}, attempt {attempt+1}): JSON decode error - {str(e)[:300]}...")
@@ -441,6 +499,305 @@ class RecommenderSystem:
             "final_recommendations": fallback_recommendations,
             "justification": "Fallback evaluation generated due to LLM errors. These are random selections and should not be used for actual evaluation.",
             "trade_offs": "N/A - Fallback response due to system errors"
+        }
+
+    async def evaluate_final_recommendations(self, all_recommendations: Dict, catalog: str) -> Dict:
+        """
+        Aggrega e valuta le raccomandazioni finali da metriche multiple per un singolo utente
+        utilizzando l'intelligenza dell'LLM per bilanciare precision@k e coverage.
+        
+        Args:
+            all_recommendations: Dizionario con le raccomandazioni per diverse metriche
+                                Formato: {"precision_at_k": {"user_X": {...}}, "coverage": {"user_X": {...}}}
+            catalog: Catalogo dei film in formato JSON string
+            
+        Returns:
+            Dict con le raccomandazioni finali aggregate, giustificazione e trade-offs
+        """
+        try:
+            # Estrai le raccomandazioni per ciascuna metrica
+            precision_data = all_recommendations.get("precision_at_k", {})
+            coverage_data = all_recommendations.get("coverage", {})
+            
+            # Estrai le liste di raccomandazioni e spiegazioni
+            precision_recs = []
+            coverage_recs = []
+            precision_explanation = ""
+            coverage_explanation = ""
+            
+            for user_data in precision_data.values():
+                precision_recs.extend(user_data.get("recommendations", []))
+                precision_explanation = user_data.get("explanation", "")
+            
+            for user_data in coverage_data.values():
+                coverage_recs.extend(user_data.get("recommendations", []))
+                coverage_explanation = user_data.get("explanation", "")
+            
+            # Chiama l'LLM per bilanciare intelligentemente le metriche
+            llm_result = await self._call_llm_aggregator(
+                precision_recs, coverage_recs, 
+                precision_explanation, coverage_explanation, 
+                catalog
+            )
+            
+            if llm_result and llm_result.get("recommendations"):
+                return {
+                    "final_recommendations": llm_result["recommendations"],
+                    "justification": llm_result.get("justification", ""),
+                    "trade_offs": llm_result.get("trade_offs", "")
+                }
+            else:
+                # Fallback alla logica precedente in caso di errore LLM
+                print("WARNING: LLM aggregation failed, using fallback logic")
+                return await self._fallback_aggregation(precision_recs, coverage_recs)
+            
+        except Exception as e:
+            print(f"Error in evaluate_final_recommendations: {e}")
+            # Fallback alla logica precedente in caso di errore
+            return await self._fallback_aggregation(precision_recs if 'precision_recs' in locals() else [], 
+                                                   coverage_recs if 'coverage_recs' in locals() else [])
+
+    async def _call_llm_aggregator(self, precision_recs: List[int], coverage_recs: List[int], 
+                                   precision_explanation: str, coverage_explanation: str, 
+                                   catalog: str) -> Dict:
+        """
+        Chiama l'LLM per aggregare intelligentemente le raccomandazioni precision@k e coverage.
+        
+        Args:
+            precision_recs: Lista delle raccomandazioni precision@k
+            coverage_recs: Lista delle raccomandazioni coverage  
+            precision_explanation: Spiegazione delle raccomandazioni precision@k
+            coverage_explanation: Spiegazione delle raccomandazioni coverage
+            catalog: Catalogo dei film
+            
+        Returns:
+            Dict con raccomandazioni aggregate, giustificazione e trade-offs
+        """
+        
+        # Crea il prompt per l'LLM aggregatore
+        aggregator_prompt = self._create_aggregator_prompt(
+            precision_recs, coverage_recs, 
+            precision_explanation, coverage_explanation
+        )
+        
+        try:
+            # Chiama l'LLM con il prompt
+            response = await self._call_llm_with_aggregator_prompt(aggregator_prompt)
+            
+            # Parsa la risposta
+            parsed_result = self._parse_aggregator_response(response)
+            
+            return parsed_result
+            
+        except Exception as e:
+            print(f"ERROR in LLM aggregator: {e}")
+            return None
+
+    def _create_aggregator_prompt(self, precision_recs: List[int], coverage_recs: List[int],
+                                  precision_explanation: str, coverage_explanation: str) -> str:
+        """
+        Crea un prompt efficace per l'LLM aggregatore.
+        """
+        
+        # Trova sovrapposizioni per fornire più contesto
+        overlap = set(precision_recs) & set(coverage_recs)
+        precision_only = [r for r in precision_recs if r not in coverage_recs]
+        coverage_only = [r for r in coverage_recs if r not in precision_recs]
+        
+        prompt = f"""
+Tu sei un esperto sistema di raccomandazione cinematografico. Devi creare una lista finale di 20 raccomandazioni 
+bilanciando intelligentemente due metriche complementari:
+
+**PRECISION@K RECOMMENDATIONS** (Rilevanza personalizzata):
+- Film: {precision_recs}
+- Spiegazione: {precision_explanation}
+- Solo in precision@k: {precision_only} ({len(precision_only)} film)
+
+**COVERAGE RECOMMENDATIONS** (Diversità ed esplorazione):
+- Film: {coverage_recs}
+- Spiegazione: {coverage_explanation}  
+- Solo in coverage: {coverage_only} ({len(coverage_only)} film)
+
+**SOVRAPPOSIZIONI**: {list(overlap)} ({len(overlap)} film presenti in entrambe)
+
+**COMPITO:**
+Analizza queste due liste e crea una strategia di bilanciamento ottimale. NON seguire proporzioni fisse, 
+ma usa la tua intelligenza per valutare:
+
+1. **Qualità delle raccomandazioni**: Quale lista sembra più robusta/rilevante?
+2. **Diversità necessaria**: L'utente ha bisogno di più esplorazione o più precision?
+3. **Sovrapposizioni**: Come sfruttare i film che appaiono in entrambe?
+4. **Complementarità**: Come combinare al meglio rilevanza e diversità?
+
+**OUTPUT RICHIESTO** (JSON):
+{{
+    "recommendations": [lista di esattamente 20 ID film],
+    "strategy_used": "breve descrizione della strategia scelta",
+    "precision_weight": numero_da_0_a_1,
+    "coverage_weight": numero_da_0_a_1,
+    "justification": "spiegazione dettagliata delle scelte fatte",
+    "trade_offs": "analisi dei trade-off tra precision e coverage"
+}}
+
+**VINCOLI:**
+- Esattamente 20 raccomandazioni finali
+- Usa SOLO film dalle liste fornite
+- NO duplicati
+- Spiega la tua logica di bilanciamento
+- Considera il contesto specifico di questo utente
+
+Crea la migliore strategia di bilanciamento basata sulla tua analisi!
+"""
+        
+        return prompt.strip()
+
+    async def _call_llm_with_aggregator_prompt(self, prompt: str) -> str:
+        """
+        Chiama l'LLM con il prompt dell'aggregatore.
+        """
+        try:
+            messages = [
+                {"role": "system", "content": "You are an expert movie recommendation aggregator."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = await self.llm.ainvoke(messages)
+            return response.content
+            
+        except Exception as e:
+            print(f"ERROR calling LLM aggregator: {e}")
+            raise e
+
+    def _parse_aggregator_response(self, response: str) -> Dict:
+        """
+        Parsa la risposta dell'LLM aggregatore con debugging migliorato.
+        """
+        try:
+            import json
+            import re
+            
+            print(f"DEBUG: Raw LLM response length: {len(response)}")
+            print(f"DEBUG: Raw LLM response FULL:")
+            print("="*50)
+            print(response)
+            print("="*50)
+            
+            # Prova diversi pattern per estrarre JSON
+            json_patterns = [
+                r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}',  # Pattern complesso originale
+                r'\{.*?\}',  # Pattern semplice
+                r'```json\s*(\{.*?\})\s*```',  # JSON in code block
+                r'```\s*(\{.*?\})\s*```',  # JSON in generic code block
+            ]
+            
+            for i, pattern in enumerate(json_patterns):
+                json_matches = re.findall(pattern, response, re.DOTALL)
+                print(f"DEBUG: Pattern {i+1} found {len(json_matches)} matches")
+                
+                for j, json_str in enumerate(json_matches):
+                    try:
+                        print(f"DEBUG: Trying to parse match {j+1}: {json_str[:200]}...")
+                        result = json.loads(json_str)
+                        
+                        # Valida la struttura
+                        if ("recommendations" in result and 
+                            isinstance(result["recommendations"], list) and
+                            len(result["recommendations"]) >= 15):  # Relaxed validation
+                            
+                            recommendations = result["recommendations"][:NUM_RECOMMENDATIONS]
+                            print(f"DEBUG: Successfully parsed JSON with {len(recommendations)} recommendations")
+                            
+                            return {
+                                "recommendations": recommendations,
+                                "justification": result.get("justification", "LLM-based intelligent aggregation"),
+                                "trade_offs": result.get("trade_offs", "Balanced precision and coverage using AI analysis"),
+                                "strategy_used": result.get("strategy_used", "AI-optimized"),
+                                "precision_weight": result.get("precision_weight", 0.7),
+                                "coverage_weight": result.get("coverage_weight", 0.3)
+                            }
+                            
+                    except json.JSONDecodeError as parse_error:
+                        print(f"DEBUG: JSON parse error for match {j+1}: {parse_error}")
+                        continue
+                        
+            # Se il parsing fallisce, prova a estrarre solo la lista
+            print("WARNING: Could not parse full JSON, attempting list extraction")
+            return self._extract_recommendations_from_text(response)
+            
+        except Exception as e:
+            print(f"ERROR parsing aggregator response: {e}")
+            return None
+
+    def _extract_recommendations_from_text(self, text: str) -> Dict:
+        """
+        Estrae le raccomandazioni dal testo quando il JSON non è parsabile.
+        """
+        try:
+            import re
+            
+            # Cerca liste di numeri
+            numbers = re.findall(r'\d+', text)
+            if len(numbers) >= NUM_RECOMMENDATIONS:
+                recommendations = [int(n) for n in numbers[:NUM_RECOMMENDATIONS]]
+                
+                return {
+                    "recommendations": recommendations,
+                    "justification": "LLM-based aggregation (extracted from text)",
+                    "trade_offs": "Intelligent balance between precision and coverage"
+                }
+            
+            return None
+            
+        except Exception as e:
+            print(f"ERROR extracting recommendations from text: {e}")
+            return None
+
+    async def _fallback_aggregation(self, precision_recs: List[int], coverage_recs: List[int]) -> Dict:
+        """
+        Aggregazione di fallback quando l'LLM fallisce.
+        """
+        print("Using fallback aggregation logic")
+        
+        seen = set()
+        final_recs = []
+        
+        # Strategia di fallback semplice: 70/30
+        precision_count = int(NUM_RECOMMENDATIONS * 0.7)
+        coverage_count = NUM_RECOMMENDATIONS - precision_count
+        
+        # Aggiungi precision
+        for rec in precision_recs[:precision_count]:
+            if rec not in seen:
+                final_recs.append(rec)
+                seen.add(rec)
+        
+        # Aggiungi coverage
+        coverage_added = 0
+        for rec in coverage_recs:
+            if rec not in seen and coverage_added < coverage_count:
+                final_recs.append(rec)
+                seen.add(rec)
+                coverage_added += 1
+        
+        # Completa se necessario
+        for rec in precision_recs[precision_count:]:
+            if rec not in seen and len(final_recs) < NUM_RECOMMENDATIONS:
+                final_recs.append(rec)
+                seen.add(rec)
+        
+        # Se ancora mancano, aggiungi film casuali
+        if len(final_recs) < NUM_RECOMMENDATIONS and self.movies is not None:
+            available_movies = self.movies['movie_id'].tolist()
+            import random
+            additional_recs = [mid for mid in available_movies if mid not in seen]
+            if additional_recs:
+                needed = NUM_RECOMMENDATIONS - len(final_recs)
+                final_recs.extend(random.sample(additional_recs, min(needed, len(additional_recs))))
+        
+        return {
+            "final_recommendations": final_recs[:NUM_RECOMMENDATIONS],
+            "justification": "Fallback aggregation using 70/30 precision/coverage split",
+            "trade_offs": "Default balance when LLM aggregation is unavailable"
         }
 
     def initialize_system(self, force_reload_data: bool = False, force_recreate_vector_store: bool = False) -> None:
@@ -856,8 +1213,11 @@ class RecommenderSystem:
         
         # Rimuovi markdown code blocks
         import re
-        # Pattern per rimuovere ```json ... ``` or ``` ... ```
-        cleaned = re.sub(r'```(?:json)?\s*\n?(.*?)\n?```', r'\1', response_content, flags=re.DOTALL)
+        # Pattern più robusto per rimuovere ```json ... ``` or ``` ... ```
+        cleaned = re.sub(r'```(?:json|JSON)?\s*\n?(.*?)\n?```', r'\1', response_content, flags=re.DOTALL | re.IGNORECASE)
+        
+        # Rimuovi commenti JavaScript-style (// commenti)
+        cleaned = re.sub(r'//.*$', '', cleaned, flags=re.MULTILINE)
         
         # Rimuovi spazi all'inizio e alla fine
         cleaned = cleaned.strip()
@@ -869,5 +1229,12 @@ class RecommenderSystem:
                 end_idx = cleaned.rfind('}')
                 if end_idx != -1 and end_idx > start_idx:
                     cleaned = cleaned[start_idx:end_idx+1]
+        
+        # Rimuovi virgole finali prima delle parentesi graffe di chiusura
+        cleaned = re.sub(r',\s*}', '}', cleaned)
+        cleaned = re.sub(r',\s*]', ']', cleaned)
+        
+        # Rimuovi caratteri di controllo non stampabili
+        cleaned = ''.join(char for char in cleaned if ord(char) >= 32 or char in '\n\r\t')
         
         return cleaned

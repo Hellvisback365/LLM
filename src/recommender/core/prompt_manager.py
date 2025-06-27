@@ -13,17 +13,27 @@ NUM_RECOMMENDATIONS = 20
 PROMPT_VARIANTS_TEMPLATES = {
     "precision_at_k": (
         "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
-        "You are a movie recommendation system optimizing for PRECISION@K. "
-        "Recommend movies the user will rate 4-5/5 based on their profile. "
-        "Focus on: 1) Genres user likes, 2) Similar actors/directors, 3) Avoid disliked patterns.\\n"
+        "You are an expert movie recommendation system optimizing for PRECISION@K. "
+        "Your goal is to recommend movies the user will DEFINITELY love (rate 4-5/5). "
+        "ANALYSIS STRATEGY:\\n"
+        "1. GENRE ANALYSIS: Identify user's top 2-3 preferred genres from liked_movies\\n"
+        "2. QUALITY FOCUS: Recommend highly-rated movies (avg_rating >= 4.0) in preferred genres\\n"
+        "3. PATTERN MATCHING: Find movies similar to user's liked_movies in style/theme\\n"
+        "4. AVOID RISKS: Skip experimental or niche movies that might disappoint\\n"
+        "5. SAFE CHOICES: Prioritize popular, well-reviewed movies in user's preferred genres\\n"
         f"OUTPUT: JSON with 'recommendations' array of EXACTLY {{NUM_RECOMMENDATIONS}} movie IDs and 'explanation' string.\\n"
         "<|eot_id|>"
     ),
     "coverage": (
         "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
-        "You are a movie recommendation system optimizing for COVERAGE. "
-        "Maximize genre diversity - recommend from different genres, time periods, and styles. "
-        "Focus on exploration over user satisfaction.\\n"
+        "You are an expert movie recommendation system optimizing for COVERAGE. "
+        "Your goal is to maximize genre and style diversity while maintaining quality. "
+        "DIVERSITY STRATEGY:\\n"
+        "1. GENRE SPREAD: Include movies from AT LEAST 8 different genres\\n"
+        "2. TIME PERIODS: Mix classics (pre-1990), 90s hits, 2000s favorites, and recent films\\n"
+        "3. STYLE VARIETY: Include different movie types (action, drama, comedy, thriller, sci-fi, etc.)\\n"
+        "4. INTERNATIONAL: Consider foreign films and different cultural perspectives\\n"
+        "5. BALANCE: Still prefer higher-rated movies (avg_rating >= 3.5) for quality\\n"
         f"OUTPUT: JSON with 'recommendations' array of EXACTLY {{NUM_RECOMMENDATIONS}} movie IDs and 'explanation' string.\\n"
         "<|eot_id|>"
     )
@@ -51,15 +61,24 @@ def create_metric_prompt(metric_name: str, metric_description: str) -> PromptTem
     
     # user_message_content_template ora usa {NUM_RECOMMENDATIONS_PLACEHOLDER}
     # che verrà formattato con .format() prima di creare PromptTemplate
-    user_message_content_template = """User Profile: {{user_profile}}
+    user_message_content_template = """ANALYSIS TASK:
+Analyze the user profile and movie catalog to make {NUM_RECOMMENDATIONS_PLACEHOLDER} high-quality recommendations.
 
-Movie Catalog: {{catalog}}
+USER PROFILE: {{user_profile}}
 
-Output (JSON only):
+AVAILABLE MOVIES: {{catalog}}
+
+STEP-BY-STEP ANALYSIS:
+1. Analyze user's liked_movies to identify preferred genres, themes, and patterns
+2. Check user's disliked_movies to understand what to avoid
+3. Filter catalog movies by user's preferred criteria
+4. Select the best {NUM_RECOMMENDATIONS_PLACEHOLDER} movies that match the optimization goal
+
+OUTPUT ONLY THIS JSON:
 ```json
 {{{{
-  "recommendations": [list of EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} integer movie IDs],
-  "explanation": "Brief explanation"
+  "recommendations": [list of EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} integer movie IDs from the catalog],
+  "explanation": "Brief analysis of selection strategy and patterns found"
 }}}}
 ```"""
     

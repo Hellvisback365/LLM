@@ -1,5 +1,5 @@
 """
-Nodi del grafo LangGraph per il sistema di raccomandazione.
+Nodi del grafo LangGraph per il sistema di raccomazione.
 Questo modulo contiene l'implementazione dei nodi utilizzati nel grafo LangGraph
 per orchestrare il processo di raccomandazione.
 """
@@ -38,6 +38,9 @@ class RecommenderState(TypedDict):
     
     # Output finale
     final_evaluation: Optional[Dict[str, Any]]
+    
+    # Aggregazione per-utente
+    user_aggregated_recommendations: Optional[Dict[str, Any]]
     
     # Dati per valutazione
     held_out_items: Dict[int, List[int]]
@@ -341,7 +344,7 @@ class RecommenderGraphNodes:
             return "evaluate"
         else:
             print(f"→ Processing next user (index {current_index})")
-            return "next_user"
+            return "aggregate_user"  # Prima aggrega l'utente corrente, poi passa al prossimo
     
     async def node_synchronize_metrics(self, state: RecommenderState) -> Dict[str, Any]:
         """Nodo di sincronizzazione che aspetta il completamento di entrambe le metriche."""
@@ -359,6 +362,125 @@ class RecommenderGraphNodes:
             # Non tutte le metriche sono completate, aspetta
             print("Waiting for metrics completion...")
             return {}
+
+    async def node_aggregate_user_recommendations(self, state: RecommenderState) -> RecommenderState:
+        """Aggrega le raccomandazioni precision@k e coverage per un singolo utente."""
+        try:
+            user_id = state["user_id"]
+            print(f"  Aggregazione utente {user_id}: Inizio bilanciamento metriche...")
+            
+            # Recupera i risultati delle metriche per l'utente corrente
+            precision_result = state.get("precision_at_k_result", {})
+            coverage_result = state.get("coverage_result", {})
+            
+            if not precision_result and not coverage_result:
+                print(f"  WARN: Nessun risultato trovato per utente {user_id}")
+                state["user_aggregated_recommendations"] = None
+                return state
+            
+            # Prepara i dati per l'aggregazione nel formato atteso
+            all_recommendations = {}
+            
+            if precision_result:
+                all_recommendations["precision_at_k"] = {
+                    f"user_{user_id}": precision_result
+                }
+                print(f"    - Precision@K: {len(precision_result.get('recommendations', []))} raccomandazioni")
+            
+            if coverage_result:
+                all_recommendations["coverage"] = {
+                    f"user_{user_id}": coverage_result
+                }
+                print(f"    - Coverage: {len(coverage_result.get('recommendations', []))} raccomandazioni")
+            
+            # Ottieni catalogo per riferimento (limitato per performance)
+            catalog = self.recommender.get_optimized_catalog(limit=100)
+            
+            # Chiama l'aggregatore esistente per bilanciare le metriche di questo utente
+            aggregated_result = await self.recommender.evaluate_final_recommendations(
+                all_recommendations, catalog
+            )
+            
+            if aggregated_result and aggregated_result.get("final_recommendations"):
+                # Crea il risultato aggregato completo per questo utente
+                user_aggregated_data = {
+                    "user_id": user_id,
+                    "aggregated_recommendations": aggregated_result.get("final_recommendations", []),
+                    "justification": aggregated_result.get("justification", ""),
+                    "trade_offs": aggregated_result.get("trade_offs", ""),
+                    "precision_recommendations": precision_result.get("recommendations", []),
+                    "coverage_recommendations": coverage_result.get("recommendations", []),
+                    "precision_explanation": precision_result.get("explanation", ""),
+                    "coverage_explanation": coverage_result.get("explanation", ""),
+                    "aggregation_timestamp": self._get_current_timestamp()
+                }
+                
+                state["user_aggregated_recommendations"] = user_aggregated_data
+                
+                print(f"    ✓ Aggregazione completata: {len(aggregated_result.get('final_recommendations', []))} raccomandazioni bilanciate")
+                
+                # Salva le raccomandazioni aggregate nel file di output
+                self._save_user_aggregated_recommendations(user_aggregated_data)
+                
+            else:
+                print(f"    ✗ Aggregazione fallita per utente {user_id}")
+                state["user_aggregated_recommendations"] = None
+            
+            return state
+            
+        except Exception as e:
+            print(f"  ERROR: Errore nell'aggregazione per utente {state.get('user_id')}: {e}")
+            import traceback
+            traceback.print_exc()
+            state["user_aggregated_recommendations"] = None
+            return state
+
+    def _save_user_aggregated_recommendations(self, user_aggregated_data: Dict[str, Any]):
+        """Salva le raccomandazioni aggregate di un utente nel file di output."""
+        try:
+            import json
+            import os
+            from datetime import datetime
+            
+            output_file = "recommendation_results.json"
+            
+            # Leggi i dati esistenti se il file esiste
+            existing_data = {}
+            if os.path.exists(output_file):
+                try:
+                    with open(output_file, 'r', encoding='utf-8') as f:
+                        existing_data = json.load(f)
+                except Exception as e:
+                    print(f"    WARN: Errore nel leggere file esistente {output_file}: {e}")
+                    existing_data = {}
+            
+            # Assicurati che la struttura esista
+            if "user_aggregated_recommendations" not in existing_data:
+                existing_data["user_aggregated_recommendations"] = {}
+            
+            # Aggiungi i dati del nuovo utente
+            user_id = str(user_aggregated_data["user_id"])
+            existing_data["user_aggregated_recommendations"][user_id] = user_aggregated_data
+            
+            # Aggiungi/aggiorna metadata
+            if "metadata" not in existing_data:
+                existing_data["metadata"] = {}
+            existing_data["metadata"]["last_updated"] = datetime.now().isoformat()
+            existing_data["metadata"]["total_users_aggregated"] = len(existing_data["user_aggregated_recommendations"])
+            
+            # Salva il file aggiornato
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(existing_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"    ✓ Raccomandazioni bilanciate salvate per utente {user_id} in {output_file}")
+            
+        except Exception as e:
+            print(f"    ERROR: Errore nel salvare raccomandazioni aggregate: {e}")
+    
+    def _get_current_timestamp(self) -> str:
+        """Restituisce il timestamp corrente in formato ISO."""
+        from datetime import datetime
+        return datetime.now().isoformat()
 
 # Importazione alla fine per evitare dipendenze circolari
 import pandas as pd
