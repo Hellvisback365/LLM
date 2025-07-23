@@ -12,7 +12,6 @@ NUM_RECOMMENDATIONS = 20
 # Modificato per usare .format() per NUM_RECOMMENDATIONS successivamente
 PROMPT_VARIANTS_TEMPLATES = {
     "precision_at_k": (
-        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
         "You are an expert movie recommendation system optimizing for PRECISION@K. "
         "Your goal is to recommend movies the user will DEFINITELY love (rate 4-5/5). "
         "ANALYSIS STRATEGY:\\n"
@@ -22,10 +21,9 @@ PROMPT_VARIANTS_TEMPLATES = {
         "4. AVOID RISKS: Skip experimental or niche movies that might disappoint\\n"
         "5. SAFE CHOICES: Prioritize popular, well-reviewed movies in user's preferred genres\\n"
         f"OUTPUT: JSON with 'recommendations' array of EXACTLY {{NUM_RECOMMENDATIONS}} movie IDs and 'explanation' string.\\n"
-        "<|eot_id|>"
     ),
     "coverage": (
-        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
+
         "You are an expert movie recommendation system optimizing for COVERAGE. "
         "Your goal is to maximize genre and style diversity while maintaining quality. "
         "DIVERSITY STRATEGY:\\n"
@@ -35,7 +33,6 @@ PROMPT_VARIANTS_TEMPLATES = {
         "4. INTERNATIONAL: Consider foreign films and different cultural perspectives\\n"
         "5. BALANCE: Still prefer higher-rated movies (avg_rating >= 3.5) for quality\\n"
         f"OUTPUT: JSON with 'recommendations' array of EXACTLY {{NUM_RECOMMENDATIONS}} movie IDs and 'explanation' string.\\n"
-        "<|eot_id|>"
     )
 }
 
@@ -104,18 +101,16 @@ def create_evaluation_prompt() -> PromptTemplate:
     
     # eval_system_prompt_template usa {NUM_RECOMMENDATIONS_PLACEHOLDER}
     eval_system_prompt_template = (
-        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\\n"
         "You are a recommendation aggregator. Create a final list of EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER} movies "
         "by combining precision@k and coverage recommendations from multiple users. "
         "Balance user preferences with genre diversity.\\n"
         "OUTPUT: JSON with 'final_recommendations' array of {NUM_RECOMMENDATIONS_PLACEHOLDER} movie IDs, 'justification' and 'trade_offs' strings.\\n"
-        "<|eot_id|>"
     )
     # Formatta con il valore effettivo di NUM_RECOMMENDATIONS
     eval_system_prompt = eval_system_prompt_template.format(NUM_RECOMMENDATIONS_PLACEHOLDER=NUM_RECOMMENDATIONS)
     
     # user_template_str_template usa {NUM_RECOMMENDATIONS_PLACEHOLDER}
-    user_template_str_template = """<|start_header_id|>user<|end_header_id|>
+    user_template_str_template = """
 Recommendations: {{all_recommendations}}
 
 Catalog: {{catalog}}
@@ -142,8 +137,6 @@ Output (JSON only):
   ```
   Do not include any other text, preambles, or explanations outside the main triple backtick block. THE COUNT OF 'final_recommendations' MUST BE EXACTLY {NUM_RECOMMENDATIONS_PLACEHOLDER}.
 
-<|eot_id|>
-<|start_header_id|>assistant<|end_header_id|>
 """
     # Formatta con il valore effettivo di NUM_RECOMMENDATIONS
     user_template_str = user_template_str_template.format(NUM_RECOMMENDATIONS_PLACEHOLDER=NUM_RECOMMENDATIONS)

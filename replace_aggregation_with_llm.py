@@ -350,8 +350,6 @@ class LLMAggregatorReplacer:
                         print("💾 Super-checkpoint salvato")
                     except Exception as e:
                         print(f"WARN: Errore nel salvare super-checkpoint: {e}")
-                else:
-                    print("✓ Nessun nuovo utente trovato in questo batch. Utenti già processati in precedenza.")
                 
             except Exception as e:
                 # Riabilita output in caso di errore

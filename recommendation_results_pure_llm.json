@@ -1,7 +1,0 @@
-{
-  "timestamp": "2025-06-26T17:57:28.636789",
-  "description": "Raccomandazioni con aggregazione LLM pura - SENZA fallback hardcoded",
-  "aggregation_method": "pure_llm_intelligent",
-  "metric_recommendations": {},
-  "user_aggregated_recommendations": {}
-}

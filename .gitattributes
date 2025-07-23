@@ -1,1 +1,9 @@
 *.csv filter=lfs diff=lfs merge=lfs -text
+
+# Imposta tutti i file di testo per il normalizing dei line endings
+* text=auto
+
+# Forza LF per script shell e file Markdown, JSON, YAML, ecc.
+*.sh text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
